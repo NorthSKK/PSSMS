@@ -9,13 +9,14 @@
         </div>
         
         <div class="form-floating mb-3 text-start">
-          <input type="text" class="form-control" id="username" placeholder="Username">
+          <input type="text" class="form-control" id="username" placeholder="Username" onkeydown="if(event.key === 'Enter') document.getElementById('password').focus()">
           <label for="username"><i class="fas fa-user me-2"></i>รหัสผู้ใช้งาน</label>
         </div>
         
         <div class="form-floating mb-3 text-start position-relative">
-          <input type="password" class="form-control" id="password" placeholder="Password" style="padding-right: 45px;">
-          <label for="password"><i class="fas fa-lock me-2"></i>รหัสผ่าน</label>
+          <input type="password" class="form-control" id="password" placeholder="Password" 
+                 style="padding-right: 45px;" 
+                 onkeydown="if(event.key === 'Enter') processLogin()"> <label for="password"><i class="fas fa-lock me-2"></i>รหัสผ่าน</label>
           
           <span class="position-absolute top-50 end-0 translate-middle-y me-3" 
                 style="cursor: pointer; color: #6c757d; z-index: 10;" 
@@ -25,8 +26,8 @@
         </div>
 
         <div class="form-check mb-3 text-start ms-2">
-          <input class="form-check-input" type="checkbox" id="rememberMe">
-          <label class="form-check-label text-muted" for="rememberMe">
+          <input class="form-check-input" type="checkbox" id="rememberMe" 
+                 onkeydown="if(event.key === 'Enter') processLogin()"> <label class="form-check-label text-muted" for="rememberMe">
             จำรหัสผ่าน / เข้าสู่ระบบค้างไว้
           </label>
         </div>

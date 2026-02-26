@@ -58,4 +58,53 @@
     <h5>กรุณาตั้งค่า "โครงสร้างวิชา" ก่อนทำการบันทึกคะแนนครับ</h5>
     <button class="btn btn-outline-primary mt-2" onclick="loadPage('Page_Subject_Config')">ไปที่หน้าตั้งค่าโครงสร้างวิชา</button>
   </div>
+
+  <div class="modal fade" id="indicatorDetailModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow-lg" style="border-radius: 12px; overflow: hidden;">
+      <div class="modal-header bg-primary text-white border-0 p-3">
+        <h6 class="modal-title fw-bold" id="indicatorModalTitle">
+          <i class="fas fa-info-circle me-2"></i>รายละเอียดตัวชี้วัด
+        </h6>
+        <button type="button" class="btn-close btn-close-white shadow-none" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body bg-light p-4">
+        <div id="indicatorModalDesc" class="text-dark" style="white-space: pre-wrap; font-size: 0.95rem; line-height: 1.6;">
+          </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="indicatorEditModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow-lg" style="border-radius: 12px; overflow: hidden;">
+      <div class="modal-header bg-primary text-white border-0 p-3">
+        <h6 class="modal-title fw-bold" id="indicatorEditModalTitle">
+          <i class="fas fa-edit me-2"></i>รายละเอียดตัวชี้วัด/จุดประสงค์
+        </h6>
+        <button type="button" class="btn-close btn-close-white shadow-none" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body bg-light p-4">
+        <input type="hidden" id="editIndIdx">
+        
+        <div class="mb-3">
+          <label class="form-label fw-bold text-muted small">คำอธิบายรายละเอียด / จุดประสงค์การเรียนรู้</label>
+          <textarea id="editIndDesc" class="form-control shadow-sm border-primary" rows="5" 
+                    placeholder="กรอกรายละเอียดที่จำเป็นสำหรับการประเมินผล หรือเก็บไว้เป็นฐานข้อมูลในปีการศึกษาหน้า..."></textarea>
+        </div>
+      </div>
+      <div class="modal-footer bg-light border-top-0 pt-0 d-flex justify-content-between">
+        <span class="text-muted small"><i class="fas fa-database me-1"></i>ข้อมูลจะถูกเก็บเป็นฐานข้อมูลวิชา</span>
+        <div>
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>
+          <button type="button" class="btn btn-success fw-bold px-4" onclick="saveIndicatorDetail()">
+            <i class="fas fa-save me-2"></i>บันทึกข้อมูล
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 </div>

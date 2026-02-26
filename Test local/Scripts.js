@@ -1,4 +1,3 @@
-<script>
 // ==========================================
 // 1. Core System & UI
 // ==========================================
@@ -1492,7 +1491,7 @@ function loadSubjectConfig() {
        if (config) {
           const ratios = config.ratio.split(':');
           document.getElementById('scoreFormative').value = ratios[0] || 0; document.getElementById('scoreMidterm').value = ratios[1] || 0; document.getElementById('scoreFinal').value = ratios[2] || 0;
-          if(config.indicators && config.indicators.length > 0) { config.indicators.forEach(ind => addIndicatorRow(ind.name, ind.score, ind.description || '')); } else { addIndicatorRow(); }
+          if(config.indicators && config.indicators.length > 0) { config.indicators.forEach(ind => addIndicatorRow(ind.name, ind.score)); } else { addIndicatorRow(); }
        } else {
           document.getElementById('scoreFormative').value = 70; document.getElementById('scoreMidterm').value = 10; document.getElementById('scoreFinal').value = 20; addIndicatorRow();
        }
@@ -1517,15 +1516,10 @@ function saveSubjectConfigData() {
   if(total !== 100) { if(!confirm("⚠️ สัดส่วนคะแนนรวมยังไม่ครบ 100 คะแนน ต้องการบันทึกต่อไปหรือไม่?")) return; }
 
   const item = JSON.parse(val); const user = getSessionUser();
-  const indicators = [];
-  const rows = document.querySelectorAll('#indicatorTableBody tr');
+  const indicators = []; const rows = document.querySelectorAll('#indicatorTableBody tr');
   rows.forEach(row => {
-    const name = row.querySelector('.ind-name').value.trim();
-    const score = parseInt(row.querySelector('.ind-score').value) || 0;
-    const description = row.querySelector('.ind-desc').value.trim(); // ดึงค่าจากช่องรายละเอียด
-    if(name && score > 0) { 
-      indicators.push({ name: name, score: score, description: description }); 
-    }
+    const name = row.querySelector('.ind-name').value.trim(); const score = parseInt(row.querySelector('.ind-score').value) || 0;
+    if(name && score > 0) { indicators.push({ name: name, score: score }); }
   });
 
   const configData = { subjectCode: item[0], className: item[2], term: user.currentTerm, year: user.currentYear, formative: parseInt(document.getElementById('scoreFormative').value) || 0, midterm: parseInt(document.getElementById('scoreMidterm').value) || 0, final: parseInt(document.getElementById('scoreFinal').value) || 0, indicators: indicators, teacherId: user.id };
@@ -1706,23 +1700,7 @@ function renderAllInOneTable(students, config, existingScores, existingQuals) {
   
   config.indicators.forEach((ind, idx) => {
     let deleteBtn = isHeaderEditMode ? `<div class="mt-1"><button class="btn btn-xs btn-outline-danger p-0 px-1 border-0" onclick="removeIndicator(${idx})"><i class="fas fa-times"></i></button></div>` : '';
-    
-    // เปลี่ยนมาเรียก showIndicatorEdit แทน
-    // ถ้ามีคำอธิบายแล้วให้เป็นสีฟ้า (info) ถ้ายังไม่มีให้เป็นสีเทา (secondary)
-    let iconColor = ind.description ? 'text-info' : 'text-secondary';
-    
-    let infoBtn = `<i class="fas fa-info-circle ${iconColor} ms-1" 
-                      style="cursor: pointer; transition: transform 0.2s;" 
-                      onmouseover="this.style.transform='scale(1.2)'" 
-                      onmouseout="this.style.transform='scale(1)'"
-                      onclick="showIndicatorEdit(${idx})" 
-                      title="คลิกเพื่อดู/แก้ไขรายละเอียด"></i>`;
-    
-    headHtml += `<th class="text-success border-bottom-0">
-                   <div contenteditable="${isHeaderEditMode}" class="ind-name-edit" data-idx="${idx}">${ind.name}</div>
-                   ${infoBtn}
-                   ${deleteBtn}
-                 </th>`;
+    headHtml += `<th class="text-success border-bottom-0"><div contenteditable="${isHeaderEditMode}" class="ind-name-edit" data-idx="${idx}">${ind.name}</div>${deleteBtn}</th>`;
     subHeadHtml += `<th class="text-success small fw-normal">(<span contenteditable="${isHeaderEditMode}" class="ind-score-edit" onblur="reCalcAllRows()">${ind.score}</span>)</th>`;
   });
   
@@ -2058,20 +2036,6 @@ function addIndicator() {
   refreshTableOnly();
 }
 
-function addIndicatorRow(name = '', score = 0, description = '') {
-  const tbody = document.getElementById('indicatorTableBody');
-  const rowCount = tbody.rows.length + 1;
-  const tr = document.createElement('tr');
-  tr.innerHTML = `
-    <td class="text-center fw-bold text-muted">${rowCount}</td>
-    <td><input type="text" class="form-control form-control-sm ind-name" value="${name}" placeholder="เช่น ใบงานที่ 1"></td>
-    <td><textarea class="form-control form-control-sm ind-desc" rows="1" placeholder="ระบุรายละเอียดหรือจุดประสงค์...">${description}</textarea></td>
-    <td><input type="number" class="form-control form-control-sm text-center ind-score" value="${score}" onkeyup="calculateTotalConfigScore()"></td>
-    <td class="text-center"><button class="btn btn-sm btn-outline-danger border-0" onclick="this.closest('tr').remove(); calculateTotalConfigScore();"><i class="fas fa-trash"></i></button></td>
-  `;
-  tbody.appendChild(tr);
-}
-
 function removeIndicator(idx) {
   if(confirm("ยืนยันลบคอลัมน์คะแนนนี้?")) {
     currentScoreConfig.indicators.splice(idx, 1);
@@ -2092,89 +2056,6 @@ function handleCellNav(e) {
     const nextInput = document.querySelector(`.nav-input[data-row="${nextRow}"][data-col="${nextCol}"]`);
     if (nextInput) { e.preventDefault(); nextInput.focus(); nextInput.select(); }
   }
-}
-
-// ฟังก์ชันสำหรับเปิดกล่องรายละเอียดตัวชี้วัดเมื่อคลิก
-function showIndicatorDetail(idx) {
-  // ดึงข้อมูลจาก config ปัจจุบัน
-  if (!currentScoreConfig || !currentScoreConfig.indicators[idx]) return;
-  const ind = currentScoreConfig.indicators[idx];
-  
-  // จัดเตรียมข้อความ
-  const desc = ind.description ? ind.description : 'ไม่ได้ระบุรายละเอียดหรือจุดประสงค์ไว้ครับ';
-  const scoreInfo = `<span class="badge bg-warning text-dark ms-2">คะแนนเต็ม ${ind.score}</span>`;
-  
-  // นำข้อความไปใส่ใน Modal
-  document.getElementById('indicatorModalTitle').innerHTML = `<i class="fas fa-tag me-2"></i>${ind.name} ${scoreInfo}`;
-  document.getElementById('indicatorModalDesc').innerText = desc;
-  
-  // สั่งเปิด Modal
-  const modal = new bootstrap.Modal(document.getElementById('indicatorDetailModal'));
-  modal.show();
-}
-
-// 1. ฟังก์ชันเปิดกล่องเพื่อแก้ไข
-function showIndicatorEdit(idx) {
-  if (!currentScoreConfig || !currentScoreConfig.indicators[idx]) return;
-  const ind = currentScoreConfig.indicators[idx];
-  
-  // ใส่ค่าเดิมลงในช่องกรอก
-  document.getElementById('editIndIdx').value = idx;
-  document.getElementById('editIndDesc').value = ind.description || '';
-  
-  // จัดหัวกล่องให้แสดงชื่อตัวชี้วัดและคะแนน
-  const scoreInfo = `<span class="badge bg-warning text-dark ms-2">คะแนนเต็ม ${ind.score}</span>`;
-  document.getElementById('indicatorEditModalTitle').innerHTML = `<i class="fas fa-edit me-2"></i>${ind.name} ${scoreInfo}`;
-  
-  // สั่งเปิด Modal
-  const modal = new bootstrap.Modal(document.getElementById('indicatorEditModal'));
-  modal.show();
-}
-
-// 2. ฟังก์ชันบันทึกข้อมูลลงฐานข้อมูล (เก็บไว้ใช้ปีหน้า)
-function saveIndicatorDetail() {
-  const idx = document.getElementById('editIndIdx').value;
-  const newDesc = document.getElementById('editIndDesc').value.trim();
-  
-  if (idx === "") return;
-  
-  // อัปเดตข้อมูลในหน่วยความจำของหน้าเว็บปัจจุบัน
-  currentScoreConfig.indicators[idx].description = newDesc;
-  
-  // ปิด Modal ทันทีให้ดูตอบสนองไว
-  bootstrap.Modal.getInstance(document.getElementById('indicatorEditModal')).hide();
-  showToast('⏳ กำลังบันทึกเป็นฐานข้อมูล...', 'info');
-
-  // เตรียมข้อมูลดึงจาก Dropdown และตัวแปรระบบ
-  const classData = JSON.parse(document.getElementById('scoreClassSelect').value);
-  const subjectCode = classData[0];
-  const className = classData[2];
-  
-  // แยกสัดส่วนคะแนนกลับไปเป็น Formative, Midterm, Final
-  const ratios = currentScoreConfig.ratio.split(':');
-  
-  // เตรียม Payload สำหรับส่งไปบันทึกทับในชีต Subject_Config
-  const payload = {
-    subjectCode: subjectCode,
-    className: className,
-    term: currentTerm,   // ตัวแปร Global ของระบบ
-    year: currentYear,   // ตัวแปร Global ของระบบ
-    teacherId: currentUser.id, // ตัวแปร Global ของระบบ
-    formative: ratios[0] || 70,
-    midterm: ratios[1] || 10,
-    final: ratios[2] || 20,
-    indicators: currentScoreConfig.indicators // ส่ง Array ตัวชี้วัดที่เพิ่งแก้คำอธิบายกลับไปทั้งก้อน
-  };
-  
-  // ส่งไปบันทึกที่หลังบ้าน
-  google.script.run.withSuccessHandler(function(res) {
-    if(res.status === 'success') {
-      showToast('✅ อัปเดตรายละเอียดเรียบร้อย บันทึกเป็นฐานข้อมูลแล้ว!', 'success');
-      // ไม่ต้องโหลดตารางใหม่ เพราะเราแค่แก้คำอธิบาย (ประหยัดเวลาโหลด)
-    } else {
-      showToast('❌ ผิดพลาด: ' + res.message, 'danger');
-    }
-  }).saveSubjectConfig(payload);
 }
 
 // ==========================================
@@ -2231,4 +2112,3 @@ function toggleDarkMode() {
 function applySavedTheme() {
   if (localStorage.getItem('pssms_theme') === 'dark') document.body.classList.add('dark-mode');
 }
-</script>
