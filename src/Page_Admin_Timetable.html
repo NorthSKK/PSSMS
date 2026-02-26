@@ -1,0 +1,198 @@
+<div class="container-fluid">
+  <div class="card shadow-sm border-0 mb-4 bg-info text-white">
+    <div class="card-body p-3 d-flex justify-content-between align-items-center">
+      <h5 class="mb-0"><i class="fas fa-calendar-alt me-2"></i> จัดการตารางสอน</h5>
+      <div class="d-flex gap-2">
+        <button class="btn btn-light btn-sm" onclick="document.getElementById('csvTimetable').click()">
+          <i class="fas fa-file-csv me-1"></i> นำเข้าไฟล์ CSV
+        </button>
+        <input type="file" id="csvTimetable" accept=".csv" style="display:none" onchange="handleTimetableUpload(this)">
+      </div>
+    </div>
+  </div>
+
+  <div class="card shadow-sm border-0 mb-4">
+    <div class="card-body">
+      <div class="row g-2 align-items-center">
+        <div class="col-md-3">
+          <label class="small fw-bold">เลือกครูผู้สอน</label>
+          <select id="viewTeacherID" class="form-select" onchange="viewTimetable()"></select>
+        </div>
+        <div class="col-md-2">
+          <label class="small fw-bold">ภาคเรียน</label>
+          <select id="viewTerm" class="form-select" onchange="viewTimetable()">
+            <option value="1">ภาคเรียนที่ 1</option>
+            <option value="2">ภาคเรียนที่ 2</option>
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="small fw-bold">ปีการศึกษา</label>
+          <input type="number" id="viewYear" class="form-control" value="2568" onchange="viewTimetable()">
+        </div>
+        <div class="col-md-2 text-center">
+          <label class="small fw-bold d-block text-primary">จำนวนคาบ/สัปดาห์</label>
+          <h4 id="totalPeriodsBadge" class="mb-0 fw-bold text-primary">0</h4>
+        </div>
+        <div class="col-md-3 d-flex align-items-end">
+          <div class="btn-group w-100" role="group">
+            <button type="button" class="btn btn-outline-primary active" id="btnListView" onclick="switchTimetableView('list')"><i class="fas fa-list"></i> รายการ</button>
+            <button type="button" class="btn btn-outline-primary" id="btnGridView" onclick="switchTimetableView('grid')"><i class="fas fa-th"></i> ตาราง</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="sectionGridView" class="d-none">
+    <div class="card shadow-sm border-0 overflow-hidden">
+      <div class="table-responsive">
+        <table class="table table-bordered mb-0 text-center" style="min-width: 1000px;">
+          <thead class="bg-primary text-white text-center">
+  <tr>
+    <th style="width: 100px; vertical-align: middle;">วัน / เวลา</th>
+    
+    <th>คาบ 1<br><span class="badge bg-white text-primary rounded-pill small">08.30-09.30</span></th>
+    <th>คาบ 2<br><span class="badge bg-white text-primary rounded-pill small">09.30-10.30</span></th>
+    <th>คาบ 3<br><span class="badge bg-white text-primary rounded-pill small">10.30-11.30</span></th>
+    <th>คาบ 4<br><span class="badge bg-white text-primary rounded-pill small">11.30-12.30</span></th>
+    
+    <th class="bg-warning text-dark text-center" style="width: 60px; vertical-align: middle;">
+      พัก</th>
+
+    <th>คาบ 5<br><span class="badge bg-white text-primary rounded-pill small">13.30-14.30</span></th>
+    <th>คาบ 6<br><span class="badge bg-white text-primary rounded-pill small">14.30-15.30</span></th>
+    <th>คาบ 7<br><span class="badge bg-white text-primary rounded-pill small">15.30-16.30</span></th>
+    <th>คาบ 8<br><span class="badge bg-white text-primary rounded-pill small">16.30-17.30</span></th>
+  </tr>
+</thead>
+          <tbody id="timetableGridBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div id="sectionListView" class="card shadow-sm border-0 mt-3">
+    <div class="table-responsive">
+      <table class="table table-hover mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>วัน</th>
+            <th>คาบ</th>
+            <th>วิชา</th>
+            <th>ห้องเรียน</th>
+            <th class="text-end">จัดการ</th>
+          </tr>
+        </thead>
+        <tbody id="timetableDisplayBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="editTimetableModal" data-bs-backdrop="static" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title"><i class="fas fa-edit me-2"></i>จัดการคาบเรียน</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="editRowIndex">
+        <div class="mb-3">
+          <label class="form-label fw-bold">รหัสวิชา</label>
+          <input type="text" id="editSubjectCode" class="form-control">
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-bold">ชื่อวิชา</label>
+          <input type="text" id="editSubjectName" class="form-control">
+        </div>
+        <div class="row">
+          <div class="col-6 mb-3">
+            <label class="form-label fw-bold">วัน</label>
+            <select id="editDay" class="form-select">
+              <option>จันทร์</option><option>อังคาร</option><option>พุธ</option><option>พฤหัสบดี</option><option>ศุกร์</option>
+            </select>
+          </div>
+          <div class="col-6 mb-3">
+            <label class="form-label fw-bold">คาบที่</label>
+            <input type="number" id="editPeriod" class="form-control" min="1" max="8">
+          </div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-bold">ระดับชั้น/ห้องเรียน</label>
+          <input type="text" id="editClass" class="form-control">
+        </div>
+      </div>
+      <div class="modal-footer bg-light">
+        <button type="button" class="btn btn-outline-danger me-auto" onclick="confirmDeleteTimetable()">ลบคาบเรียน</button>
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">ปิด</button>
+        <button type="button" id="btnSaveTimetable" class="btn btn-primary" onclick="saveTimetableEdit()">บันทึกการแก้ไข</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="modal fade" id="editTimetableModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-warning text-dark">
+        <h5 class="modal-title"><i class="fas fa-edit me-2"></i>แก้ไขข้อมูลการสอน</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="editRowIndex">
+
+        <div class="mb-3">
+          <label class="form-label fw-bold">รหัสวิชา</label>
+          <input type="text" id="editSubjectCode" class="form-control">
+        </div>
+        
+        <div class="mb-3">
+          <label class="form-label fw-bold">ชื่อวิชา</label>
+          <input type="text" id="editSubjectName" class="form-control">
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label fw-bold">ระดับชั้น/ห้อง</label>
+          <input type="text" id="editClass" class="form-control" placeholder="เช่น ม.1/1">
+        </div>
+
+        <div class="row">
+          <div class="col-6 mb-3">
+            <label class="form-label fw-bold">วัน</label>
+            <select id="editDay" class="form-select">
+              <option value="จันทร์">จันทร์</option>
+              <option value="อังคาร">อังคาร</option>
+              <option value="พุธ">พุธ</option>
+              <option value="พฤหัสบดี">พฤหัสบดี</option>
+              <option value="ศุกร์">ศุกร์</option>
+            </select>
+          </div>
+          <div class="col-6 mb-3">
+            <label class="form-label fw-bold">คาบที่</label>
+            <select id="editPeriod" class="form-select">
+              <option value="1">1</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+              <option value="4">4</option>
+              <option value="5">5</option>
+              <option value="6">6</option>
+              <option value="7">7</option>
+              <option value="8">8</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer d-flex justify-content-between">
+        <button type="button" class="btn btn-outline-danger" onclick="confirmDeleteTimetable()">
+          <i class="fas fa-trash me-1"></i>ลบรายวิชานี้
+        </button>
+        <div>
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>
+          <button type="button" class="btn btn-primary" id="btnSaveTimetable" onclick="saveTimetableEdit()">
+            <i class="fas fa-save me-1"></i>บันทึกการแก้ไข
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

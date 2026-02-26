@@ -1,0 +1,74 @@
+<div class="container-fluid">
+  <h4 class="mb-4"><i class="fas fa-cogs text-secondary"></i> ตั้งค่าระบบ</h4>
+
+  <div class="row">
+    <div class="col-md-7">
+      <div class="card shadow-sm border-0">
+        <div class="card-header bg-primary text-white">
+          <h5 class="mb-0"><i class="fas fa-calendar-alt me-2"></i> กำหนดปีการศึกษาและระยะเวลาภาคเรียน</h5>
+        </div>
+        <div class="card-body p-4">
+          <p class="text-muted">ข้อมูลนี้ใช้สำหรับคำนวณสถิติการมาเรียนและบันทึกหลังการสอน</p>
+          
+          <form id="configForm">
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label class="form-label fw-bold">ภาคเรียนที่ (Term)</label>
+                <select class="form-select" id="inputTerm">
+                  <option value="1">ภาคเรียนที่ 1</option>
+                  <option value="2">ภาคเรียนที่ 2</option>
+                  <option value="3">ภาคเรียนฤดูร้อน (Summer)</option>
+                </select>
+              </div>
+
+              <div class="col-md-6 mb-3">
+                <label class="form-label fw-bold">ปีการศึกษา (Year)</label>
+                <input type="number" class="form-control" id="inputYear" placeholder="เช่น 2568">
+              </div>
+            </div>
+
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label class="form-label fw-bold">วันที่เปิดภาคเรียน</label>
+                <input type="date" class="form-control" id="inputStartDate">
+              </div>
+
+              <div class="col-md-6 mb-3">
+                <label class="form-label fw-bold">วันที่ปิดภาคเรียน</label>
+                <input type="date" class="form-control" id="inputEndDate">
+              </div>
+            </div>
+
+            <hr>
+            <button type="button" class="btn btn-primary w-100 py-2" onclick="saveConfig()">
+              <i class="fas fa-save me-2"></i> บันทึกการเปลี่ยนแปลงและระยะเวลาเทอม
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+    
+    <div class="col-md-5">
+       <div class="alert alert-info border-0 shadow-sm">
+         <h5><i class="fas fa-info-circle"></i> ทำไมต้องระบุวันที่?</h5>
+         <ul class="mb-0 small">
+           <li><b>คำนวณเวลาเรียน:</b> ระบบจะนับจำนวนคาบสอนจริงเฉพาะในช่วงวันที่เปิด-ปิดเทอมเท่านั้น</li>
+           <li><b>ระบบเช็คชื่อ:</b> ระบบจะปิดการเช็คชื่อโดยอัตโนมัติเมื่อพ้นกำหนดวันปิดภาคเรียน</li>
+           <li><b>ความแม่นยำ:</b> ช่วยให้ Dashboard แสดงเปอร์เซ็นต์การมาเรียนของนักเรียนแต่ละคนได้ถูกต้องตามจริง</li>
+         </ul>
+       </div>
+       
+       <div class="card border-0 shadow-sm mt-3">
+         <div class="card-body p-3">
+           <h6 class="fw-bold"><i class="fas fa-bullhorn text-warning me-2"></i>สถานะปัจจุบัน</h6>
+           <div class="d-flex justify-content-between small">
+             <span>เทอมปัจจุบัน:</span> <span id="currentTermDisplay" class="fw-bold">-</span>
+           </div>
+           <div class="d-flex justify-content-between small">
+             <span>ระยะเวลา:</span> <span id="currentRangeDisplay" class="fw-bold">-</span>
+           </div>
+         </div>
+       </div>
+    </div>
+  </div>
+</div>

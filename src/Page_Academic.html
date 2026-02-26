@@ -1,0 +1,270 @@
+<div class="container-fluid">
+  <div class="card shadow-sm border-0 mb-4 bg-primary text-white">
+    <div class="card-body p-3 d-flex justify-content-between align-items-center">
+      <div>
+        <h5 class="mb-1"><i class="fas fa-graduation-cap me-2"></i>ฝ่ายวิชาการ: เช็คชื่อและบันทึกการสอน</h5>
+        <p class="mb-0 small opacity-75" id="academic-header-info">กำลังโหลดข้อมูลปีการศึกษา...</p>
+      </div>
+      <i class="fas fa-book-reader fa-2x opacity-25"></i>
+    </div>
+  </div>
+
+  <div class="row g-3">
+    <div class="col-md-4">
+      <div class="card shadow-sm border-0 h-100">
+        <div class="card-header bg-white fw-bold py-3 text-primary border-bottom">
+          <i class="fas fa-list-ul me-2"></i>เลือกวิชาและห้องเรียน
+        </div>
+        <div class="card-body">
+          <label class="small text-muted mb-2">ระบุวิชาและห้องที่ต้องการเช็คชื่อ</label>
+          
+          <div class="mb-3">
+            <label class="form-label fw-bold text-primary"><i class="fas fa-calendar-alt me-2"></i>วันที่ทำการสอน</label>
+            <input type="date" id="teachingDate" class="form-control form-control-lg border-primary shadow-sm" onchange="reloadTimetableByDate()">
+          </div>
+
+          <div class="row g-2 mb-3">
+            <div class="col-12">
+              <select id="selectClass" class="form-select shadow-sm" onchange="loadStudentList()">
+                <option value="">-- เลือกวิชา --</option>
+              </select>
+            </div>
+          </div>
+          
+          <div id="classInfoCard" class="d-none animate__animated animate__fadeIn">
+            <hr>
+            <div class="p-3 rounded border-start border-4 border-info shadow-sm mb-3" style="background-color: #f8f9fa;">
+              <div class="small text-muted text-uppercase fw-bold mb-1">รายละเอียดคาบเรียน</div>
+              <div class="fw-bold text-primary h5 mb-1" id="dispSubject"></div>
+              <div class="text-dark fw-bold" id="dispClass"></div>
+              <div class="small text-secondary" id="dispPeriod"></div>
+            </div>
+
+            <button class="btn btn-outline-info w-100 shadow-sm border-2 fw-bold" onclick="viewAllHistory()">
+              <i class="fas fa-history me-2"></i>ดูประวัติการสอนทั้งหมด / แก้ไขย้อนหลัง
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-8">
+      <div class="card shadow-sm border-0 h-100">
+        <div class="card-header bg-white fw-bold py-3 text-primary border-bottom">
+          <i class="fas fa-edit me-2"></i>บันทึกการจัดการเรียนรู้
+        </div>
+        <div class="card-body">
+          <div class="mb-3">
+            <label class="form-label fw-bold">หัวข้อ / เนื้อหาที่จัดการเรียนรู้วันนี้</label>
+            <input type="text" id="inputTopic" class="form-control shadow-sm" placeholder="เช่น การเคลื่อนที่แนวตรง, การเขียนโปรแกรมเบื้องต้น">
+          </div>
+          
+          <div class="row">
+            <div class="col-md-7 mb-3">
+              <label class="form-label fw-bold d-flex justify-content-between">
+                <span>ลายเซ็นครูผู้สอน</span>
+                <button class="btn btn-sm btn-link text-danger p-0 text-decoration-none" onclick="clearSignature()">
+                  <i class="fas fa-eraser me-1"></i>ล้างลายเซ็น
+                </button>
+              </label>
+              <div class="signature-wrapper border rounded bg-white shadow-inner overflow-hidden">
+                <canvas id="sig-canvas" width="450" height="150" style="touch-action: none; width: 100%; height: 100%;"></canvas>
+              </div>
+            </div>
+            
+            <div class="col-md-5 mb-3">
+              <label class="form-label fw-bold">สรุปยอดมาเรียน</label>
+              <div id="attendance-summary" class="d-flex flex-wrap gap-2 mt-1">
+                 <div class="badge-summary bg-success-subtle text-success border border-success">
+                   <small>มา</small> <span id="sumPresent" class="fw-bold d-block">0</span>
+                 </div>
+                 <div class="badge-summary bg-danger-subtle text-danger border border-danger">
+                   <small>ขาด</small> <span id="sumAbsent" class="fw-bold d-block">0</span>
+                 </div>
+                 <div class="badge-summary bg-warning-subtle text-warning-emphasis border border-warning">
+                   <small>ลา/สาย</small> <span id="sumOther" class="fw-bold d-block">0</span>
+                 </div>
+              </div>
+              
+              <button class="btn btn-primary w-100 mt-4 py-3 fw-bold shadow-sm" id="btnSubmitAll" onclick="submitAcademicData()" disabled>
+                <i class="fas fa-cloud-upload-alt me-2"></i>บันทึกข้อมูลทั้งหมด
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12 mt-4 d-none" id="studentListSection">
+      <div class="card shadow-sm border-0">
+        <div class="card-header bg-dark text-white p-3 d-flex justify-content-between align-items-center">
+          <h6 class="mb-0"><i class="fas fa-users me-2"></i>รายชื่อนักเรียนและการเช็คชื่อ</h6>
+          <span class="badge bg-light text-dark shadow-sm">ค่าเริ่มต้น: มาเรียนทุกคน</span>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-hover align-middle mb-0">
+            <thead class="bg-light text-secondary">
+              <tr>
+                <th class="text-center" style="width: 80px;">เลขที่</th>
+                <th>ชื่อ-นามสกุล (รหัสประจำตัว)</th>
+                <th class="text-center" style="width: 380px;">สถานะการเข้าเรียน</th>
+              </tr>
+            </thead>
+            <tbody id="studentRows">
+              </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="text-center mt-3 text-muted small">
+        <i class="fas fa-info-circle me-1"></i> กรุณาตรวจสอบสถานะนักเรียนให้ครบถ้วนก่อนกดปุ่มบันทึกข้อมูล
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  /* การตกแต่งส่วนลายเซ็น */
+  .signature-wrapper {
+    background-color: #fafafa;
+    cursor: crosshair;
+    position: relative;
+    height: 150px;
+    border: 2px dashed #cbd5e0 !important;
+  }
+  
+  /* Badge สรุปยอด */
+  .badge-summary {
+    padding: 8px;
+    border-radius: 10px;
+    flex: 1;
+    text-align: center;
+    min-width: 70px;
+    line-height: 1.2;
+    transition: all 0.3s ease;
+  }
+  
+  .badge-summary small {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    display: block;
+    margin-bottom: 2px;
+  }
+
+  .shadow-inner {
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.06);
+  }
+
+  /* ปรับแต่งปุ่มสถานะ มา ขาด ลา สาย */
+  .btn-check:checked + .btn-outline-success { background-color: #198754; color: white; border-color: #198754; box-shadow: 0 2px 4px rgba(25,135,84,0.3); }
+  .btn-check:checked + .btn-outline-danger { background-color: #dc3545; color: white; border-color: #dc3545; box-shadow: 0 2px 4px rgba(220,53,69,0.3); }
+  .btn-check:checked + .btn-outline-warning { background-color: #ffc107; color: black; border-color: #ffc107; box-shadow: 0 2px 4px rgba(255,193,7,0.3); }
+  .btn-check:checked + .btn-outline-info { background-color: #0dcaf0; color: white; border-color: #0dcaf0; box-shadow: 0 2px 4px rgba(13,202,240,0.3); }
+  
+  .btn-group .btn {
+    font-size: 0.85rem;
+    font-weight: 500;
+    padding: 8px 5px;
+  }
+
+  /* Animation */
+  .animate__animated {
+    animation-duration: 0.5s;
+  }
+</style>
+
+<div class="modal fade" id="detailedLessonModal" tabindex="-1" aria-labelledby="detailedLessonModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title fw-bold" id="detailedLessonModalLabel">
+          <i class="fas fa-book-reader me-2"></i>บันทึกผลการจัดการเรียนรู้ (แบบละเอียด)
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body bg-light">
+        <form id="detailedLessonForm">
+          
+          <div class="card border-0 shadow-sm mb-3">
+            <div class="card-header bg-white fw-bold text-primary"><i class="fas fa-edit me-2"></i>1. ผลการจัดการเรียนรู้และปัญหา</div>
+            <div class="card-body">
+              <div class="mb-3">
+                <label class="form-label fw-bold">1.1 ผลการจัดการเรียนรู้</label>
+                <textarea class="form-control" id="dl_outcomes" rows="3" placeholder="อธิบายผลที่เกิดจากการจัดกิจกรรม..."></textarea>
+              </div>
+              <div class="row">
+                <div class="col-md-6 mb-3">
+                  <label class="form-label fw-bold text-danger">1.2 ปัญหา/อุปสรรค</label>
+                  <textarea class="form-control" id="dl_problems" rows="3" placeholder="ปัญหาที่พบระหว่างสอน..."></textarea>
+                </div>
+                <div class="col-md-6 mb-3">
+                  <label class="form-label fw-bold text-success">1.3 แนวทางแก้ไข</label>
+                  <textarea class="form-control" id="dl_solutions" rows="3" placeholder="วิธีแก้ไขปัญหา หรือสิ่งที่ต้องปรับปรุงในคาบต่อไป..."></textarea>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card border-0 shadow-sm mb-3">
+            <div class="card-header bg-white fw-bold text-info"><i class="fas fa-check-double me-2"></i>2. การประเมินตนเอง (8 ตัวชี้วัด DPA)</div>
+            <div class="card-body">
+              <div class="row g-2">
+                <div class="col-md-6"><div class="form-check"><input class="form-check-input dpa-check" type="checkbox" value="ผู้เรียนเข้าถึงสิ่งที่เรียน" id="dpa1"><label class="form-check-label" for="dpa1">1. ผู้เรียนเข้าถึงสิ่งที่เรียน</label></div></div>
+                <div class="col-md-6"><div class="form-check"><input class="form-check-input dpa-check" type="checkbox" value="ผู้เรียนเชื่อมโยงความรู้เดิม" id="dpa2"><label class="form-check-label" for="dpa2">2. ผู้เรียนเชื่อมโยงความรู้เดิม</label></div></div>
+                <div class="col-md-6"><div class="form-check"><input class="form-check-input dpa-check" type="checkbox" value="สร้างความรู้เอง" id="dpa3"><label class="form-check-label" for="dpa3">3. ผู้เรียนสร้างความรู้เอง</label></div></div>
+                <div class="col-md-6"><div class="form-check"><input class="form-check-input dpa-check" type="checkbox" value="กระตุ้นแรงจูงใจ" id="dpa4"><label class="form-check-label" for="dpa4">4. กระตุ้นแรงจูงใจให้เรียนรู้</label></div></div>
+                <div class="col-md-6"><div class="form-check"><input class="form-check-input dpa-check" type="checkbox" value="พัฒนาทักษะ" id="dpa5"><label class="form-check-label" for="dpa5">5. ผู้เรียนได้รับการพัฒนาทักษะ</label></div></div>
+                <div class="col-md-6"><div class="form-check"><input class="form-check-input dpa-check" type="checkbox" value="Feedback" id="dpa6"><label class="form-check-label" for="dpa6">6. มีการให้ Feedback แก่ผู้เรียน</label></div></div>
+                <div class="col-md-6"><div class="form-check"><input class="form-check-input dpa-check" type="checkbox" value="บรรยากาศดี" id="dpa7"><label class="form-check-label" for="dpa7">7. บรรยากาศส่งเสริมการเรียนรู้</label></div></div>
+                <div class="col-md-6"><div class="form-check"><input class="form-check-input dpa-check" type="checkbox" value="กำกับตนเอง" id="dpa8"><label class="form-check-label" for="dpa8">8. ผู้เรียนกำกับตนเองในการเรียน</label></div></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card border-0 shadow-sm mb-3">
+            <div class="card-header bg-white fw-bold text-warning"><i class="fas fa-cogs me-2"></i>3. ทักษะ 3R8C ที่เกิดขึ้น</div>
+            <div class="card-body">
+              <div class="row g-2">
+                <div class="col-md-4"><div class="form-check"><input class="form-check-input skill-check" type="checkbox" value="Reading" id="s1"><label class="form-check-label" for="s1">Reading (อ่านออก)</label></div></div>
+                <div class="col-md-4"><div class="form-check"><input class="form-check-input skill-check" type="checkbox" value="Writing" id="s2"><label class="form-check-label" for="s2">Writing (เขียนได้)</label></div></div>
+                <div class="col-md-4"><div class="form-check"><input class="form-check-input skill-check" type="checkbox" value="Arithmetic" id="s3"><label class="form-check-label" for="s3">Arithmetic (คิดเลขเป็น)</label></div></div>
+                <div class="col-md-4"><div class="form-check"><input class="form-check-input skill-check" type="checkbox" value="Critical Thinking" id="s4"><label class="form-check-label" for="s4">Critical Thinking</label></div></div>
+                <div class="col-md-4"><div class="form-check"><input class="form-check-input skill-check" type="checkbox" value="Creativity" id="s5"><label class="form-check-label" for="s5">Creativity</label></div></div>
+                <div class="col-md-4"><div class="form-check"><input class="form-check-input skill-check" type="checkbox" value="Cross-cultural" id="s6"><label class="form-check-label" for="s6">Cross-cultural</label></div></div>
+                <div class="col-md-4"><div class="form-check"><input class="form-check-input skill-check" type="checkbox" value="Collaboration" id="s7"><label class="form-check-label" for="s7">Collaboration</label></div></div>
+                <div class="col-md-4"><div class="form-check"><input class="form-check-input skill-check" type="checkbox" value="Communication" id="s8"><label class="form-check-label" for="s8">Communication</label></div></div>
+                <div class="col-md-4"><div class="form-check"><input class="form-check-input skill-check" type="checkbox" value="Computing" id="s9"><label class="form-check-label" for="s9">Computing (ICT)</label></div></div>
+                <div class="col-md-4"><div class="form-check"><input class="form-check-input skill-check" type="checkbox" value="Career Skills" id="s10"><label class="form-check-label" for="s10">Career Skills</label></div></div>
+                <div class="col-md-4"><div class="form-check"><input class="form-check-input skill-check" type="checkbox" value="Compassion" id="s11"><label class="form-check-label" for="s11">Compassion (คุณธรรม)</label></div></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white fw-bold text-secondary"><i class="fas fa-paperclip me-2"></i>4. ผลลัพธ์และไฟล์แนบ</div>
+            <div class="card-body">
+              <div class="mb-3">
+                <label class="form-label fw-bold">ผลลัพธ์ที่เกิดกับผู้เรียน</label>
+                <textarea class="form-control" id="dl_student_results" rows="2" placeholder="เช่น ชิ้นงานนักเรียน, พฤติกรรมที่เปลี่ยนไป..."></textarea>
+              </div>
+              <div class="row">
+                <div class="col-md-6 mb-3">
+                  <label class="form-label fw-bold">ไฟล์ผลงานนักเรียน (ถ้ามี)</label>
+                  <input class="form-control" type="file" id="dl_work_file" accept="image/*,application/pdf">
+                </div>
+                <div class="col-md-6 mb-3">
+                  <label class="form-label fw-bold">ภาพบรรยากาศการสอน (ถ้ามี)</label>
+                  <input class="form-control" type="file" id="dl_image_file" accept="image/*">
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </form>
+      </div>
+      <div class="modal-footer bg-light">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>
+        <button type="button" class="btn btn-primary fw-bold" onclick="submitDetailedLesson()"><i class="fas fa-save me-2"></i>บันทึกแบบละเอียดครบถ้วน</button>
+      </div>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,82 @@
+<div class="container-fluid">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="fw-bold mb-0">ยินดีต้อนรับคุณครู <span id="dashTeacherName" class="text-primary">...</span></h4>
+    <div id="dashTodayDate" class="badge bg-white text-dark shadow-sm p-2 border"></div>
+  </div>
+
+  <div class="row g-3">
+    <div class="col-md-12">
+      <div id="nextClassCard" class="card border-0 shadow-sm bg-primary text-white overflow-hidden">
+        <div class="card-body p-4 position-relative">
+          <div style="position: absolute; right: -20px; top: -20px; opacity: 0.1;">
+            <i class="fas fa-clock fa-10x"></i>
+          </div>
+          <div class="row align-items-center">
+            <div class="col-md-8">
+              <h6 class="text-uppercase opacity-75 mb-2" style="letter-spacing: 1px;">คาบเรียนถัดไป</h6>
+              <h2 id="nextClassTitle" class="fw-bold mb-1">กำลังตรวจสอบ...</h2>
+              <p id="nextClassDetail" class="mb-0 opacity-75"></p>
+            </div>
+            <div class="col-md-4 text-md-end mt-3 mt-md-0">
+              <button class="btn btn-light btn-lg shadow" onclick="loadPage('Page_Academic')">
+                <i class="fas fa-edit me-2"></i>ไปที่การเช็คชื่อ
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-8">
+      <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white fw-bold py-3">
+          <i class="fas fa-calendar-day me-2 text-primary"></i>ตารางจัดการเรียนรู้วันนี้
+        </div>
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th class="ps-3">คาบ</th>
+                  <th>วิชา/ห้องเรียน</th>
+                  <th class="text-center">สถานะ</th>
+                </tr>
+              </thead>
+              <tbody id="todayScheduleBody">
+                <tr><td colspan="3" class="text-center p-5">กำลังดึงข้อมูลตารางสอน...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-4 mb-4">
+          <div class="card shadow-sm border-0 h-100" style="border-radius: 12px; overflow: hidden;">
+            <div class="card-header bg-white p-3 d-flex justify-content-between align-items-center border-bottom">
+              <h6 class="mb-0 fw-bold text-dark"><i class="fas fa-tasks text-primary me-2"></i>To-Do List 🌻</h6>
+              <span class="badge bg-secondary text-white fw-bold shadow-sm" id="todoCount">0/0</span>
+            </div>
+            <div class="card-body bg-white p-0 d-flex flex-column position-relative">
+              
+              <div class="p-3 border-bottom bg-light">
+                <div class="input-group input-group-sm shadow-sm" style="border-radius: 6px; overflow: hidden;">
+                  <input type="text" id="newTodoInput" class="form-control border-0" placeholder="📝 เพิ่มงานที่ต้องทำ..." onkeypress="if(event.key === 'Enter') addTodoItem()">
+                  <button class="btn btn-primary px-3 fw-bold" onclick="addTodoItem()"><i class="fas fa-plus"></i></button>
+                </div>
+              </div>
+              
+              <div class="flex-grow-1" style="max-height: 220px; overflow-y: auto; padding-bottom: 25px;">
+                <ul class="list-group list-group-flush" id="todoListContainer">
+                  </ul>
+              </div>
+
+              <div class="position-absolute bottom-0 start-0 w-100 pe-none" 
+                   style="height: 35px; background: linear-gradient(to bottom, rgba(255,255,255,0) 0%, rgba(255,255,255,1) 90%); border-radius: 0 0 12px 12px;">
+              </div>
+              
+            </div>
+          </div>
+        </div>
+  </div>
+</div>

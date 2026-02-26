@@ -1,0 +1,78 @@
+<div class="container-fluid">
+  <h4 class="mb-4 fw-bold text-primary">ระบบบริหารจัดการ (Dashboard Admin)</h4>
+  
+  <div class="row g-3 mb-4">
+    <div class="col-md-3">
+      <div class="card border-0 shadow-sm bg-primary text-white h-100">
+        <div class="card-body">
+          <div class="d-flex justify-content-between">
+            <div>
+              <p class="mb-1 small">นักเรียนมาเรียนวันนี้</p>
+              <h3 class="mb-0 fw-bold">95.5%</h3>
+            </div>
+            <i class="fas fa-user-check fa-2x opacity-50"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card border-0 shadow-sm bg-success text-white h-100">
+        <div class="card-body">
+          <div class="d-flex justify-content-between">
+            <div>
+              <p class="mb-1 small">งบประมาณที่ใช้ไป</p>
+              <h3 class="mb-0 fw-bold">62%</h3>
+            </div>
+            <i class="fas fa-money-bill-wave fa-2x opacity-50"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card border-0 shadow-sm bg-warning text-dark h-100">
+        <div class="card-body">
+          <div class="d-flex justify-content-between">
+            <div>
+              <p class="mb-1 small">บุคลากรที่ลา/ไปราชการ</p>
+              <h3 class="mb-0 fw-bold">3 ท่าน</h3>
+            </div>
+            <i class="fas fa-calendar-times fa-2x opacity-50"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card border-0 shadow-sm bg-danger text-white h-100">
+        <div class="card-body">
+          <div class="d-flex justify-content-between">
+            <div>
+              <p class="mb-1 small">งานแจ้งซ่อมรอดำเนินการ</p>
+              <h3 class="mb-0 fw-bold">5 รายการ</h3>
+            </div>
+            <i class="fas fa-tools fa-2x opacity-50"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-3">
+    <div class="col-md-8">
+      <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white fw-bold">สถิติการมาเรียนแยกตามระดับชั้น</div>
+        <div class="card-body">
+          <canvas id="adminStatsChart" height="200"></canvas>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white fw-bold">กิจกรรมล่าสุด</div>
+        <div class="card-body p-0">
+          <div class="list-group list-group-flush small" id="recentActivities">
+            </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
