@@ -1212,8 +1212,8 @@ function setupDatabase() {
     { name: "Leave_Records", headers: ["Timestamp", "StaffName", "Type", "StartDate", "EndDate", "Reason", "Status", "Year"] },
     { name: "Maintenance", headers: ["ID", "Timestamp", "Location", "Issue", "Reporter", "Status", "Technician"] },
     { name: "System_Settings", headers: ["Key", "Value"] },
-    // Update Header ใหม่
-    { name: "Timetable_Database", headers: ["SubjectCode", "SubjectName", "Level", "Room", "Location", "TeacherID", "Day", "Period", "Term", "Year"] }
+    { name: "Timetable_Database", headers: ["SubjectCode", "SubjectName", "Level", "Room", "Location", "TeacherID", "Day", "Period", "Term", "Year"] },
+    { name: "Morning_Activity", headers: ["Timestamp", "Date", "Term", "Year", "Class", "StudentID", "StudentName", "Area_Status", "Duty_Status", "Flag_Status", "TeacherID", "SessionID"] }
   ];
 
   sheets.forEach(sh => {
@@ -1567,6 +1567,9 @@ function updateDetailedLessonRecord(timestampStr, record) {
 // 📚 ระบบ ปพ.5: โครงสร้างรายวิชา (Subject Config) (อัปเกรดป้องกันเว้นวรรค)
 // ==========================================
 
+// ==========================================
+// ปรับปรุงฟังก์ชันดึงโครงสร้างวิชา (รองรับการดึงข้อมูลจากปีเก่าอัตโนมัติ)
+// ==========================================
 function getSubjectConfig(subjectCode, className, term, year) {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Subject_Config");
   if(!sheet) return null;
@@ -1578,20 +1581,39 @@ function getSubjectConfig(subjectCode, className, term, year) {
   const targetTerm = String(term).trim();
   const targetYear = String(year).trim();
   
-  for(let i = 1; i < data.length; i++) {
+  let exactMatch = null;
+  let historyMatch = null;
+  
+  // วนลูปจาก "ล่างขึ้นบน" (เพื่อให้เจอข้อมูลล่าสุดก่อนเสมอ)
+  for(let i = data.length - 1; i >= 1; i--) {
     const rSubj = String(data[i][1]).trim();
     const rClass = String(data[i][2]).trim();
     const rTerm = String(data[i][3]).trim();
     const rYear = String(data[i][4]).trim();
 
-    if(rSubj === targetSubj && rClass === targetClass && rTerm === targetTerm && rYear === targetYear) {
-      return {
-        ratio: data[i][5], 
-        indicators: JSON.parse(data[i][6] || '[]')
-      };
+    // ถ้ารหัสวิชาตรงกัน (ไม่สนปีการศึกษา) ให้เก็บไว้เป็น "แม่แบบสำรอง" 
+    // เผื่อปีปัจจุบันยังไม่มีการตั้งค่า
+    if (rSubj === targetSubj) {
+      if (!historyMatch) {
+        historyMatch = {
+          ratio: data[i][5], 
+          indicators: JSON.parse(data[i][6] || '[]')
+        };
+      }
+      
+      // แต่ถ้าเจอข้อมูลที่ "ตรงเป๊ะ" ทั้งวิชา ห้อง เทอม และปี ให้ยึดอันนี้เป็นหลักแล้วหยุดค้นหา
+      if (rClass === targetClass && rTerm === targetTerm && rYear === targetYear) {
+        exactMatch = {
+          ratio: data[i][5], 
+          indicators: JSON.parse(data[i][6] || '[]')
+        };
+        break; 
+      }
     }
   }
-  return null; 
+  
+  // ส่งคืนข้อมูลที่ตรงเป๊ะก่อน ถ้าไม่มีให้ส่งคืนแม่แบบสำรองจากปีเก่า ถ้าไม่มีเลยส่ง null
+  return exactMatch || historyMatch || null; 
 }
 
 function saveSubjectConfig(configData) {
@@ -1809,4 +1831,78 @@ function saveAllInOneScores(payload) {
 
   SpreadsheetApp.flush(); 
   return {status: 'success', message: 'บันทึกคะแนน เกรด และคุณลักษณะเรียบร้อยแล้ว!'};
+}
+
+// ==========================================
+// ☀️ 14. ระบบกิจกรรมยามเช้า (เข้าเขต / ทำเวร / เสาธง)
+// ==========================================
+
+// 1. ฟังก์ชันดึงข้อมูลการเช็คชื่อยามเช้า (เพื่อนำมาแสดงค่าเดิมถ้าเคยเช็คไปแล้ว)
+function getMorningActivityData(dateStr, className) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName("Morning_Activity");
+  if (!sheet) return {};
+
+  const data = sheet.getDataRange().getDisplayValues();
+  const targetSession = `${dateStr}_${className}`;
+  const results = {};
+
+  for (let i = 1; i < data.length; i++) {
+    // คอลัมน์ L (Index 11) คือ SessionID
+    if (String(data[i][11]) === targetSession) {
+      const stdId = String(data[i][5]); // คอลัมน์ F คือ รหัสนักเรียน
+      results[stdId] = {
+        area: data[i][7], // คอลัมน์ H
+        duty: data[i][8], // คอลัมน์ I
+        flag: data[i][9]  // คอลัมน์ J
+      };
+    }
+  }
+  return results; // ส่งกลับเป็น Object เพื่อให้หน้าบ้านจับคู่รหัสนักเรียนได้ง่ายๆ
+}
+
+// 2. ฟังก์ชันบันทึกข้อมูล (รองรับการบันทึกใหม่และการอัปเดตข้อมูลเดิม)
+function saveMorningActivityBatch(payload) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName("Morning_Activity");
+  
+  if (!sheet) return { status: "error", message: "ไม่พบชีต Morning_Activity กรุณารัน setupDatabase ก่อนครับ" };
+
+  const { date, term, year, className, teacherId, records } = payload;
+  const sessionID = `${date}_${className}`;
+  const timestamp = new Date();
+  
+  const data = sheet.getDataRange().getValues();
+  let rowMap = {};
+  
+  // หาแถวเดิมที่เคยบันทึกไว้ของวันนี้และห้องนี้
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][11]) === sessionID) {
+      rowMap[String(data[i][5])] = i + 1; // จำหมายเลขแถวของนักเรียนคนนั้นไว้
+    }
+  }
+
+  const newRows = [];
+
+  // วนลูปแยกข้อมูลว่าอันไหนอัปเดต อันไหนเพิ่มใหม่
+  records.forEach(r => {
+    const stdId = String(r.studentId);
+    if (rowMap[stdId]) {
+      // ถ้ามีข้อมูลอยู่แล้ว ให้อัปเดตแค่ 3 คอลัมน์ (Area, Duty, Flag) ซึ่งคือคอลัมน์ที่ 8, 9, 10
+      sheet.getRange(rowMap[stdId], 8, 1, 3).setValues([[r.area, r.duty, r.flag]]);
+    } else {
+      // ถ้ายังไม่เคยเช็คชื่อ ให้เตรียมข้อมูลเพื่อเพิ่มแถวใหม่
+      newRows.push([
+        timestamp, date, term, year, className, stdId, r.studentName,
+        r.area, r.duty, r.flag, teacherId, sessionID
+      ]);
+    }
+  });
+
+  // สาดข้อมูลใหม่ลงชีตทีเดียวรวดเดียว (Batch Insert - ไวมาก)
+  if (newRows.length > 0) {
+    sheet.getRange(sheet.getLastRow() + 1, 1, newRows.length, 12).setValues(newRows);
+  }
+
+  return { status: "success", message: "✅ บันทึกข้อมูลกิจกรรมโฮมรูมเรียบร้อยแล้ว!" };
 }

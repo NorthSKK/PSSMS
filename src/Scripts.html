@@ -647,7 +647,16 @@ function renderTeacherTodaySchedule(timetable) {
 }
 
 function jumpToAttendance(encodedData) {
-  sessionStorage.setItem('pending_attendance_item', decodeURIComponent(encodedData));
+  const item = JSON.parse(decodeURIComponent(encodedData));
+  
+  // 🌟 ดักจับ: ถ้ารหัสวิชาคือ HR หรือชื่อวิชามีคำว่า โฮมรูม ให้เปิดหน้าต่างเช็คชื่อตอนเช้า
+  if (item[0].toUpperCase() === 'HR' || item[1].includes('โฮมรูม')) {
+     openMorningCheckModal(item);
+     return; // จบการทำงาน ไม่ต้องไปหน้าเช็คชื่อปกติ
+  }
+
+  // ถ้าเป็นวิชาปกติ ให้ไปหน้าเช็คชื่อ (Page_Academic) ตามเดิม
+  sessionStorage.setItem('pending_attendance_item', encodedData);
   const now = new Date();
   const localDate = new Date(now.getTime() - (now.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
   sessionStorage.setItem('pending_teaching_date', localDate);
@@ -1707,8 +1716,6 @@ function renderAllInOneTable(students, config, existingScores, existingQuals) {
   config.indicators.forEach((ind, idx) => {
     let deleteBtn = isHeaderEditMode ? `<div class="mt-1"><button class="btn btn-xs btn-outline-danger p-0 px-1 border-0" onclick="removeIndicator(${idx})"><i class="fas fa-times"></i></button></div>` : '';
     
-    // เปลี่ยนมาเรียก showIndicatorEdit แทน
-    // ถ้ามีคำอธิบายแล้วให้เป็นสีฟ้า (info) ถ้ายังไม่มีให้เป็นสีเทา (secondary)
     let iconColor = ind.description ? 'text-info' : 'text-secondary';
     
     let infoBtn = `<i class="fas fa-info-circle ${iconColor} ms-1" 
@@ -1717,13 +1724,16 @@ function renderAllInOneTable(students, config, existingScores, existingQuals) {
                       onmouseout="this.style.transform='scale(1)'"
                       onclick="showIndicatorEdit(${idx})" 
                       title="คลิกเพื่อดู/แก้ไขรายละเอียด"></i>`;
-    
+
     headHtml += `<th class="text-success border-bottom-0">
                    <div contenteditable="${isHeaderEditMode}" class="ind-name-edit" data-idx="${idx}">${ind.name}</div>
-                   ${infoBtn}
                    ${deleteBtn}
                  </th>`;
-    subHeadHtml += `<th class="text-success small fw-normal">(<span contenteditable="${isHeaderEditMode}" class="ind-score-edit" onblur="reCalcAllRows()">${ind.score}</span>)</th>`;
+                 
+    subHeadHtml += `<th class="text-success small fw-normal">
+                      (<span contenteditable="${isHeaderEditMode}" class="ind-score-edit" onblur="reCalcAllRows()">${ind.score}</span>) 
+                      ${infoBtn}
+                    </th>`;
   });
   
   if(isHeaderEditMode) headHtml += `<th rowspan="2" class="align-middle bg-light"><button class="btn btn-sm btn-light text-primary border shadow-sm px-2 py-0" onclick="addIndicator()"><i class="fas fa-plus"></i></button></th>`;
@@ -2231,4 +2241,146 @@ function toggleDarkMode() {
 function applySavedTheme() {
   if (localStorage.getItem('pssms_theme') === 'dark') document.body.classList.add('dark-mode');
 }
+
+// ==========================================
+// ☀️ 17. ระบบกิจกรรมยามเช้า / โฮมรูม (UI & Logic)
+// ==========================================
+let currentMorningStudents = [];
+
+// 1. เปิดหน้าต่างเช็คชื่อโฮมรูม
+function openMorningCheckModal(item) {
+  const fullClassName = String(item[2]).trim(); // ดึงชื่อห้อง (เช่น 4/1)
+  const now = new Date();
+  const dateStr = new Date(now.getTime() - (now.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
+  
+  showLoader(true);
+  
+  // ดึงรายชื่อนักเรียนในห้อง และ ข้อมูลประวัติการเช็คชื่อของวันนี้ (ถ้ามี) มาพร้อมกัน
+  google.script.run.withSuccessHandler(function(students) {
+     currentMorningStudents = students;
+     google.script.run.withSuccessHandler(function(historyData) {
+        showLoader(false);
+        renderMorningCheckModal(students, historyData, fullClassName, dateStr);
+     }).getMorningActivityData(dateStr, fullClassName);
+  }).getStudentsByClass(fullClassName);
+}
+
+// 2. สร้างตารางและหน้าต่าง Pop-up
+function renderMorningCheckModal(students, historyData, className, dateStr) {
+  let html = '';
+  students.sort((a, b) => String(a[0]).localeCompare(String(b[0])));
+  
+  students.forEach((s, index) => {
+    const stdId = String(s[0]).trim();
+    const stdName = s[2];
+    
+    // โหลดค่าเดิมที่เคยบันทึก ถ้ายังไม่เคยบันทึกให้ตั้งเป็น มา/ทำ/เข้าร่วม อัตโนมัติ
+    const h = historyData[stdId] || { area: 'มา', duty: 'ทำ', flag: 'เข้าร่วม' };
+    
+    html += `<tr>
+      <td class="text-center text-muted fw-bold align-middle">${index + 1}</td>
+      <td class="text-start align-middle px-2">
+         <div class="fw-bold text-dark" style="font-size:0.85rem;">${stdName}</div>
+         <div class="small text-muted font-monospace">${stdId}</div>
+      </td>
+      
+      <td class="align-middle"><div class="btn-group btn-group-sm w-100 shadow-sm"><input type="radio" class="btn-check" name="area_${stdId}" id="a_มา_${stdId}" value="มา" ${h.area==='มา'?'checked':''}><label class="btn btn-outline-success px-1" for="a_มา_${stdId}">มา</label><input type="radio" class="btn-check" name="area_${stdId}" id="a_สาย_${stdId}" value="สาย" ${h.area==='สาย'?'checked':''}><label class="btn btn-outline-warning px-1" for="a_สาย_${stdId}">สาย</label><input type="radio" class="btn-check" name="area_${stdId}" id="a_ลา_${stdId}" value="ลา" ${h.area==='ลา'?'checked':''}><label class="btn btn-outline-info px-1" for="a_ลา_${stdId}">ลา</label><input type="radio" class="btn-check" name="area_${stdId}" id="a_ขาด_${stdId}" value="ขาด" ${h.area==='ขาด'?'checked':''}><label class="btn btn-outline-danger px-1" for="a_ขาด_${stdId}">ขาด</label></div></td>
+      
+      <td class="align-middle"><div class="btn-group btn-group-sm w-100 shadow-sm"><input type="radio" class="btn-check" name="duty_${stdId}" id="d_ทำ_${stdId}" value="ทำ" ${h.duty==='ทำ'?'checked':''}><label class="btn btn-outline-primary px-1" for="d_ทำ_${stdId}">ทำ</label><input type="radio" class="btn-check" name="duty_${stdId}" id="d_ไม่ทำ_${stdId}" value="ไม่ทำ" ${h.duty==='ไม่ทำ'?'checked':''}><label class="btn btn-outline-secondary px-1" for="d_ไม่ทำ_${stdId}">ไม่ทำ</label></div></td>
+      
+      <td class="align-middle"><div class="btn-group btn-group-sm w-100 shadow-sm"><input type="radio" class="btn-check" name="flag_${stdId}" id="f_เข้า_${stdId}" value="เข้าร่วม" ${h.flag==='เข้าร่วม'?'checked':''}><label class="btn btn-outline-info text-dark px-1" for="f_เข้า_${stdId}">เข้าร่วม</label><input type="radio" class="btn-check" name="flag_${stdId}" id="f_ไม่เข้า_${stdId}" value="ไม่เข้า" ${h.flag==='ไม่เข้า'?'checked':''}><label class="btn btn-outline-secondary px-1" for="f_ไม่เข้า_${stdId}">ไม่เข้า</label></div></td>
+    </tr>`;
+  });
+
+  // สร้างโครงสร้าง Modal
+  const modalHtml = `
+  <div class="modal fade" id="morningCheckModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-fullscreen-lg-down">
+      <div class="modal-content bg-light" style="border-radius: 12px; overflow: hidden;">
+        <div class="modal-header bg-warning text-dark border-0 p-3 shadow-sm" style="z-index: 10;">
+          <div>
+            <h5 class="modal-title fw-bold mb-0"><i class="fas fa-sun me-2 text-primary"></i>บันทึกกิจกรรมโฮมรูม & หน้าเสาธง</h5>
+            <div class="small fw-bold mt-1 text-secondary"><i class="fas fa-users me-1"></i>ห้อง ${className} | <i class="fas fa-calendar-alt me-1 ms-2"></i>${formatThaiDate(dateStr)}</div>
+          </div>
+          <button type="button" class="btn-close shadow-none" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body p-0">
+          <div class="table-responsive bg-white" style="max-height: 65vh;">
+            <table class="table table-hover align-middle mb-0 text-center text-nowrap">
+              <thead class="table-light text-muted small sticky-top shadow-sm" style="z-index: 5;">
+                <tr>
+                  <th style="width: 40px;">ที่</th>
+                  <th class="text-start ps-3">ชื่อ-สกุล</th>
+                  <th style="min-width: 170px;">เข้าเขตพื้นที่</th>
+                  <th style="min-width: 110px;">ทำเวรประจำวัน</th>
+                  <th style="min-width: 120px;">กิจกรรมหน้าเสาธง</th>
+                </tr>
+              </thead>
+              <tbody>${html}</tbody>
+            </table>
+          </div>
+        </div>
+        <div class="modal-footer bg-white border-top p-3 d-flex justify-content-between align-items-center">
+          <span class="text-muted small d-none d-md-inline"><i class="fas fa-database me-1"></i>ข้อมูลถูกแยกจัดเก็บในฐานข้อมูลงานกิจการนักเรียน</span>
+          <button class="btn btn-success fw-bold px-5 py-2 shadow-sm w-sm-100" onclick="submitMorningCheck('${dateStr}', '${className}')">
+            <i class="fas fa-save me-2"></i>บันทึกข้อมูลโฮมรูม
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>`;
+
+  const oldModal = document.getElementById('morningCheckModal');
+  if(oldModal) oldModal.remove();
+  document.body.insertAdjacentHTML('beforeend', modalHtml);
+  
+  const modal = new bootstrap.Modal(document.getElementById('morningCheckModal'), { backdrop: 'static' });
+  modal.show();
+}
+
+// 3. รวบรวมข้อมูลและส่งไปบันทึก
+function submitMorningCheck(dateStr, className) {
+  const user = getSessionUser();
+  const records = [];
+  
+  currentMorningStudents.forEach(s => {
+    const stdId = String(s[0]).trim();
+    records.push({
+      studentId: stdId,
+      studentName: s[2],
+      area: document.querySelector(`input[name="area_${stdId}"]:checked`).value,
+      duty: document.querySelector(`input[name="duty_${stdId}"]:checked`).value,
+      flag: document.querySelector(`input[name="flag_${stdId}"]:checked`).value
+    });
+  });
+
+  const payload = {
+    date: dateStr,
+    term: user.currentTerm,
+    year: user.currentYear,
+    className: className,
+    teacherId: user.id,
+    records: records
+  };
+
+  const btn = document.querySelector('#morningCheckModal .btn-success');
+  const oldText = btn.innerHTML;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>กำลังบันทึก...';
+  btn.disabled = true;
+
+  google.script.run
+    .withSuccessHandler(res => {
+      btn.innerHTML = oldText;
+      btn.disabled = false;
+      bootstrap.Modal.getInstance(document.getElementById('morningCheckModal')).hide();
+      showToast(res.message, "success");
+    })
+    .withFailureHandler(err => {
+      btn.innerHTML = oldText;
+      btn.disabled = false;
+      alert("❌ เกิดข้อผิดพลาด: " + err.message);
+    })
+    .saveMorningActivityBatch(payload);
+}
+
 </script>
