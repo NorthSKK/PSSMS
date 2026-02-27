@@ -58,8 +58,8 @@ function processLogin() {
 function logout() {
   if(confirm('ต้องการออกจากระบบใช่หรือไม่?')) {
     localStorage.removeItem('pssms_user');
-    sessionStorage.removeItem('pssms_user');
     localStorage.removeItem('pssms_last_page'); 
+    sessionStorage.clear(); 
     document.getElementById('main-app').classList.add('d-none');
     document.getElementById('login-section').classList.remove('d-none');
     document.getElementById('username').value = '';
@@ -521,9 +521,20 @@ function renderTodoList(todos) {
   const container = document.getElementById('todoListContainer');
   const countEl = document.getElementById('todoCount');
   if (!container) return;
+  const card = container.closest('.card');
+  if (card) {
+      card.classList.remove('h-100'); // เอาคำสั่งยืดเต็มความสูงออก (ถ้ามี)
+      card.style.height = "fit-content"; // สั่งให้สูงเท่าที่จำเป็น
+  }
+
+  // 🌟 แก้บั๊กกลืนหาย: เปลี่ยนจาก 300px เป็น 550px ให้มันกินพื้นที่ลงมาได้อีกเยอะๆ แต่ไม่ล้นจอ
+  container.style.maxHeight = "550"; 
+  container.style.overflowY = "auto";
+  container.style.overflowX = "hidden";
+  container.style.paddingRight = "5px"; 
 
   if (!todos || todos.length === 0) {
-    container.innerHTML = `<div class="d-flex align-items-center justify-content-center w-100 animate__animated animate__fadeIn" style="min-height: 100px; background-color: #ffffff; border: none;"><div class="text-center"><i class="fas fa-check-double fa-lg mb-2 text-success" style="opacity: 0.12;"></i><br><span class="text-muted" style="font-size: 0.82rem; opacity: 0.4; letter-spacing: 0.5px;">เคลียร์งานหมดแล้วครับ 🎉</span></div></div>`; 
+    container.innerHTML = `<div class="d-flex align-items-center justify-content-center w-100 animate__animated animate__fadeIn" style="min-height: 100px; background-color: transparent; border: none;"><div class="text-center"><i class="fas fa-check-double fa-lg mb-2 text-success" style="opacity: 0.12;"></i><br><span class="text-muted" style="font-size: 0.82rem; opacity: 0.4; letter-spacing: 0.5px;">เคลียร์งานหมดแล้วครับ 🎉</span></div></div>`; 
     if (countEl) countEl.innerText = `0 งานค้าง`;
     return;
   }
@@ -532,13 +543,22 @@ function renderTodoList(todos) {
   const completed = todos.filter(t => t.done);
   const sortedTodos = [...pending, ...completed];
   let html = '';
+  
   sortedTodos.forEach((todo, index) => {
     const isDone = todo.done;
-    const textStyle = isDone ? 'text-muted text-decoration-line-through opacity-30' : 'text-dark';
-    const bgStyle = isDone ? 'bg-light' : 'bg-white';
+    const textStyle = isDone ? 'text-muted text-decoration-line-through opacity-50' : 'text-dark';
+    const bgStyle = isDone ? 'bg-light' : 'bg-transparent'; 
     const animationClass = "animate__animated animate__fadeIn animate__faster";
-    html += `<li class="list-group-item d-flex justify-content-between align-items-center ${bgStyle} border-0 px-2 py-1 mb-0 rounded-0 w-100 ${animationClass}"><div class="form-check text-truncate d-flex align-items-center mb-0" style="flex-grow: 1; min-height: auto;"><input class="form-check-input me-2 rounded-circle" type="checkbox" id="todo_${index}" ${isDone ? 'checked' : ''} onchange="toggleTodoByObject('${encodeURIComponent(JSON.stringify(todo))}')" style="cursor:pointer; width:0.95rem; height:0.95rem; margin-top: 0; flex-shrink: 0; transition: all 0.3s;"><label class="form-check-label text-truncate ${textStyle}" for="todo_${index}" style="font-size: 0.82rem; cursor:pointer; line-height: 1.4; transition: all 0.3s; width: 100%;">${todo.text}</label></div><button class="btn btn-link btn-sm text-danger p-0 opacity-10" onclick="deleteTodoByText('${encodeURIComponent(todo.text)}')" style="border: none; text-decoration: none; margin-right: 12px; transition: opacity 0.2s;" title="ลบ"><i class="fas fa-times" style="font-size: 0.9rem;"></i></button></li>`;
+    
+    html += `<li class="list-group-item d-flex justify-content-between align-items-center ${bgStyle} border-0 border-bottom px-2 py-1 mb-0 w-100 ${animationClass}" style="border-color: #f5f5f5 !important; border-radius: 0;">
+      <div class="form-check d-flex align-items-center mb-0" style="flex-grow: 1; min-width: 0;">
+        <input class="form-check-input me-3 rounded-circle border-secondary" type="checkbox" id="todo_${index}" ${isDone ? 'checked' : ''} onchange="toggleTodoByObject('${encodeURIComponent(JSON.stringify(todo))}')" style="cursor:pointer; width:1rem; height:1rem; margin-top: 0; flex-shrink: 0; opacity: 0.7;">
+        <label class="form-check-label text-truncate ${textStyle}" for="todo_${index}" style="font-size: 0.85rem; cursor:pointer; line-height: 1.4; width: 100%;">${todo.text}</label>
+      </div>
+      <button class="btn btn-link btn-sm text-danger p-0 ms-2" onclick="deleteTodoByText('${encodeURIComponent(todo.text)}')" style="border: none; text-decoration: none; opacity: 0.3; transition: opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.3'" title="ลบ"><i class="fas fa-times" style="font-size: 0.8rem;"></i></button>
+    </li>`;
   });
+  
   container.innerHTML = html;
   if (countEl) countEl.innerText = `${pending.length} งานค้าง`;
 }
@@ -609,6 +629,7 @@ function initTeacherDashboard() {
   }
   
   loadTeacherAtRiskDashboard(user.id, user.currentTerm, user.currentYear);
+  loadMorningSummaryDashboard(user.id, user.currentTerm, user.currentYear);
   setTimeout(loadTodoList, 300);
 }
 
@@ -622,22 +643,60 @@ function renderTeacherTodaySchedule(timetable) {
     if(nextTitle) nextTitle.innerText = "ไม่มีภาระงานสอนวันนี้";
     return;
   }
-  timetable.sort((a,b) => a[5] - b[5]);
-  const timeMap = { 1: "08:30-09:20", 2: "09:20-10:10", 3: "10:20-11:10", 4: "11:10-12:00", 5: "13:00-13:50", 6: "13:50-14:40", 7: "14:40-15:30", 8: "15:30-16:00" };
+  
+  // จัดเรียงคาบเรียนจากน้อยไปมาก
+  timetable.sort((a,b) => parseInt(a[5]) - parseInt(b[5]));
+  
+  // 🌟 เพิ่มเวลาคาบ 0 และคาบอื่นๆ ให้ครบ
+  const timeMap = { 
+    0: "08:00-08:30", 
+    1: "08:30-09:20", 
+    2: "09:20-10:10", 
+    3: "10:20-11:10", 
+    4: "11:10-12:00", 
+    5: "13:00-13:50", 
+    6: "13:50-14:40", 
+    7: "14:40-15:30", 
+    8: "15:30-16:00" 
+  };
+  
   const now = new Date(); 
   const currentMinutes = now.getHours() * 60 + now.getMinutes();
   let nextClass = null; let html = '';
 
   timetable.forEach(r => {
-    const p = r[5]; const timeRange = timeMap[p] || "--:--"; const times = timeRange.split('-');
-    const [startH, startM] = times[0].split(':').map(Number); const startTotalMinutes = (startH * 60) + startM;
-    const [endH, endM] = times[1].split(':').map(Number); const endTotalMinutes = (endH * 60) + endM;
+    const p = parseInt(r[5]); // ดึงเลขคาบ
+    const timeRange = timeMap[p] || "00:00-00:00"; // 🌟 ดัก Error ถ้าเวลาไม่มี
+    const times = timeRange.split('-');
+    
+    // 🌟 ดัก Error ตอนคำนวณเวลา
+    let startTotalMinutes = 0, endTotalMinutes = 0;
+    if(times.length === 2) {
+       const [startH, startM] = times[0].split(':').map(Number); 
+       startTotalMinutes = (startH * 60) + startM;
+       const [endH, endM] = times[1].split(':').map(Number); 
+       endTotalMinutes = (endH * 60) + endM;
+    }
+
     if (!nextClass && startTotalMinutes > currentMinutes) nextClass = r;
     const isTeaching = (currentMinutes >= startTotalMinutes && currentMinutes < endTotalMinutes);
     const encodedItem = encodeURIComponent(JSON.stringify(r));
-    html += `<tr class="${isTeaching ? 'table-primary' : ''}" style="cursor: pointer; transition: background-color 0.2s;" onmouseover="this.style.backgroundColor='#f1f3f5'" onmouseout="this.style.backgroundColor=''" onclick="jumpToAttendance('${encodedItem}')" title="👆 คลิกเพื่อไปหน้าเช็คชื่อวิชานี้"><td class="ps-3 fw-bold align-middle">คาบ ${p}</td><td class="align-middle"><div class="fw-bold text-primary">${r[0]} - ${r[1]}</div><div class="small text-muted"><i class="fas fa-door-open me-1"></i>ห้อง ${r[2]} (${r[4]}) | <i class="fas fa-clock me-1"></i>${timeRange} น.</div></td><td class="text-center align-middle">${isTeaching ? '<span class="badge bg-danger pulse mb-1">กำลังสอน</span>' : (startTotalMinutes > currentMinutes ? '<span class="badge bg-light text-dark border mb-1">รอสอน</span>' : '<span class="badge bg-success mb-1">สอนเสร็จแล้ว</span>')}<br><span class="badge bg-primary rounded-pill" style="font-size: 0.65rem;"><i class="fas fa-hand-pointer me-1"></i>คลิกเช็คชื่อ</span></td></tr>`;
+    
+    html += `<tr class="${isTeaching ? 'table-primary' : ''}" style="cursor: pointer; transition: background-color 0.2s;" onmouseover="this.style.backgroundColor='#f1f3f5'" onmouseout="this.style.backgroundColor=''" onclick="jumpToAttendance('${encodedItem}')" title="👆 คลิกเพื่อไปหน้าเช็คชื่อวิชานี้">
+      <td class="ps-3 fw-bold align-middle">คาบ ${p}</td>
+      <td class="align-middle">
+        <div class="fw-bold text-primary">${r[0]} - ${r[1]}</div>
+        <div class="small text-muted"><i class="fas fa-door-open me-1"></i>ห้อง ${r[2]} (${r[4]}) | <i class="fas fa-clock me-1"></i>${timeRange} น.</div>
+      </td>
+      <td class="text-center align-middle">
+        ${isTeaching ? '<span class="badge bg-danger pulse mb-1">กำลังสอน</span>' : (startTotalMinutes > currentMinutes ? '<span class="badge bg-light text-dark border mb-1">รอสอน</span>' : '<span class="badge bg-success mb-1">สอนเสร็จแล้ว</span>')}
+        <br><span class="badge bg-primary rounded-pill" style="font-size: 0.65rem;"><i class="fas fa-hand-pointer me-1"></i>คลิกเช็คชื่อ</span>
+      </td>
+    </tr>`;
   });
+  
   tbody.innerHTML = html;
+  
   if(nextTitle && nextClass) {
     nextTitle.innerHTML = `คาบ ${nextClass[5]}: <span class="text-warning">${nextClass[0]}</span> ${nextClass[1]}`;
     nextDetail.innerHTML = `<i class="fas fa-door-open me-1"></i>ห้อง ${nextClass[2]} (${nextClass[4]}) | <i class="fas fa-clock me-1"></i>${timeMap[nextClass[5]]} น.`;
@@ -792,101 +851,368 @@ function autoSelectRoom() {
 }
 
 function loadStudentList(forceRefresh = false) {
-    const classVal = document.getElementById('selectClass').value;
-    const btn = document.getElementById('btnSubmitAll');
-    const dateInput = document.getElementById('teachingDate'); 
+  const classVal = document.getElementById('selectClass').value;
+  const btn = document.getElementById('btnSubmitAll');
+  const dateInput = document.getElementById('teachingDate'); 
 
-    if(!classVal) {
-        if(btn) btn.disabled = true;
-        document.getElementById('classInfoCard')?.classList.add('d-none');
-        document.getElementById('studentListSection')?.classList.add('d-none');
-        showLoader(false); return;
-    }
+  if(!classVal) {
+      if(btn) btn.disabled = true;
+      document.getElementById('classInfoCard')?.classList.add('d-none');
+      document.getElementById('studentListSection')?.classList.add('d-none');
+      showLoader(false); return;
+  }
 
-    const item = JSON.parse(classVal);
-    const fullClassName = getRealClassName(); 
-    let dateStr = dateInput && dateInput.value ? dateInput.value : new Date().toISOString().split('T')[0];
+  const item = JSON.parse(classVal);
+  const fullClassName = getRealClassName(); 
+  let dateStr = dateInput && dateInput.value ? dateInput.value : new Date().toISOString().split('T')[0];
+  
+  const isHR = (item[0].toUpperCase() === 'HR' || item[1].includes('โฮมรูม'));
 
-    document.getElementById('classInfoCard')?.classList.remove('d-none');
-    if(document.getElementById('dispClass')) document.getElementById('dispClass').innerText = `กำลังดึงรายชื่อห้อง: ${fullClassName}`;
+  document.getElementById('classInfoCard')?.classList.remove('d-none');
+  if(document.getElementById('dispClass')) document.getElementById('dispClass').innerText = `กำลังดึงรายชื่อห้อง: ${fullClassName}`;
 
-    showLoader(true);
-    const cacheKey = `v4_stdlist_${fullClassName}`;
+  // 🌟 ไม่ต้องซ่อนกล่องแล้ว! แต่ให้พิมพ์ข้อความอัตโนมัติลงไปแทน จะได้โชว์ลายเซ็นตามปกติ
+  const topicInput = document.getElementById('inputTopic');
+  if(topicInput) {
+      if (isHR && !topicInput.value) {
+          topicInput.value = "กิจกรรมโฮมรูมและตรวจความเรียบร้อย";
+      } else if (!isHR && topicInput.value === "กิจกรรมโฮมรูมและตรวจความเรียบร้อย") {
+          topicInput.value = ""; // เคลียร์ออกถ้ากลับมาวิชาปกติ
+      }
+  }
 
-    const fetchHistoryAndRender = (studentsData) => {
-        google.script.run
-        .withFailureHandler(err => { showLoader(false); renderAttendanceTable(studentsData, {}); })
-        .withSuccessHandler(function(historyArray) {
-            showLoader(false);
-            const historyMap = {};
-            if (historyArray) { historyArray.forEach(h => { historyMap[h.cleanId] = h.status; historyMap[String(h.studentId).trim()] = h.status; }); }
-            renderAttendanceTable(studentsData, historyMap);
-            document.getElementById('studentListSection')?.classList.remove('d-none');
-            
-            if(btn) {
-                btn.disabled = false;
-                if(Object.keys(historyMap).length > 0) {
-                    btn.innerHTML = '<i class="fas fa-edit me-1"></i> อัปเดตข้อมูลการสอน (ย้อนหลัง)';
-                    btn.className = "btn btn-warning w-100 mt-4 py-3 fw-bold shadow-sm";
-                } else {
-                    btn.innerHTML = '<i class="fas fa-save me-1"></i> บันทึกข้อมูลการสอน';
-                    btn.className = "btn btn-primary w-100 mt-4 py-3 fw-bold shadow-sm";
-                }
-                let detailBtn = document.getElementById('btnDetailedSubmit');
-                if(!detailBtn) btn.insertAdjacentHTML('afterend', `<button id="btnDetailedSubmit" class="btn btn-outline-success w-100 py-2 mt-2 fw-bold shadow-sm" onclick="openDetailedLessonModal()"><i class="fas fa-clipboard-list me-2"></i>จบบทเรียน: บันทึกหลังสอนแบบละเอียด (DPA/3R8C)</button>`);
-            }
-            setTimeout(setupSignatureCanvas, 200);
-        }).getTodayAttendanceHistory(dateStr, item[0], fullClassName);
-    };
+  showLoader(true);
+  const cacheKey = `v4_stdlist_${fullClassName}`;
 
-    if (!forceRefresh && sessionStorage.getItem(cacheKey)) {
-        currentStudents = JSON.parse(sessionStorage.getItem(cacheKey));
-        fetchHistoryAndRender(currentStudents); 
-    } else {
-        google.script.run
-        .withFailureHandler(err => { showLoader(false); alert("Error: " + err.message); })
-        .withSuccessHandler(function(students) {
-            currentStudents = students;
-            if(!students || students.length === 0) {
-                showLoader(false);
-                document.getElementById('studentRows').innerHTML = `<tr><td colspan="3" class="text-center p-4 text-danger">ไม่พบรายชื่อนักเรียนห้อง ${fullClassName}</td></tr>`;
-                if(btn) btn.disabled = true; return;
-            }
-            try { sessionStorage.setItem(cacheKey, JSON.stringify(students)); } catch(e){}
-            fetchHistoryAndRender(students);
-        }).getStudentsByClass(fullClassName);
-    }
+  const fetchHistoryAndRender = (studentsData) => {
+      if (isHR) {
+          google.script.run
+          .withFailureHandler(err => { showLoader(false); renderMorningTable(studentsData, {}); })
+          .withSuccessHandler(function(historyData) {
+              showLoader(false);
+              renderMorningTable(studentsData, historyData || {});
+              document.getElementById('studentListSection')?.classList.remove('d-none');
+              
+              if(btn) {
+                  btn.disabled = false;
+                  // 🌟 ถ้ามีประวัติแล้ว ให้เปลี่ยนปุ่มเป็น "อัปเดตข้อมูล"
+                  if(historyData && Object.keys(historyData).length > 0) {
+                      btn.innerHTML = '<i class="fas fa-edit me-1"></i> อัปเดตข้อมูลโฮมรูม (ย้อนหลัง)';
+                      btn.className = "btn btn-warning text-dark w-100 mt-4 py-3 fw-bold shadow-sm";
+                  } else {
+                      btn.innerHTML = '<i class="fas fa-sun me-1"></i> บันทึกข้อมูลโฮมรูม';
+                      btn.className = "btn btn-primary w-100 mt-4 py-3 fw-bold shadow-sm";
+                  }
+                  
+                  let detailBtn = document.getElementById('btnDetailedSubmit');
+                  if(detailBtn) detailBtn.classList.add('d-none');
+              }
+              setTimeout(setupSignatureCanvas, 200);
+          }).getMorningActivityData(dateStr, fullClassName);
+      } else {
+          google.script.run
+          .withFailureHandler(err => { showLoader(false); renderAttendanceTable(studentsData, {}); })
+          .withSuccessHandler(function(historyArray) {
+              showLoader(false);
+              const historyMap = {};
+              if (historyArray) { historyArray.forEach(h => { historyMap[h.cleanId] = h.status; historyMap[String(h.studentId).trim()] = h.status; }); }
+              renderAttendanceTable(studentsData, historyMap);
+              document.getElementById('studentListSection')?.classList.remove('d-none');
+              
+              if(btn) {
+                  btn.disabled = false;
+                  if(Object.keys(historyMap).length > 0) {
+                      btn.innerHTML = '<i class="fas fa-edit me-1"></i> อัปเดตข้อมูลการสอน (ย้อนหลัง)';
+                      btn.className = "btn btn-warning w-100 mt-4 py-3 fw-bold shadow-sm";
+                  } else {
+                      btn.innerHTML = '<i class="fas fa-save me-1"></i> บันทึกข้อมูลการสอน';
+                      btn.className = "btn btn-primary w-100 mt-4 py-3 fw-bold shadow-sm";
+                  }
+                  let detailBtn = document.getElementById('btnDetailedSubmit');
+                  if(detailBtn) detailBtn.classList.remove('d-none'); 
+              }
+              setTimeout(setupSignatureCanvas, 200);
+          }).getTodayAttendanceHistory(dateStr, item[0], fullClassName);
+      }
+  };
+
+  if (!forceRefresh && sessionStorage.getItem(cacheKey)) {
+      currentStudents = JSON.parse(sessionStorage.getItem(cacheKey));
+      fetchHistoryAndRender(currentStudents); 
+  } else {
+      google.script.run
+      .withFailureHandler(err => { showLoader(false); alert("Error: " + err.message); })
+      .withSuccessHandler(function(students) {
+          currentStudents = students;
+          if(!students || students.length === 0) {
+              showLoader(false);
+              document.getElementById('studentRows').innerHTML = `<tr><td colspan="5" class="text-center p-4 text-danger">ไม่พบรายชื่อนักเรียนห้อง ${fullClassName}</td></tr>`;
+              if(btn) btn.disabled = true; return;
+          }
+          try { sessionStorage.setItem(cacheKey, JSON.stringify(students)); } catch(e){}
+          fetchHistoryAndRender(students);
+      }).getStudentsByClass(fullClassName);
+  }
 }
 
 function renderAttendanceTable(students, historyMap = {}) {
-  let html = '';
-  students.sort((a, b) => String(a[0]).localeCompare(String(b[0])));
-  
-  students.forEach((s, index) => {
-    const rawId = String(s[0]).trim();    
-    const cleanId = String(parseInt(rawId)); 
-    const stdName = s[2];
-    
-    let currentStatus = "มา"; let isMatched = false;
-    if (historyMap[cleanId]) { currentStatus = historyMap[cleanId]; isMatched = true; } 
-    else if (historyMap[rawId]) { currentStatus = historyMap[rawId]; isMatched = true; }
-    
-    html += `<tr><td class="text-center fw-bold text-muted">${index + 1}</td><td><div class="fw-bold">${stdName}</div><div class="small text-muted">ID: ${rawId} ${isMatched ? '<i class="fas fa-check-circle text-success ms-1"></i>' : ''}</div></td><td><div class="btn-group w-100" role="group"><input type="radio" class="btn-check" name="status_${rawId}" id="present_${rawId}" value="มา" ${currentStatus === 'มา' ? 'checked' : ''} onchange="updateSummary()"><label class="btn btn-outline-success btn-sm" for="present_${rawId}">มา</label><input type="radio" class="btn-check" name="status_${rawId}" id="late_${rawId}" value="สาย" ${currentStatus === 'สาย' ? 'checked' : ''} onchange="updateSummary()"><label class="btn btn-outline-warning btn-sm" for="late_${rawId}">สาย</label><input type="radio" class="btn-check" name="status_${rawId}" id="leave_${rawId}" value="ลา" ${currentStatus === 'ลา' || currentStatus === 'leave' ? 'checked' : ''} onchange="updateSummary()"><label class="btn btn-outline-info btn-sm" for="leave_${rawId}">ลา</label><input type="radio" class="btn-check" name="status_${rawId}" id="absent_${rawId}" value="ขาด" ${currentStatus === 'ขาด' ? 'checked' : ''} onchange="updateSummary()"><label class="btn btn-outline-danger btn-sm" for="absent_${rawId}">ขาด</label></div></td></tr>`;
-  });
-  
-  document.getElementById('studentRows').innerHTML = html;
-  updateSummary();
+  try {
+      const tbody = document.getElementById('studentRows');
+      if (!tbody) return;
+      
+      const table = tbody.closest('table');
+      if (table) {
+          let thead = table.querySelector('thead');
+          if (thead) {
+              thead.innerHTML = `
+                  <tr class="table-primary text-center">
+                      <th style="width: 50px;">ที่</th>
+                      <th class="text-start">ชื่อ-สกุล</th>
+                      <th>สถานะการเข้าเรียน</th>
+                  </tr>
+              `;
+          }
+      }
+
+      let html = '';
+      students.sort((a, b) => String(a[0]).localeCompare(String(b[0])));
+      
+      students.forEach((s, index) => {
+        const rawId = String(s[0]).trim();    
+        const cleanId = String(parseInt(rawId, 10)); 
+        const stdName = s[2];
+        
+        let currentStatus = "มา"; let isMatched = false;
+        if (historyMap[cleanId]) { currentStatus = historyMap[cleanId]; isMatched = true; } 
+        else if (historyMap[rawId]) { currentStatus = historyMap[rawId]; isMatched = true; }
+        
+        html += `<tr><td class="text-center fw-bold text-muted">${index + 1}</td><td><div class="fw-bold">${stdName}</div><div class="small text-muted">ID: ${rawId} ${isMatched ? '<i class="fas fa-check-circle text-success ms-1"></i>' : ''}</div></td><td><div class="btn-group w-100" role="group"><input type="radio" class="btn-check" name="status_${rawId}" id="present_${rawId}" value="มา" ${currentStatus === 'มา' ? 'checked' : ''} onchange="updateSummary()"><label class="btn btn-outline-success btn-sm" for="present_${rawId}">มา</label><input type="radio" class="btn-check" name="status_${rawId}" id="late_${rawId}" value="สาย" ${currentStatus === 'สาย' ? 'checked' : ''} onchange="updateSummary()"><label class="btn btn-outline-warning btn-sm" for="late_${rawId}">สาย</label><input type="radio" class="btn-check" name="status_${rawId}" id="leave_${rawId}" value="ลา" ${currentStatus === 'ลา' || currentStatus === 'leave' ? 'checked' : ''} onchange="updateSummary()"><label class="btn btn-outline-info btn-sm" for="leave_${rawId}">ลา</label><input type="radio" class="btn-check" name="status_${rawId}" id="absent_${rawId}" value="ขาด" ${currentStatus === 'ขาด' ? 'checked' : ''} onchange="updateSummary()"><label class="btn btn-outline-danger btn-sm" for="absent_${rawId}">ขาด</label></div></td></tr>`;
+      });
+      
+      tbody.innerHTML = html;
+      if (typeof updateSummary === "function") updateSummary();
+      
+  } catch(e) {
+      console.error("Error in renderAttendanceTable:", e);
+  }
 }
 
-function updateSummary() {
-  const present = document.querySelectorAll('input[value="มา"]:checked').length;
-  const absent = document.querySelectorAll('input[value="ขาด"]:checked').length;
-  const late = document.querySelectorAll('input[value="สาย"]:checked').length;
-  const leave = document.querySelectorAll('input[value="ลา"]:checked').length;
+// ==========================================
+// ☀️ ฟังก์ชันสรุปยอด สำหรับตารางโฮมรูม
+// ==========================================
+
+function updateMorningSummary() {
+  const present = document.querySelectorAll('input[value="มา"][id^="t_f_"]:checked').length;
+  const late = document.querySelectorAll('input[value="สาย"][id^="t_f_"]:checked').length;
+  const leave = document.querySelectorAll('input[value="ลา"][id^="t_f_"]:checked').length;
+  const absent = document.querySelectorAll('input[value="ขาด"][id^="t_f_"]:checked').length;
 
   if(document.getElementById('sumPresent')) document.getElementById('sumPresent').innerText = present;
   if(document.getElementById('sumAbsent')) document.getElementById('sumAbsent').innerText = absent;
   if(document.getElementById('sumOther')) document.getElementById('sumOther').innerText = late + leave;
+
+  let absentNames = [], lateNames = [], leaveNames = [], notAreaNames = [], notDutyNames = [];
+  
+  document.querySelectorAll('#studentRows tr').forEach(tr => {
+      const nameDiv = tr.querySelector('.std-name-label'); 
+      if(!nameDiv) return;
+      const name = nameDiv.innerText;
+      
+      if(tr.querySelector('input[value="ขาด"][id^="t_f_"]:checked')) absentNames.push(name);
+      if(tr.querySelector('input[value="สาย"][id^="t_f_"]:checked')) lateNames.push(name);
+      if(tr.querySelector('input[value="ลา"][id^="t_f_"]:checked')) leaveNames.push(name);
+      if(tr.querySelector('input[value="ไม่เข้า"][id^="t_a_"]:checked')) notAreaNames.push(name);
+      if(tr.querySelector('input[value="ไม่ทำ"][id^="t_d_"]:checked')) notDutyNames.push(name);
+  });
+
+  const freq = {};
+  const allNames = [...absentNames, ...lateNames, ...leaveNames, ...notAreaNames, ...notDutyNames];
+  allNames.forEach(name => freq[name] = (freq[name] || 0) + 1);
+
+  const sortNames = (arr) => arr.sort((a, b) => freq[b] !== freq[a] ? freq[b] - freq[a] : a.localeCompare(b, 'th'));
+
+  absentNames = sortNames(absentNames); lateNames = sortNames(lateNames); leaveNames = sortNames(leaveNames);
+  notAreaNames = sortNames(notAreaNames); notDutyNames = sortNames(notDutyNames);
+
+  // 🌟 เอาตัวหนาออก และเหลือแค่ตัวเลข
+  const formatNames = (names) => names.map(n => {
+      let countTxt = freq[n] > 1 ? `<span class="text-danger ms-1" style="font-size:0.75rem;">(${freq[n]})</span>` : '';
+      return `<span class="d-inline-block text-dark" style="white-space: nowrap;">${n}${countTxt}</span>`;
+  }).join('<span class="text-muted mx-1">,</span> ');
+
+  const oldSummary = document.getElementById('morningSummaryAlert');
+  if(oldSummary) oldSummary.remove();
+
+  let summaryHtml = `<div id="morningSummaryAlert" class="alert alert-warning shadow-sm py-2 mb-3 border-start border-4 border-warning animate__animated animate__fadeIn"><div class="fw-bold mb-2 text-dark" style="font-size:0.9rem;"><i class="fas fa-clipboard-list me-1"></i> สรุปรายชื่อผู้ไม่เข้าร่วมกิจกรรม:</div>`;
+  
+  if(absentNames.length > 0) summaryHtml += `<div class="text-danger small mb-2"><span class="badge bg-danger me-1">ขาดเสาธง (${absentNames.length})</span> <span style="line-height:1.8;">${formatNames(absentNames)}</span></div>`;
+  if(lateNames.length > 0) summaryHtml += `<div class="text-warning text-dark small mb-2"><span class="badge bg-warning text-dark me-1">สาย (${lateNames.length})</span> <span style="line-height:1.8;">${formatNames(lateNames)}</span></div>`;
+  if(leaveNames.length > 0) summaryHtml += `<div class="text-info text-dark small mb-2"><span class="badge bg-info text-dark me-1">ลา (${leaveNames.length})</span> <span style="line-height:1.8;">${formatNames(leaveNames)}</span></div>`;
+  if(notAreaNames.length > 0) summaryHtml += `<div class="text-secondary small mb-2"><span class="badge bg-secondary me-1">ไม่เข้าเขต (${notAreaNames.length})</span> <span style="line-height:1.8;">${formatNames(notAreaNames)}</span></div>`;
+  if(notDutyNames.length > 0) summaryHtml += `<div class="text-secondary small mb-2"><span class="badge bg-secondary me-1">ไม่ทำเวร (${notDutyNames.length})</span> <span style="line-height:1.8;">${formatNames(notDutyNames)}</span></div>`;
+  
+  if (absentNames.length === 0 && lateNames.length === 0 && leaveNames.length === 0 && notAreaNames.length === 0 && notDutyNames.length === 0) {
+      summaryHtml += `<div class="text-success small fw-bold"><i class="fas fa-check-circle me-1"></i>เรียบร้อยครบทุกคน 🎉</div>`;
+  }
+  summaryHtml += `</div>`;
+  
+  const tableContainer = document.getElementById('studentRows')?.closest('.table-responsive');
+  if(tableContainer) tableContainer.insertAdjacentHTML('beforebegin', summaryHtml);
+}
+
+// ==========================================
+// ☀️ ฟังก์ชันสร้างการ์ดสรุปโฮมรูม บน Dashboard
+// ==========================================
+function loadMorningSummaryDashboard(teacherId, term, year) {
+  let container = document.getElementById('morningDashboardContainer');
+  if (!container) {
+     const scheduleCard = document.getElementById('todayScheduleBody')?.closest('.card');
+     const parentRow = scheduleCard?.closest('.row'); 
+     if(parentRow) {
+         parentRow.insertAdjacentHTML('afterend', '<div class="row mt-4 mb-4"><div class="col-12"><div id="morningDashboardContainer" class="animate__animated animate__fadeInUp"></div></div></div>');
+     } else {
+         const pageContent = document.getElementById('page-content');
+         pageContent.insertAdjacentHTML('beforeend', '<div id="morningDashboardContainer" class="mt-4 mb-4 animate__animated animate__fadeInUp"></div>');
+     }
+     container = document.getElementById('morningDashboardContainer');
+  }
+
+  container.innerHTML = `<div class="text-center p-3"><div class="spinner-border text-warning spinner-border-sm me-2"></div><span class="small text-muted">กำลังโหลดสรุปโฮมรูม...</span></div>`;
+
+  google.script.run.withSuccessHandler(res => {
+     if (!res || !res.hasHR) { container.closest('.row').style.display = 'none'; return; }
+
+     const d = res.data;
+     if (!d.hasData) {
+        container.innerHTML = `<div class="card border-warning shadow-sm" style="border-radius: 10px;"><div class="card-header bg-warning text-dark fw-bold border-0" style="border-radius: 10px 10px 0 0;"><i class="fas fa-sun me-2"></i>สรุปกิจกรรมยามเช้า (ห้อง ${d.className})</div><div class="card-body text-center py-4 bg-light" style="border-radius: 0 0 10px 10px;"><i class="fas fa-clipboard-list fa-2x text-warning mb-2 opacity-50"></i><div class="text-muted small">ยังไม่มีการบันทึกข้อมูลของวันนี้</div></div></div>`;
+        return;
+     }
+
+     const freq = {};
+     const allNames = [...d.absent, ...d.late, ...d.leave, ...d.notArea, ...d.notDuty];
+     allNames.forEach(name => { freq[name] = (freq[name] || 0) + 1; });
+
+     const sortNames = (arr) => arr.sort((a, b) => freq[b] !== freq[a] ? freq[b] - freq[a] : a.localeCompare(b, 'th'));
+
+     d.absent = sortNames(d.absent); d.late = sortNames(d.late); d.leave = sortNames(d.leave); d.notArea = sortNames(d.notArea); d.notDuty = sortNames(d.notDuty);
+
+     let summaryHtml = `<div class="card border-warning shadow-sm" style="background-color: #fffdf5; border-radius: 10px;"><div class="card-header bg-warning text-dark fw-bold border-0 d-flex justify-content-between align-items-center" style="border-radius: 10px 10px 0 0;"><div><i class="fas fa-sun me-2"></i>สรุปกิจกรรมยามเช้า (ห้อง ${d.className})</div><div class="badge bg-white text-dark shadow-sm">ข้อมูลวันนี้</div></div><div class="card-body p-3 px-4">`;
+
+     if (d.absent.length === 0 && d.late.length === 0 && d.leave.length === 0 && d.notArea.length === 0 && d.notDuty.length === 0) {
+         summaryHtml += `<div class="text-success fw-bold text-center py-3"><i class="fas fa-check-circle fa-3x mb-3 text-success opacity-75"></i><br><span style="font-size: 1.1rem;">นักเรียนเข้าร่วมกิจกรรมครบทุกคน 🎉</span></div>`;
+     } else {
+         const renderRow = (label, count, names, badgeClass, iconClass) => {
+             if (names.length === 0) return '';
+             
+             const formattedNames = names.map(name => {
+                 // 🌟 เอาคำว่า รายการ และตัวหนาออก โชว์แค่ (ตัวเลข)
+                 let freqText = freq[name] > 1 ? `<span class="text-danger ms-1" style="font-size: 0.75rem;">(${freq[name]})</span>` : '';
+                 let nameColor = freq[name] > 1 ? 'text-dark' : 'text-secondary';
+                 return `<span class="d-inline-block ${nameColor}" style="white-space: nowrap;">${name}${freqText}</span>`;
+             }).join('<span class="text-muted mx-1">,</span> ');
+
+             return `<div class="d-flex align-items-start mb-3 pb-2 border-bottom" style="border-color: rgba(0,0,0,0.05) !important;">
+                        <div style="min-width: 105px;">
+                            <span class="badge ${badgeClass} shadow-sm w-100 py-2 text-start" style="font-size: 0.75rem;">
+                                <i class="fas ${iconClass} me-2"></i>${label} (${count})
+                            </span>
+                        </div>
+                        <div class="small ms-3" style="line-height: 1.9; flex-grow: 1;">
+                            ${formattedNames}
+                        </div>
+                     </div>`;
+         };
+         
+         summaryHtml += renderRow('ขาดเสาธง', d.absent.length, d.absent, 'bg-danger', 'fa-flag');
+         summaryHtml += renderRow('สาย', d.late.length, d.late, 'bg-warning text-dark', 'fa-clock');
+         summaryHtml += renderRow('ลา', d.leave.length, d.leave, 'bg-info text-dark', 'fa-envelope-open-text');
+         summaryHtml += renderRow('ไม่เข้าเขต', d.notArea.length, d.notArea, 'bg-secondary', 'fa-map-marker-alt');
+         summaryHtml += renderRow('ไม่ทำเวร', d.notDuty.length, d.notDuty, 'bg-secondary', 'fa-broom');
+     }
+     summaryHtml += `</div></div>`;
+     container.innerHTML = summaryHtml;
+  }).getTodayMorningSummary(teacherId, term, year);
+}
+
+// ==========================================
+// ☀️ ฟังก์ชันสร้างตารางเช็คชื่อโฮมรูม (HR) แทนตารางปกติ
+// ==========================================
+function renderMorningTable(students, historyData = {}) {
+  try {
+      const tbody = document.getElementById('studentRows');
+      if (!tbody) return;
+      
+      // เปลี่ยนหัวตารางอย่างปลอดภัย
+      const table = tbody.closest('table');
+      if (table) {
+          let thead = table.querySelector('thead');
+          if (thead) {
+              thead.innerHTML = `
+                  <tr class="table-warning text-dark text-center">
+                      <th style="width: 40px;">ที่</th>
+                      <th class="text-start ps-3">ชื่อ-สกุล</th>
+                      <th style="min-width: 120px;">เข้าเขตพื้นที่</th>
+                      <th style="min-width: 110px;">ทำเวร</th>
+                      <th style="min-width: 150px;">หน้าเสาธง</th>
+                  </tr>
+              `;
+          }
+      }
+
+      let html = '';
+      students.sort((a, b) => String(a[0]).localeCompare(String(b[0])));
+      
+      students.forEach((s, index) => {
+          const rawId = String(s[0]).trim();
+          const cleanId = String(parseInt(rawId, 10)); 
+          
+          // ดึงข้อมูลเก่า (ถ้ามี) ให้แม่นยำขึ้น สลับค่าเริ่มต้นให้ตรงกับรูปแบบใหม่
+          const h = historyData[rawId] || historyData[cleanId] || {};
+          const hArea = String(h.area || 'เข้าร่วม').trim();
+          const hDuty = String(h.duty || 'ทำ').trim();
+          const hFlag = String(h.flag || 'มา').trim();
+          
+          html += `<tr>
+            <td class="text-center text-muted fw-bold align-middle">${index + 1}</td>
+            <td class="text-start align-middle px-2">
+               <div class="fw-bold text-dark" style="font-size:0.85rem;">${s[2]}</div>
+               <div class="small text-muted font-monospace">ID: ${rawId} ${Object.keys(h).length > 0 ? '<i class="fas fa-check-circle text-success ms-1"></i>' : ''}</div>
+            </td>
+            
+            <td class="align-middle"><div class="btn-group btn-group-sm w-100 shadow-sm">
+              <input type="radio" class="btn-check" name="area_${rawId}" id="t_a_เข้า_${rawId}" value="เข้าร่วม" ${hArea==='เข้าร่วม'?'checked':''}>
+              <label class="btn btn-outline-info text-dark px-1" for="t_a_เข้า_${rawId}">เข้าร่วม</label>
+              <input type="radio" class="btn-check" name="area_${rawId}" id="t_a_ไม่เข้า_${rawId}" value="ไม่เข้า" ${hArea==='ไม่เข้า'?'checked':''}>
+              <label class="btn btn-outline-secondary px-1" for="t_a_ไม่เข้า_${rawId}">ไม่เข้า</label>
+            </div></td>
+            
+            <td class="align-middle"><div class="btn-group btn-group-sm w-100 shadow-sm">
+              <input type="radio" class="btn-check" name="duty_${rawId}" id="t_d_ทำ_${rawId}" value="ทำ" ${hDuty==='ทำ'?'checked':''}>
+              <label class="btn btn-outline-primary px-1" for="t_d_ทำ_${rawId}">ทำ</label>
+              <input type="radio" class="btn-check" name="duty_${rawId}" id="t_d_ไม่ทำ_${rawId}" value="ไม่ทำ" ${hDuty==='ไม่ทำ'?'checked':''}>
+              <label class="btn btn-outline-secondary px-1" for="t_d_ไม่ทำ_${rawId}">ไม่ทำ</label>
+            </div></td>
+            
+            <td class="align-middle"><div class="btn-group btn-group-sm w-100 shadow-sm">
+              <input type="radio" class="btn-check" name="flag_${rawId}" id="t_f_มา_${rawId}" value="มา" ${hFlag==='มา'?'checked':''} onchange="updateMorningSummary()">
+              <label class="btn btn-outline-success px-1" for="t_f_มา_${rawId}">มา</label>
+              <input type="radio" class="btn-check" name="flag_${rawId}" id="t_f_สาย_${rawId}" value="สาย" ${hFlag==='สาย'?'checked':''} onchange="updateMorningSummary()">
+              <label class="btn btn-outline-warning px-1" for="t_f_สาย_${rawId}">สาย</label>
+              <input type="radio" class="btn-check" name="flag_${rawId}" id="t_f_ลา_${rawId}" value="ลา" ${hFlag==='ลา'?'checked':''} onchange="updateMorningSummary()">
+              <label class="btn btn-outline-info px-1" for="t_f_ลา_${rawId}">ลา</label>
+              <input type="radio" class="btn-check" name="flag_${rawId}" id="t_f_ขาด_${rawId}" value="ขาด" ${hFlag==='ขาด'?'checked':''} onchange="updateMorningSummary()">
+              <label class="btn btn-outline-danger px-1" for="t_f_ขาด_${rawId}">ขาด</label>
+            </div></td>
+          </tr>`;
+      });
+      
+      tbody.innerHTML = html;
+      if (typeof updateMorningSummary === "function") updateMorningSummary();
+      
+  } catch(e) {
+      console.error("Error in renderMorningTable:", e);
+      alert("เกิดข้อผิดพลาดในการสร้างตารางโฮมรูม: " + e.message);
+  }
 }
 
 function setupSignatureCanvas() {
@@ -913,6 +1239,12 @@ function clearSignature() { if(sigCtx) { sigCtx.clearRect(0, 0, sigCanvas.width,
 
 function submitAcademicData() {
   const classVal = document.getElementById('selectClass').value;
+  if (!classVal) return;
+  const item = JSON.parse(classVal);
+  
+  const isHR = (item[0].toUpperCase() === 'HR' || item[1].includes('โฮมรูม'));
+  if (isHR) { submitMorningCheckAcademic(); return; }
+
   const topic = document.getElementById('inputTopic').value;
   const dateInput = document.getElementById('teachingDate'); 
   const user = getSessionUser();
@@ -924,8 +1256,10 @@ function submitAcademicData() {
   const btn = document.getElementById('btnSubmitAll');
   btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> กำลังบันทึก...';
 
-  const item = JSON.parse(classVal);
-  let date = dateInput && dateInput.value ? dateInput.value : new Date().toISOString().split('T')[0];
+  // 🌟 แก้ไขบั๊กเวลาสากล (UTC) ให้เป็นเวลาไทยเสมอ
+  const now = new Date();
+  const localDateStr = new Date(now.getTime() - (now.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
+  let date = dateInput && dateInput.value ? dateInput.value : localDateStr;
   const normalizedClassName = getRealClassName(); 
   
   const attendanceBatch = currentStudents.map(s => {
@@ -944,11 +1278,114 @@ function submitAcademicData() {
   google.script.run.withSuccessHandler(function() {
     google.script.run.withSuccessHandler(function() {
       showLoader(false);
-      sessionStorage.removeItem(`risk_dash_${user.id}_${user.currentTerm}_${user.currentYear}`);
+      const userData = sessionStorage.getItem('pssms_user');
+      sessionStorage.clear();
+      if(userData) sessionStorage.setItem('pssms_user', userData);
       alert("✅ บันทึกข้อมูลเช็คชื่อและผลการสอนเรียบร้อยแล้ว");
       loadPage('Page_Dashboard_Teacher'); 
     }).saveLessonRecord(lessonRecord);
   }).saveAttendanceBatch(attendanceBatch);
+}
+
+// 🌟 ฟังก์ชันกล่องสรุปรายชื่อแบบเรียลไทม์ (วิชาปกติ)
+function updateSummary() {
+  const present = document.querySelectorAll('input[value="มา"]:checked').length;
+  const late = document.querySelectorAll('input[value="สาย"]:checked').length;
+  const leave = document.querySelectorAll('input[value="ลา"]:checked').length;
+  const absent = document.querySelectorAll('input[value="ขาด"]:checked').length;
+
+  if(document.getElementById('sumPresent')) document.getElementById('sumPresent').innerText = present;
+  if(document.getElementById('sumAbsent')) document.getElementById('sumAbsent').innerText = absent;
+  if(document.getElementById('sumOther')) document.getElementById('sumOther').innerText = late + leave;
+
+  // กวาดรายชื่อมาโชว์ในกล่องสรุป
+  let absentNames = [], lateNames = [], leaveNames = [];
+  document.querySelectorAll('#studentRows tr').forEach(tr => {
+      const nameDiv = tr.querySelector('.fw-bold');
+      if(!nameDiv) return;
+      const name = nameDiv.innerText;
+      if(tr.querySelector('input[value="ขาด"]:checked')) absentNames.push(name);
+      if(tr.querySelector('input[value="สาย"]:checked')) lateNames.push(name);
+      if(tr.querySelector('input[value="ลา"]:checked')) leaveNames.push(name);
+  });
+
+  const oldSummary = document.getElementById('attendanceSummaryAlert');
+  if(oldSummary) oldSummary.remove();
+
+  let summaryHtml = `<div id="attendanceSummaryAlert" class="alert alert-primary shadow-sm py-2 mb-3 border-start border-4 border-primary animate__animated animate__fadeIn">
+      <div class="fw-bold mb-1" style="font-size:0.9rem;"><i class="fas fa-users me-1"></i> สรุปรายชื่อผู้ที่ไม่ได้เข้าเรียนปกติ:</div>`;
+  if (absentNames.length === 0 && lateNames.length === 0 && leaveNames.length === 0) {
+      summaryHtml += `<div class="text-success small fw-bold"><i class="fas fa-check-circle me-1"></i>มาครบทุกคน 🎉</div>`;
+  } else {
+      if(absentNames.length > 0) summaryHtml += `<div class="text-danger small mb-1"><b>ขาด (${absentNames.length}):</b> ${absentNames.join(', ')}</div>`;
+      if(lateNames.length > 0) summaryHtml += `<div class="text-warning text-dark small mb-1"><b>สาย (${lateNames.length}):</b> ${lateNames.join(', ')}</div>`;
+      if(leaveNames.length > 0) summaryHtml += `<div class="text-info text-dark small mb-1"><b>ลา (${leaveNames.length}):</b> ${leaveNames.join(', ')}</div>`;
+  }
+  summaryHtml += `</div>`;
+  
+  const tableContainer = document.getElementById('studentRows')?.closest('.table-responsive');
+  if(tableContainer) tableContainer.insertAdjacentHTML('beforebegin', summaryHtml);
+}
+
+// ==========================================
+// ☀️ ฟังก์ชันบันทึกกิจกรรมยามเช้า (จากหน้าหลัก)
+// ==========================================
+function submitMorningCheckAcademic() {
+  const classVal = document.getElementById('selectClass').value;
+  const item = JSON.parse(classVal);
+  const dateInput = document.getElementById('teachingDate');
+  const user = getSessionUser();
+  
+  // 🌟 แก้ไขบั๊กเวลาสากล (UTC)
+  const now = new Date();
+  const localDateStr = new Date(now.getTime() - (now.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
+  let dateStr = dateInput && dateInput.value ? dateInput.value : localDateStr;
+  const className = getRealClassName();
+  
+  const sigData = sigCanvas.toDataURL();
+  if(sigData.length < 1000) return alert("กรุณาลงลายเซ็นครูที่ปรึกษาก่อนบันทึกครับ");
+
+  const records = [];
+  currentStudents.forEach(s => {
+    const stdId = String(s[0]).trim();
+    records.push({
+      studentId: stdId,
+      studentName: s[2],
+      area: document.querySelector(`#studentRows input[name="area_${stdId}"]:checked`).value,
+      duty: document.querySelector(`#studentRows input[name="duty_${stdId}"]:checked`).value,
+      flag: document.querySelector(`#studentRows input[name="flag_${stdId}"]:checked`).value
+    });
+  });
+
+  const payload = {
+    date: dateStr, term: user.currentTerm, year: user.currentYear,
+    className: className, teacherId: user.id, records: records
+  };
+
+  const btn = document.getElementById('btnSubmitAll');
+  const oldText = btn.innerHTML;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>กำลังบันทึก...';
+  btn.disabled = true;
+  showLoader(true);
+
+  google.script.run
+    .withSuccessHandler(res => {
+      showLoader(false);
+      btn.innerHTML = oldText;
+      btn.disabled = false;
+      alert(res.message);
+      const userData = sessionStorage.getItem('pssms_user');
+      sessionStorage.clear();
+      if(userData) sessionStorage.setItem('pssms_user', userData);
+      loadPage('Page_Dashboard_Teacher'); 
+    })
+    .withFailureHandler(err => {
+      showLoader(false);
+      btn.innerHTML = oldText;
+      btn.disabled = false;
+      alert("❌ เกิดข้อผิดพลาด: " + err.message);
+    })
+    .saveMorningActivityBatch(payload);
 }
 
 function getSessionUser() { return JSON.parse(localStorage.getItem('pssms_user') || sessionStorage.getItem('pssms_user')); }
@@ -2271,28 +2708,64 @@ function renderMorningCheckModal(students, historyData, className, dateStr) {
   students.sort((a, b) => String(a[0]).localeCompare(String(b[0])));
   
   students.forEach((s, index) => {
-    const stdId = String(s[0]).trim();
+    const rawId = String(s[0]).trim();
+    const cleanId = String(parseInt(rawId, 10)); // 🌟 กันรหัสโดนตัดเลข 0
     const stdName = s[2];
     
-    // โหลดค่าเดิมที่เคยบันทึก ถ้ายังไม่เคยบันทึกให้ตั้งเป็น มา/ทำ/เข้าร่วม อัตโนมัติ
-    const h = historyData[stdId] || { area: 'มา', duty: 'ทำ', flag: 'เข้าร่วม' };
+    // 🌟 ดึงข้อมูลเก่าแบบแม่นยำ (แมตช์ได้ทั้งมี 0 และไม่มี 0)
+    const h = historyData[rawId] || historyData[cleanId] || {};
+    let hArea = String(h.area || '').trim(); 
+    let hDuty = String(h.duty || '').trim();
+    let hFlag = String(h.flag || '').trim();
     
+    // 🛠️ Auto-Converter
+    if (["มา", "สาย", "ลา", "ขาด"].includes(hArea) || ["เข้าร่วม", "ไม่เข้า"].includes(hFlag)) {
+        let tempArea = hArea;
+        hArea = ["เข้าร่วม", "ไม่เข้า"].includes(hFlag) ? hFlag : 'เข้าร่วม';
+        hFlag = ["มา", "สาย", "ลา", "ขาด"].includes(tempArea) ? tempArea : 'มา';
+    }
+    if (hDuty === 'มาทำ') hDuty = 'ทำ';
+    if (hDuty === 'ไม่มา') hDuty = 'ไม่ทำ';
+    
+    if (!hArea) hArea = 'เข้าร่วม';
+    if (!hDuty) hDuty = 'ทำ';
+    if (!hFlag) hFlag = 'มา';
+    
+    // 🌟 เปลี่ยนชื่อ name เป็น modal_ นำหน้า ป้องกันการตีกันกับหน้าปกติ
     html += `<tr>
       <td class="text-center text-muted fw-bold align-middle">${index + 1}</td>
       <td class="text-start align-middle px-2">
          <div class="fw-bold text-dark" style="font-size:0.85rem;">${stdName}</div>
-         <div class="small text-muted font-monospace">${stdId}</div>
+         <div class="small text-muted font-monospace">ID: ${rawId} ${Object.keys(h).length > 0 ? '<i class="fas fa-check-circle text-success ms-1"></i>' : ''}</div>
       </td>
       
-      <td class="align-middle"><div class="btn-group btn-group-sm w-100 shadow-sm"><input type="radio" class="btn-check" name="area_${stdId}" id="a_มา_${stdId}" value="มา" ${h.area==='มา'?'checked':''}><label class="btn btn-outline-success px-1" for="a_มา_${stdId}">มา</label><input type="radio" class="btn-check" name="area_${stdId}" id="a_สาย_${stdId}" value="สาย" ${h.area==='สาย'?'checked':''}><label class="btn btn-outline-warning px-1" for="a_สาย_${stdId}">สาย</label><input type="radio" class="btn-check" name="area_${stdId}" id="a_ลา_${stdId}" value="ลา" ${h.area==='ลา'?'checked':''}><label class="btn btn-outline-info px-1" for="a_ลา_${stdId}">ลา</label><input type="radio" class="btn-check" name="area_${stdId}" id="a_ขาด_${stdId}" value="ขาด" ${h.area==='ขาด'?'checked':''}><label class="btn btn-outline-danger px-1" for="a_ขาด_${stdId}">ขาด</label></div></td>
+      <td class="align-middle"><div class="btn-group btn-group-sm w-100 shadow-sm">
+        <input type="radio" class="btn-check" name="modal_area_${rawId}" id="m_a_เข้า_${rawId}" value="เข้าร่วม" ${hArea==='เข้าร่วม'?'checked':''}>
+        <label class="btn btn-outline-info text-dark px-1" for="m_a_เข้า_${rawId}">เข้าร่วม</label>
+        <input type="radio" class="btn-check" name="modal_area_${rawId}" id="m_a_ไม่เข้า_${rawId}" value="ไม่เข้า" ${hArea==='ไม่เข้า'?'checked':''}>
+        <label class="btn btn-outline-secondary px-1" for="m_a_ไม่เข้า_${rawId}">ไม่เข้า</label>
+      </div></td>
       
-      <td class="align-middle"><div class="btn-group btn-group-sm w-100 shadow-sm"><input type="radio" class="btn-check" name="duty_${stdId}" id="d_ทำ_${stdId}" value="ทำ" ${h.duty==='ทำ'?'checked':''}><label class="btn btn-outline-primary px-1" for="d_ทำ_${stdId}">ทำ</label><input type="radio" class="btn-check" name="duty_${stdId}" id="d_ไม่ทำ_${stdId}" value="ไม่ทำ" ${h.duty==='ไม่ทำ'?'checked':''}><label class="btn btn-outline-secondary px-1" for="d_ไม่ทำ_${stdId}">ไม่ทำ</label></div></td>
+      <td class="align-middle"><div class="btn-group btn-group-sm w-100 shadow-sm">
+        <input type="radio" class="btn-check" name="modal_duty_${rawId}" id="m_d_ทำ_${rawId}" value="ทำ" ${hDuty==='ทำ'?'checked':''}>
+        <label class="btn btn-outline-primary px-1" for="m_d_ทำ_${rawId}">ทำ</label>
+        <input type="radio" class="btn-check" name="modal_duty_${rawId}" id="m_d_ไม่ทำ_${rawId}" value="ไม่ทำ" ${hDuty==='ไม่ทำ'?'checked':''}>
+        <label class="btn btn-outline-secondary px-1" for="m_d_ไม่ทำ_${rawId}">ไม่ทำ</label>
+      </div></td>
       
-      <td class="align-middle"><div class="btn-group btn-group-sm w-100 shadow-sm"><input type="radio" class="btn-check" name="flag_${stdId}" id="f_เข้า_${stdId}" value="เข้าร่วม" ${h.flag==='เข้าร่วม'?'checked':''}><label class="btn btn-outline-info text-dark px-1" for="f_เข้า_${stdId}">เข้าร่วม</label><input type="radio" class="btn-check" name="flag_${stdId}" id="f_ไม่เข้า_${stdId}" value="ไม่เข้า" ${h.flag==='ไม่เข้า'?'checked':''}><label class="btn btn-outline-secondary px-1" for="f_ไม่เข้า_${stdId}">ไม่เข้า</label></div></td>
+      <td class="align-middle"><div class="btn-group btn-group-sm w-100 shadow-sm">
+        <input type="radio" class="btn-check" name="modal_flag_${rawId}" id="m_f_มา_${rawId}" value="มา" ${hFlag==='มา'?'checked':''}>
+        <label class="btn btn-outline-success px-1" for="m_f_มา_${rawId}">มา</label>
+        <input type="radio" class="btn-check" name="modal_flag_${rawId}" id="m_f_สาย_${rawId}" value="สาย" ${hFlag==='สาย'?'checked':''}>
+        <label class="btn btn-outline-warning px-1" for="m_f_สาย_${rawId}">สาย</label>
+        <input type="radio" class="btn-check" name="modal_flag_${rawId}" id="m_f_ลา_${rawId}" value="ลา" ${hFlag==='ลา'?'checked':''}>
+        <label class="btn btn-outline-info px-1" for="m_f_ลา_${rawId}">ลา</label>
+        <input type="radio" class="btn-check" name="modal_flag_${rawId}" id="m_f_ขาด_${rawId}" value="ขาด" ${hFlag==='ขาด'?'checked':''}>
+        <label class="btn btn-outline-danger px-1" for="m_f_ขาด_${rawId}">ขาด</label>
+      </div></td>
     </tr>`;
   });
 
-  // สร้างโครงสร้าง Modal
   const modalHtml = `
   <div class="modal fade" id="morningCheckModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-xl modal-fullscreen-lg-down">
@@ -2311,9 +2784,9 @@ function renderMorningCheckModal(students, historyData, className, dateStr) {
                 <tr>
                   <th style="width: 40px;">ที่</th>
                   <th class="text-start ps-3">ชื่อ-สกุล</th>
-                  <th style="min-width: 170px;">เข้าเขตพื้นที่</th>
+                  <th style="min-width: 120px;">เข้าเขตพื้นที่</th>
                   <th style="min-width: 110px;">ทำเวรประจำวัน</th>
-                  <th style="min-width: 120px;">กิจกรรมหน้าเสาธง</th>
+                  <th style="min-width: 150px;">กิจกรรมหน้าเสาธง</th>
                 </tr>
               </thead>
               <tbody>${html}</tbody>
@@ -2344,13 +2817,14 @@ function submitMorningCheck(dateStr, className) {
   const records = [];
   
   currentMorningStudents.forEach(s => {
-    const stdId = String(s[0]).trim();
+    const rawId = String(s[0]).trim();
+    // 🌟 ดึงข้อมูลจาก name ใหม่ที่มีคำว่า modal_ นำหน้า
     records.push({
-      studentId: stdId,
+      studentId: rawId,
       studentName: s[2],
-      area: document.querySelector(`input[name="area_${stdId}"]:checked`).value,
-      duty: document.querySelector(`input[name="duty_${stdId}"]:checked`).value,
-      flag: document.querySelector(`input[name="flag_${stdId}"]:checked`).value
+      area: document.querySelector(`input[name="modal_area_${rawId}"]:checked`).value,
+      duty: document.querySelector(`input[name="modal_duty_${rawId}"]:checked`).value,
+      flag: document.querySelector(`input[name="modal_flag_${rawId}"]:checked`).value
     });
   });
 
@@ -2382,5 +2856,7 @@ function submitMorningCheck(dateStr, className) {
     })
     .saveMorningActivityBatch(payload);
 }
+
+
 
 </script>

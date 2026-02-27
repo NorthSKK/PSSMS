@@ -2,7 +2,7 @@
  * 🏫 PSSMS - Phuphrabat Smart School Management System
  * ระบบบริหารจัดการสถานศึกษา 4 ฝ่าย (Single Page Application)
  * พัฒนาโดย: ครูน๊อต ศิกษก เดินรีบรัมย์
- * Updated: 2026-02-19 | ปรับปรุงโครงสร้างฐานข้อมูล (Level, Room, Location)
+ * Updated: 2026-02-26 | ปรับปรุงโครงสร้างฐานข้อมูล (Level, Room, Location)
  */
 
 // ==========================================
@@ -1905,4 +1905,75 @@ function saveMorningActivityBatch(payload) {
   }
 
   return { status: "success", message: "✅ บันทึกข้อมูลกิจกรรมโฮมรูมเรียบร้อยแล้ว!" };
+}
+
+// ==========================================
+// ☀️ ฟังก์ชันดึงสรุปโฮมรูมรายวัน สำหรับ Dashboard
+// ==========================================
+function getTodayMorningSummary(teacherId, term, year) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const timeSheet = ss.getSheetByName("Timetable_Database");
+  const mornSheet = ss.getSheetByName("Morning_Activity");
+
+  if (!timeSheet || !mornSheet) return null;
+
+  const timeData = timeSheet.getDataRange().getDisplayValues();
+  const mornData = mornSheet.getDataRange().getDisplayValues();
+
+  // ดึงวันที่ปัจจุบันแบบเวลาไทย
+  const now = new Date();
+  const todayStr = new Date(now.getTime() - (now.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
+
+  // 1. ค้นหาว่าครูคนนี้สอนวิชา HR ห้องไหน
+  let hrClass = "";
+  for (let i = 1; i < timeData.length; i++) {
+    const tTeacherID = String(timeData[i][5]).trim().toLowerCase();
+    const tCode = String(timeData[i][0]).toUpperCase();
+    const tName = String(timeData[i][1]);
+    
+    if (tTeacherID === String(teacherId).trim().toLowerCase() &&
+        (tCode === 'HR' || tName.includes('โฮมรูม')) &&
+        String(timeData[i][8]).trim() === String(term).trim() &&
+        String(timeData[i][9]).trim() === String(year).trim()) {
+      hrClass = `${String(timeData[i][2]).trim()}/${String(timeData[i][3]).trim()}`;
+      break;
+    }
+  }
+
+  if (!hrClass) return { hasHR: false };
+
+  const targetSession = `${todayStr}_${hrClass}`;
+  
+  // 🌟 2. ใช้ Object ดักชื่อซ้ำ! 
+  // ถ้านักเรียนคนเดิมถูกเซฟหลายรอบในวันเดียวกัน มันจะเอาข้อมูลรอบล่าสุดมาเขียนทับเสมอ
+  const latestData = {};
+
+  for (let i = 1; i < mornData.length; i++) {
+    if (String(mornData[i][11]) === targetSession) {
+      const stdName = String(mornData[i][6]).trim(); 
+      latestData[stdName] = {
+        area: String(mornData[i][7]).trim(),
+        duty: String(mornData[i][8]).trim(),
+        flag: String(mornData[i][9]).trim()
+      };
+    }
+  }
+
+  // 3. กวาดข้อมูลที่ผ่านการกรอง (ไร้ชื่อซ้ำ) ลง Array
+  const summary = {
+    className: hrClass,
+    absent: [], late: [], leave: [], notArea: [], notDuty: [],
+    hasData: Object.keys(latestData).length > 0
+  };
+
+  for (const name in latestData) {
+    const d = latestData[name];
+    if (d.flag === 'ขาด') summary.absent.push(name);
+    if (d.flag === 'สาย') summary.late.push(name);
+    if (d.flag === 'ลา') summary.leave.push(name);
+    if (d.area === 'ไม่เข้า') summary.notArea.push(name);
+    if (d.duty === 'ไม่ทำ') summary.notDuty.push(name);
+  }
+
+  return { hasHR: true, data: summary };
 }
