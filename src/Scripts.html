@@ -1216,16 +1216,95 @@ function renderMorningTable(students, historyData = {}) {
 }
 
 function setupSignatureCanvas() {
-  sigCanvas = document.getElementById('sig-canvas');
-  if(!sigCanvas) return;
+  sigCanvas = document.getElementById('signaturePad');
+  if (!sigCanvas) return;
   sigCtx = sigCanvas.getContext('2d');
-  sigCtx.clearRect(0, 0, sigCanvas.width, sigCanvas.height);
-  sigCanvas.onmousedown = () => isDrawing = true;
-  window.onmouseup = () => { isDrawing = false; sigCtx.beginPath(); };
-  sigCanvas.onmousemove = drawSig;
-  sigCanvas.ontouchstart = (e) => { e.preventDefault(); isDrawing = true; };
-  sigCanvas.ontouchend = () => { isDrawing = false; sigCtx.beginPath(); };
-  sigCanvas.ontouchmove = (e) => { e.preventDefault(); drawSig(e.touches[0]); };
+
+  // 🌟 ป้องกันการผูก Event ซ้ำซ้อนเวลาเปลี่ยนวิชา (ใช้วิธีเช็คสถานะแทนการโคลน)
+  if (sigCanvas.dataset.hasEvents === "true") {
+      clearSignature(); // ถ้าเคยโหลดแล้ว ให้แค่ล้างหน้าจอพอ
+      return;
+  }
+  sigCanvas.dataset.hasEvents = "true";
+
+  sigCtx.lineWidth = 2.5;
+  sigCtx.lineCap = 'round';
+  sigCtx.strokeStyle = '#000000';
+
+  let isDrawing = false;
+
+  // 🌟 ฟังก์ชันดึงพิกัด (ดักจับทั้งเมาส์และนิ้วมือ)
+  function getPos(e) {
+      const rect = sigCanvas.getBoundingClientRect();
+      if (e.touches && e.touches.length > 0) {
+          return {
+              x: e.touches[0].clientX - rect.left,
+              y: e.touches[0].clientY - rect.top
+          };
+      }
+      return {
+          x: e.clientX - rect.left,
+          y: e.clientY - rect.top
+      };
+  }
+
+  // ==============================
+  // 🖱️ สำหรับเมาส์ (คอมพิวเตอร์)
+  // ==============================
+  sigCanvas.addEventListener('mousedown', function(e) {
+      isDrawing = true;
+      const pos = getPos(e);
+      sigCtx.beginPath();
+      sigCtx.moveTo(pos.x, pos.y);
+  });
+
+  sigCanvas.addEventListener('mousemove', function(e) {
+      if (!isDrawing) return;
+      const pos = getPos(e);
+      sigCtx.lineTo(pos.x, pos.y);
+      sigCtx.stroke();
+  });
+
+  sigCanvas.addEventListener('mouseup', function() { isDrawing = false; sigCtx.beginPath(); });
+  sigCanvas.addEventListener('mouseout', function() { isDrawing = false; sigCtx.beginPath(); });
+
+  // ==============================
+  // 📱 สำหรับนิ้วสัมผัส (มือถือ/แท็บเล็ต)
+  // ==============================
+  sigCanvas.addEventListener('touchstart', function(e) {
+      e.preventDefault(); // 🌟 ล็อกหน้าจอไม่ให้ขยับตอนแตะ
+      isDrawing = true;
+      const pos = getPos(e);
+      sigCtx.beginPath();
+      sigCtx.moveTo(pos.x, pos.y);
+  }, { passive: false });
+
+  sigCanvas.addEventListener('touchmove', function(e) {
+      if (!isDrawing) return;
+      e.preventDefault(); // 🌟 ล็อกหน้าจอตอนลากนิ้ว
+      const pos = getPos(e);
+      sigCtx.lineTo(pos.x, pos.y);
+      sigCtx.stroke();
+  }, { passive: false });
+
+  sigCanvas.addEventListener('touchend', function(e) {
+      e.preventDefault();
+      isDrawing = false;
+      sigCtx.beginPath();
+  }, { passive: false });
+  
+  sigCanvas.addEventListener('touchcancel', function(e) {
+      e.preventDefault();
+      isDrawing = false;
+      sigCtx.beginPath();
+  }, { passive: false });
+}
+
+function clearSignature() {
+  if (sigCtx && sigCanvas) {
+    sigCtx.clearRect(0, 0, sigCanvas.width, sigCanvas.height);
+    sigCtx.beginPath();
+  }
 }
 
 function drawSig(e) {
@@ -1235,7 +1314,6 @@ function drawSig(e) {
   sigCtx.lineWidth = 3; sigCtx.lineCap = "round"; sigCtx.strokeStyle = "#000080";
   sigCtx.lineTo(x, y); sigCtx.stroke(); sigCtx.beginPath(); sigCtx.moveTo(x, y);
 }
-function clearSignature() { if(sigCtx) { sigCtx.clearRect(0, 0, sigCanvas.width, sigCanvas.height); sigCtx.beginPath(); } }
 
 function submitAcademicData() {
   const classVal = document.getElementById('selectClass').value;
