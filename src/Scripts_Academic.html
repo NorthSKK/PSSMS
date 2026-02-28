@@ -1,0 +1,1422 @@
+<script>
+// ==========================================
+// 1. ACADEMIC & ATTENDANCE LOGIC
+// ==========================================
+var sigCanvas, sigCtx, isDrawing = false;
+var currentStudents = [];
+let tempHistoryData = [];
+
+function getRealClassName() {
+  const classVal = document.getElementById('selectClass').value;
+  if (!classVal) return "";
+  return String(JSON.parse(classVal)[2]).trim(); 
+}
+
+function initAcademicPage() {
+  const user = getSessionUser();
+  if(!user) return;
+  if(document.getElementById('academic-header-info')) document.getElementById('academic-header-info').innerText = `คุณครูผู้สอน: ${user.name} | ปีการศึกษา ${user.currentYear}`;
+  
+  const dateInput = document.getElementById('teachingDate');
+  const pendingDate = sessionStorage.getItem('pending_teaching_date');
+  if (pendingDate) {
+      if(dateInput) dateInput.value = pendingDate;
+      sessionStorage.removeItem('pending_teaching_date'); 
+  } else if(dateInput && !dateInput.value) {
+      const today = new Date();
+      dateInput.value = new Date(today.getTime() - (today.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
+  }
+  updateThaiDateDisplay();
+  reloadTimetableByDate();
+  setTimeout(setupSignatureCanvas, 300);
+}
+
+function updateThaiDateDisplay() {
+  const dateVal = document.getElementById('teachingDate').value;
+  const display = document.getElementById('thaiDateDisplay');
+  if(display && dateVal) display.innerHTML = '<i class="fas fa-calendar-check me-2"></i>' + formatThaiDate(dateVal);
+}
+
+function reloadTimetableByDate(forceRefresh = false) {
+  const user = getSessionUser();
+  const dateInput = document.getElementById('teachingDate');
+  const dateStr = dateInput ? dateInput.value : "";
+  if(!user || !dateStr) { showLoader(false); return; }
+
+  const cacheKey = `v2_timetable_${user.id}_${dateStr}`;
+  if (!forceRefresh && sessionStorage.getItem(cacheKey)) { buildTimetableDropdown(JSON.parse(sessionStorage.getItem(cacheKey))); return; }
+
+  showLoader(true);
+  google.script.run
+    .withFailureHandler(err => { showLoader(false); alert("Error: " + err.message); })
+    .withSuccessHandler(function(timetable) {
+      try { sessionStorage.setItem(cacheKey, JSON.stringify(timetable)); } catch(e){} 
+      buildTimetableDropdown(timetable);
+    }).getTeacherTimetableByDate(user.id, dateStr); 
+}
+
+function buildTimetableDropdown(timetable) {
+  const select = document.getElementById('selectClass');
+  if(!select) return;
+  select.innerHTML = '<option value="">-- โปรดเลือกวิชาที่สอน --</option>';
+  if(document.getElementById('studentRows')) document.getElementById('studentRows').innerHTML = ''; 
+  document.getElementById('classInfoCard')?.classList.add('d-none');
+  document.getElementById('studentListSection')?.classList.add('d-none');
+
+  if(!timetable || timetable.length === 0) { select.innerHTML = '<option value="">ไม่มีตารางสอนในวันที่เลือก</option>'; showLoader(false); return; }
+  
+  timetable.forEach(item => {
+    let opt = document.createElement('option');
+    opt.value = JSON.stringify(item);
+    opt.text = `คาบ ${item[5]}: ${item[0]} ${item[1]} (${String(item[2]).trim()})`;
+    select.add(opt);
+  });
+
+  const pendingStr = sessionStorage.getItem('pending_attendance_item');
+  if (pendingStr) {
+     try {
+         const pendingObj = JSON.parse(pendingStr);
+         for(let i = 0; i < select.options.length; i++) {
+             if(!select.options[i].value) continue;
+             const optObj = JSON.parse(select.options[i].value);
+             if(optObj[0] === pendingObj[0] && optObj[2] === pendingObj[2] && String(optObj[5]) === String(pendingObj[5])) {
+                 select.selectedIndex = i; break;
+             }
+         }
+     } catch(e) { console.error("Error parsing pending item:", e); }
+     if (select.selectedIndex > 0) loadStudentList(); else showLoader(false); 
+     sessionStorage.removeItem('pending_attendance_item');
+  } else { showLoader(false); }
+}
+
+function autoSelectRoom() {
+  const val = document.getElementById('selectClass').value;
+  if(!val) return;
+  const roomSelect = document.getElementById('selectRoom');
+  if(roomSelect) roomSelect.value = String(JSON.parse(val)[3]).trim();
+  loadStudentList(); 
+}
+
+function loadStudentList(forceRefresh = false) {
+  const classVal = document.getElementById('selectClass').value;
+  const btn = document.getElementById('btnSubmitAll');
+  const dateInput = document.getElementById('teachingDate'); 
+
+  if(!classVal) {
+      if(btn) btn.disabled = true;
+      document.getElementById('classInfoCard')?.classList.add('d-none');
+      document.getElementById('studentListSection')?.classList.add('d-none');
+      showLoader(false); return;
+  }
+
+  const item = JSON.parse(classVal);
+  const fullClassName = getRealClassName(); 
+  let dateStr = dateInput && dateInput.value ? dateInput.value : new Date().toISOString().split('T')[0];
+  
+  const isHR = (item[0].toUpperCase() === 'HR' || item[1].includes('โฮมรูม'));
+
+  document.getElementById('classInfoCard')?.classList.remove('d-none');
+  if(document.getElementById('dispClass')) document.getElementById('dispClass').innerText = `กำลังดึงรายชื่อห้อง: ${fullClassName}`;
+
+  // 🌟 ไม่ต้องซ่อนกล่องแล้ว! แต่ให้พิมพ์ข้อความอัตโนมัติลงไปแทน จะได้โชว์ลายเซ็นตามปกติ
+  const topicInput = document.getElementById('inputTopic');
+  if(topicInput) {
+      if (isHR && !topicInput.value) {
+          topicInput.value = "กิจกรรมโฮมรูมและตรวจความเรียบร้อย";
+      } else if (!isHR && topicInput.value === "กิจกรรมโฮมรูมและตรวจความเรียบร้อย") {
+          topicInput.value = ""; // เคลียร์ออกถ้ากลับมาวิชาปกติ
+      }
+  }
+
+  showLoader(true);
+  const cacheKey = `v4_stdlist_${fullClassName}`;
+
+  const fetchHistoryAndRender = (studentsData) => {
+      if (isHR) {
+          google.script.run
+          .withFailureHandler(err => { showLoader(false); renderMorningTable(studentsData, {}); })
+          .withSuccessHandler(function(historyData) {
+              showLoader(false);
+              renderMorningTable(studentsData, historyData || {});
+              document.getElementById('studentListSection')?.classList.remove('d-none');
+              
+              if(btn) {
+                  btn.disabled = false;
+                  // 🌟 ถ้ามีประวัติแล้ว ให้เปลี่ยนปุ่มเป็น "อัปเดตข้อมูล"
+                  if(historyData && Object.keys(historyData).length > 0) {
+                      btn.innerHTML = '<i class="fas fa-edit me-1"></i> อัปเดตข้อมูลโฮมรูม (ย้อนหลัง)';
+                      btn.className = "btn btn-warning text-dark w-100 mt-4 py-3 fw-bold shadow-sm";
+                  } else {
+                      btn.innerHTML = '<i class="fas fa-sun me-1"></i> บันทึกข้อมูลโฮมรูม';
+                      btn.className = "btn btn-primary w-100 mt-4 py-3 fw-bold shadow-sm";
+                  }
+                  
+                  let detailBtn = document.getElementById('btnDetailedSubmit');
+                  if(detailBtn) detailBtn.classList.add('d-none');
+              }
+              setTimeout(setupSignatureCanvas, 200);
+          }).getMorningActivityData(dateStr, fullClassName);
+      } else {
+          google.script.run
+          .withFailureHandler(err => { showLoader(false); renderAttendanceTable(studentsData, {}); })
+          .withSuccessHandler(function(historyArray) {
+              showLoader(false);
+              const historyMap = {};
+              if (historyArray) { historyArray.forEach(h => { historyMap[h.cleanId] = h.status; historyMap[String(h.studentId).trim()] = h.status; }); }
+              renderAttendanceTable(studentsData, historyMap);
+              document.getElementById('studentListSection')?.classList.remove('d-none');
+              
+              if(btn) {
+                  btn.disabled = false;
+                  if(Object.keys(historyMap).length > 0) {
+                      btn.innerHTML = '<i class="fas fa-edit me-1"></i> อัปเดตข้อมูลการสอน (ย้อนหลัง)';
+                      btn.className = "btn btn-warning w-100 mt-4 py-3 fw-bold shadow-sm";
+                  } else {
+                      btn.innerHTML = '<i class="fas fa-save me-1"></i> บันทึกข้อมูลการสอน';
+                      btn.className = "btn btn-primary w-100 mt-4 py-3 fw-bold shadow-sm";
+                  }
+                  let detailBtn = document.getElementById('btnDetailedSubmit');
+                  if(detailBtn) detailBtn.classList.remove('d-none'); 
+              }
+              setTimeout(setupSignatureCanvas, 200);
+          }).getTodayAttendanceHistory(dateStr, item[0], fullClassName);
+      }
+  };
+
+  if (!forceRefresh && sessionStorage.getItem(cacheKey)) {
+      currentStudents = JSON.parse(sessionStorage.getItem(cacheKey));
+      fetchHistoryAndRender(currentStudents); 
+  } else {
+      google.script.run
+      .withFailureHandler(err => { showLoader(false); alert("Error: " + err.message); })
+      .withSuccessHandler(function(students) {
+          currentStudents = students;
+          if(!students || students.length === 0) {
+              showLoader(false);
+              document.getElementById('studentRows').innerHTML = `<tr><td colspan="5" class="text-center p-4 text-danger">ไม่พบรายชื่อนักเรียนห้อง ${fullClassName}</td></tr>`;
+              if(btn) btn.disabled = true; return;
+          }
+          try { sessionStorage.setItem(cacheKey, JSON.stringify(students)); } catch(e){}
+          fetchHistoryAndRender(students);
+      }).getStudentsByClass(fullClassName);
+  }
+}
+
+function renderAttendanceTable(students, historyMap = {}) {
+  try {
+      const tbody = document.getElementById('studentRows');
+      if (!tbody) return;
+      
+      const table = tbody.closest('table');
+      if (table) {
+          let thead = table.querySelector('thead');
+          if (thead) {
+              thead.innerHTML = `
+                  <tr class="table-primary text-center">
+                      <th style="width: 50px;">ที่</th>
+                      <th class="text-start">ชื่อ-สกุล</th>
+                      <th>สถานะการเข้าเรียน</th>
+                  </tr>
+              `;
+          }
+      }
+
+      let html = '';
+      students.sort((a, b) => String(a[0]).localeCompare(String(b[0])));
+      
+      students.forEach((s, index) => {
+        const rawId = String(s[0]).trim();    
+        const cleanId = String(parseInt(rawId, 10)); 
+        const stdName = s[2];
+        
+        let currentStatus = "มา"; let isMatched = false;
+        if (historyMap[cleanId]) { currentStatus = historyMap[cleanId]; isMatched = true; } 
+        else if (historyMap[rawId]) { currentStatus = historyMap[rawId]; isMatched = true; }
+        
+        html += `<tr><td class="text-center fw-bold text-muted">${index + 1}</td><td><div class="fw-bold">${stdName}</div><div class="small text-muted">ID: ${rawId} ${isMatched ? '<i class="fas fa-check-circle text-success ms-1"></i>' : ''}</div></td><td><div class="btn-group w-100" role="group"><input type="radio" class="btn-check" name="status_${rawId}" id="present_${rawId}" value="มา" ${currentStatus === 'มา' ? 'checked' : ''} onchange="updateSummary()"><label class="btn btn-outline-success btn-sm" for="present_${rawId}">มา</label><input type="radio" class="btn-check" name="status_${rawId}" id="late_${rawId}" value="สาย" ${currentStatus === 'สาย' ? 'checked' : ''} onchange="updateSummary()"><label class="btn btn-outline-warning btn-sm" for="late_${rawId}">สาย</label><input type="radio" class="btn-check" name="status_${rawId}" id="leave_${rawId}" value="ลา" ${currentStatus === 'ลา' || currentStatus === 'leave' ? 'checked' : ''} onchange="updateSummary()"><label class="btn btn-outline-info btn-sm" for="leave_${rawId}">ลา</label><input type="radio" class="btn-check" name="status_${rawId}" id="absent_${rawId}" value="ขาด" ${currentStatus === 'ขาด' ? 'checked' : ''} onchange="updateSummary()"><label class="btn btn-outline-danger btn-sm" for="absent_${rawId}">ขาด</label></div></td></tr>`;
+      });
+      
+      tbody.innerHTML = html;
+      if (typeof updateSummary === "function") updateSummary();
+      
+  } catch(e) {
+      console.error("Error in renderAttendanceTable:", e);
+  }
+}
+
+// ==========================================
+// 2. ฟังก์ชันสรุปยอด สำหรับตารางโฮมรูม
+// ==========================================
+
+function updateMorningSummary() {
+  const present = document.querySelectorAll('input[value="มา"][id^="t_f_"]:checked').length;
+  const late = document.querySelectorAll('input[value="สาย"][id^="t_f_"]:checked').length;
+  const leave = document.querySelectorAll('input[value="ลา"][id^="t_f_"]:checked').length;
+  const absent = document.querySelectorAll('input[value="ขาด"][id^="t_f_"]:checked').length;
+
+  if(document.getElementById('sumPresent')) document.getElementById('sumPresent').innerText = present;
+  if(document.getElementById('sumAbsent')) document.getElementById('sumAbsent').innerText = absent;
+  if(document.getElementById('sumOther')) document.getElementById('sumOther').innerText = late + leave;
+
+  let absentNames = [], lateNames = [], leaveNames = [], notAreaNames = [], notDutyNames = [];
+  
+  document.querySelectorAll('#studentRows tr').forEach(tr => {
+      const nameDiv = tr.querySelector('.std-name-label'); 
+      if(!nameDiv) return;
+      const name = nameDiv.innerText;
+      
+      if(tr.querySelector('input[value="ขาด"][id^="t_f_"]:checked')) absentNames.push(name);
+      if(tr.querySelector('input[value="สาย"][id^="t_f_"]:checked')) lateNames.push(name);
+      if(tr.querySelector('input[value="ลา"][id^="t_f_"]:checked')) leaveNames.push(name);
+      if(tr.querySelector('input[value="ไม่เข้า"][id^="t_a_"]:checked')) notAreaNames.push(name);
+      if(tr.querySelector('input[value="ไม่ทำ"][id^="t_d_"]:checked')) notDutyNames.push(name);
+  });
+
+  const freq = {};
+  const allNames = [...absentNames, ...lateNames, ...leaveNames, ...notAreaNames, ...notDutyNames];
+  allNames.forEach(name => freq[name] = (freq[name] || 0) + 1);
+
+  const sortNames = (arr) => arr.sort((a, b) => freq[b] !== freq[a] ? freq[b] - freq[a] : a.localeCompare(b, 'th'));
+
+  absentNames = sortNames(absentNames); lateNames = sortNames(lateNames); leaveNames = sortNames(leaveNames);
+  notAreaNames = sortNames(notAreaNames); notDutyNames = sortNames(notDutyNames);
+
+  // 🌟 เอาตัวหนาออก และเหลือแค่ตัวเลข
+  const formatNames = (names) => names.map(n => {
+      let countTxt = freq[n] > 1 ? `<span class="text-danger ms-1" style="font-size:0.75rem;">(${freq[n]})</span>` : '';
+      return `<span class="d-inline-block text-dark" style="white-space: nowrap;">${n}${countTxt}</span>`;
+  }).join('<span class="text-muted mx-1">,</span> ');
+
+  const oldSummary = document.getElementById('morningSummaryAlert');
+  if(oldSummary) oldSummary.remove();
+
+  let summaryHtml = `<div id="morningSummaryAlert" class="alert alert-warning shadow-sm py-2 mb-3 border-start border-4 border-warning animate__animated animate__fadeIn"><div class="fw-bold mb-2 text-dark" style="font-size:0.9rem;"><i class="fas fa-clipboard-list me-1"></i> สรุปรายชื่อผู้ไม่เข้าร่วมกิจกรรม:</div>`;
+  
+  if(absentNames.length > 0) summaryHtml += `<div class="text-danger small mb-2"><span class="badge bg-danger me-1">ขาดเสาธง (${absentNames.length})</span> <span style="line-height:1.8;">${formatNames(absentNames)}</span></div>`;
+  if(lateNames.length > 0) summaryHtml += `<div class="text-warning text-dark small mb-2"><span class="badge bg-warning text-dark me-1">สาย (${lateNames.length})</span> <span style="line-height:1.8;">${formatNames(lateNames)}</span></div>`;
+  if(leaveNames.length > 0) summaryHtml += `<div class="text-info text-dark small mb-2"><span class="badge bg-info text-dark me-1">ลา (${leaveNames.length})</span> <span style="line-height:1.8;">${formatNames(leaveNames)}</span></div>`;
+  if(notAreaNames.length > 0) summaryHtml += `<div class="text-secondary small mb-2"><span class="badge bg-secondary me-1">ไม่เข้าเขต (${notAreaNames.length})</span> <span style="line-height:1.8;">${formatNames(notAreaNames)}</span></div>`;
+  if(notDutyNames.length > 0) summaryHtml += `<div class="text-secondary small mb-2"><span class="badge bg-secondary me-1">ไม่ทำเวร (${notDutyNames.length})</span> <span style="line-height:1.8;">${formatNames(notDutyNames)}</span></div>`;
+  
+  if (absentNames.length === 0 && lateNames.length === 0 && leaveNames.length === 0 && notAreaNames.length === 0 && notDutyNames.length === 0) {
+      summaryHtml += `<div class="text-success small fw-bold"><i class="fas fa-check-circle me-1"></i>เรียบร้อยครบทุกคน 🎉</div>`;
+  }
+  summaryHtml += `</div>`;
+  
+  const tableContainer = document.getElementById('studentRows')?.closest('.table-responsive');
+  if(tableContainer) tableContainer.insertAdjacentHTML('beforebegin', summaryHtml);
+}
+
+// ==========================================
+// 3. ฟังก์ชันสร้างการ์ดสรุปโฮมรูม บน Dashboard
+// ==========================================
+function loadMorningSummaryDashboard(teacherId, term, year) {
+  let container = document.getElementById('morningDashboardContainer');
+  if (!container) {
+     const scheduleCard = document.getElementById('todayScheduleBody')?.closest('.card');
+     const parentRow = scheduleCard?.closest('.row'); 
+     if(parentRow) {
+         parentRow.insertAdjacentHTML('afterend', '<div class="row mt-4 mb-4"><div class="col-12"><div id="morningDashboardContainer" class="animate__animated animate__fadeInUp"></div></div></div>');
+     } else {
+         const pageContent = document.getElementById('page-content');
+         pageContent.insertAdjacentHTML('beforeend', '<div id="morningDashboardContainer" class="mt-4 mb-4 animate__animated animate__fadeInUp"></div>');
+     }
+     container = document.getElementById('morningDashboardContainer');
+  }
+
+  container.innerHTML = `<div class="text-center p-3"><div class="spinner-border text-warning spinner-border-sm me-2"></div><span class="small text-muted">กำลังโหลดสรุปโฮมรูม...</span></div>`;
+
+  google.script.run.withSuccessHandler(res => {
+     if (!res || !res.hasHR) { container.closest('.row').style.display = 'none'; return; }
+
+     const d = res.data;
+     if (!d.hasData) {
+        container.innerHTML = `<div class="card border-warning shadow-sm" style="border-radius: 10px;"><div class="card-header bg-warning text-dark fw-bold border-0" style="border-radius: 10px 10px 0 0;"><i class="fas fa-sun me-2"></i>สรุปกิจกรรมยามเช้า (ห้อง ${d.className})</div><div class="card-body text-center py-4 bg-light" style="border-radius: 0 0 10px 10px;"><i class="fas fa-clipboard-list fa-2x text-warning mb-2 opacity-50"></i><div class="text-muted small">ยังไม่มีการบันทึกข้อมูลของวันนี้</div></div></div>`;
+        return;
+     }
+
+     const freq = {};
+     const allNames = [...d.absent, ...d.late, ...d.leave, ...d.notArea, ...d.notDuty];
+     allNames.forEach(name => { freq[name] = (freq[name] || 0) + 1; });
+
+     const sortNames = (arr) => arr.sort((a, b) => freq[b] !== freq[a] ? freq[b] - freq[a] : a.localeCompare(b, 'th'));
+
+     d.absent = sortNames(d.absent); d.late = sortNames(d.late); d.leave = sortNames(d.leave); d.notArea = sortNames(d.notArea); d.notDuty = sortNames(d.notDuty);
+
+     let summaryHtml = `<div class="card border-warning shadow-sm" style="background-color: #fffdf5; border-radius: 10px;"><div class="card-header bg-warning text-dark fw-bold border-0 d-flex justify-content-between align-items-center" style="border-radius: 10px 10px 0 0;"><div><i class="fas fa-sun me-2"></i>สรุปกิจกรรมยามเช้า (ห้อง ${d.className})</div><div class="badge bg-white text-dark shadow-sm">ข้อมูลวันนี้</div></div><div class="card-body p-3 px-4">`;
+
+     if (d.absent.length === 0 && d.late.length === 0 && d.leave.length === 0 && d.notArea.length === 0 && d.notDuty.length === 0) {
+         summaryHtml += `<div class="text-success fw-bold text-center py-3"><i class="fas fa-check-circle fa-3x mb-3 text-success opacity-75"></i><br><span style="font-size: 1.1rem;">นักเรียนเข้าร่วมกิจกรรมครบทุกคน 🎉</span></div>`;
+     } else {
+         const renderRow = (label, count, names, badgeClass, iconClass) => {
+             if (names.length === 0) return '';
+             
+             const formattedNames = names.map(name => {
+                 // 🌟 เอาคำว่า รายการ และตัวหนาออก โชว์แค่ (ตัวเลข)
+                 let freqText = freq[name] > 1 ? `<span class="text-danger ms-1" style="font-size: 0.75rem;">(${freq[name]})</span>` : '';
+                 let nameColor = freq[name] > 1 ? 'text-dark' : 'text-secondary';
+                 return `<span class="d-inline-block ${nameColor}" style="white-space: nowrap;">${name}${freqText}</span>`;
+             }).join('<span class="text-muted mx-1">,</span> ');
+
+             return `<div class="d-flex align-items-start mb-3 pb-2 border-bottom" style="border-color: rgba(0,0,0,0.05) !important;">
+                        <div style="min-width: 105px;">
+                            <span class="badge ${badgeClass} shadow-sm w-100 py-2 text-start" style="font-size: 0.75rem;">
+                                <i class="fas ${iconClass} me-2"></i>${label} (${count})
+                            </span>
+                        </div>
+                        <div class="small ms-3" style="line-height: 1.9; flex-grow: 1;">
+                            ${formattedNames}
+                        </div>
+                     </div>`;
+         };
+         
+         summaryHtml += renderRow('ขาดเสาธง', d.absent.length, d.absent, 'bg-danger', 'fa-flag');
+         summaryHtml += renderRow('สาย', d.late.length, d.late, 'bg-warning text-dark', 'fa-clock');
+         summaryHtml += renderRow('ลา', d.leave.length, d.leave, 'bg-info text-dark', 'fa-envelope-open-text');
+         summaryHtml += renderRow('ไม่เข้าเขต', d.notArea.length, d.notArea, 'bg-secondary', 'fa-map-marker-alt');
+         summaryHtml += renderRow('ไม่ทำเวร', d.notDuty.length, d.notDuty, 'bg-secondary', 'fa-broom');
+     }
+     summaryHtml += `</div></div>`;
+     container.innerHTML = summaryHtml;
+  }).getTodayMorningSummary(teacherId, term, year);
+}
+
+// ==========================================
+// 4. ฟังก์ชันสร้างตารางเช็คชื่อโฮมรูม (HR) แทนตารางปกติ
+// ==========================================
+function renderMorningTable(students, historyData = {}) {
+  try {
+      const tbody = document.getElementById('studentRows');
+      if (!tbody) return;
+      
+      // เปลี่ยนหัวตารางอย่างปลอดภัย
+      const table = tbody.closest('table');
+      if (table) {
+          let thead = table.querySelector('thead');
+          if (thead) {
+              thead.innerHTML = `
+                  <tr class="table-warning text-dark text-center">
+                      <th style="width: 40px;">ที่</th>
+                      <th class="text-start ps-3">ชื่อ-สกุล</th>
+                      <th style="min-width: 120px;">เข้าเขตพื้นที่</th>
+                      <th style="min-width: 110px;">ทำเวร</th>
+                      <th style="min-width: 150px;">หน้าเสาธง</th>
+                  </tr>
+              `;
+          }
+      }
+
+      let html = '';
+      students.sort((a, b) => String(a[0]).localeCompare(String(b[0])));
+      
+      students.forEach((s, index) => {
+          const rawId = String(s[0]).trim();
+          const cleanId = String(parseInt(rawId, 10)); 
+          
+          // ดึงข้อมูลเก่า (ถ้ามี) ให้แม่นยำขึ้น สลับค่าเริ่มต้นให้ตรงกับรูปแบบใหม่
+          const h = historyData[rawId] || historyData[cleanId] || {};
+          const hArea = String(h.area || 'เข้าร่วม').trim();
+          const hDuty = String(h.duty || 'ทำ').trim();
+          const hFlag = String(h.flag || 'มา').trim();
+          
+          html += `<tr>
+            <td class="text-center text-muted fw-bold align-middle">${index + 1}</td>
+            <td class="text-start align-middle px-2">
+               <div class="fw-bold text-dark" style="font-size:0.85rem;">${s[2]}</div>
+               <div class="small text-muted font-monospace">ID: ${rawId} ${Object.keys(h).length > 0 ? '<i class="fas fa-check-circle text-success ms-1"></i>' : ''}</div>
+            </td>
+            
+            <td class="align-middle"><div class="btn-group btn-group-sm w-100 shadow-sm">
+              <input type="radio" class="btn-check" name="area_${rawId}" id="t_a_เข้า_${rawId}" value="เข้าร่วม" ${hArea==='เข้าร่วม'?'checked':''}>
+              <label class="btn btn-outline-info text-dark px-1" for="t_a_เข้า_${rawId}">เข้าร่วม</label>
+              <input type="radio" class="btn-check" name="area_${rawId}" id="t_a_ไม่เข้า_${rawId}" value="ไม่เข้า" ${hArea==='ไม่เข้า'?'checked':''}>
+              <label class="btn btn-outline-secondary px-1" for="t_a_ไม่เข้า_${rawId}">ไม่เข้า</label>
+            </div></td>
+            
+            <td class="align-middle"><div class="btn-group btn-group-sm w-100 shadow-sm">
+              <input type="radio" class="btn-check" name="duty_${rawId}" id="t_d_ทำ_${rawId}" value="ทำ" ${hDuty==='ทำ'?'checked':''}>
+              <label class="btn btn-outline-primary px-1" for="t_d_ทำ_${rawId}">ทำ</label>
+              <input type="radio" class="btn-check" name="duty_${rawId}" id="t_d_ไม่ทำ_${rawId}" value="ไม่ทำ" ${hDuty==='ไม่ทำ'?'checked':''}>
+              <label class="btn btn-outline-secondary px-1" for="t_d_ไม่ทำ_${rawId}">ไม่ทำ</label>
+            </div></td>
+            
+            <td class="align-middle"><div class="btn-group btn-group-sm w-100 shadow-sm">
+              <input type="radio" class="btn-check" name="flag_${rawId}" id="t_f_มา_${rawId}" value="มา" ${hFlag==='มา'?'checked':''} onchange="updateMorningSummary()">
+              <label class="btn btn-outline-success px-1" for="t_f_มา_${rawId}">มา</label>
+              <input type="radio" class="btn-check" name="flag_${rawId}" id="t_f_สาย_${rawId}" value="สาย" ${hFlag==='สาย'?'checked':''} onchange="updateMorningSummary()">
+              <label class="btn btn-outline-warning px-1" for="t_f_สาย_${rawId}">สาย</label>
+              <input type="radio" class="btn-check" name="flag_${rawId}" id="t_f_ลา_${rawId}" value="ลา" ${hFlag==='ลา'?'checked':''} onchange="updateMorningSummary()">
+              <label class="btn btn-outline-info px-1" for="t_f_ลา_${rawId}">ลา</label>
+              <input type="radio" class="btn-check" name="flag_${rawId}" id="t_f_ขาด_${rawId}" value="ขาด" ${hFlag==='ขาด'?'checked':''} onchange="updateMorningSummary()">
+              <label class="btn btn-outline-danger px-1" for="t_f_ขาด_${rawId}">ขาด</label>
+            </div></td>
+          </tr>`;
+      });
+      
+      tbody.innerHTML = html;
+      if (typeof updateMorningSummary === "function") updateMorningSummary();
+      
+  } catch(e) {
+      console.error("Error in renderMorningTable:", e);
+      alert("เกิดข้อผิดพลาดในการสร้างตารางโฮมรูม: " + e.message);
+  }
+}
+
+// ==========================================
+// 5. ระบบลายเซ็น (ล้าง Event เก่า + รองรับ 100% ทุกหน้าจอ)
+// ==========================================
+function setupSignatureCanvas() {
+  const wrapper = document.querySelector('.signature-wrapper');
+  if (!wrapper) return;
+
+  // 🌟 ทุบของเก่า สร้าง element กระดานใหม่เลย สะอาดเอี่ยมอ่อง
+  wrapper.innerHTML = '<canvas id="sig-canvas" width="450" height="150" style="touch-action: none; width: 100%; height: 100%; cursor: crosshair;"></canvas>';
+
+  sigCanvas = document.getElementById('sig-canvas');
+  sigCtx = sigCanvas.getContext('2d');
+  
+  sigCtx.lineWidth = 2.5;
+  sigCtx.lineCap = 'round';
+  sigCtx.lineJoin = 'round';
+  sigCtx.strokeStyle = '#000000';
+  
+  isDrawing = false; // เชื่อมกับตัวแปร Global ด้านบนสุดของระบบ
+
+  // คำนวณพิกัดให้ตรงเป๊ะทุกสเกลหน้าจอ
+  const getPos = (e) => {
+    const rect = sigCanvas.getBoundingClientRect();
+    let clientX = e.clientX;
+    let clientY = e.clientY;
+    
+    if (e.touches && e.touches.length > 0) {
+      clientX = e.touches[0].clientX;
+      clientY = e.touches[0].clientY;
+    } else if (e.changedTouches && e.changedTouches.length > 0) {
+      clientX = e.changedTouches[0].clientX;
+      clientY = e.changedTouches[0].clientY;
+    }
+    
+    const scaleX = sigCanvas.width / rect.width;
+    const scaleY = sigCanvas.height / rect.height;
+    
+    return {
+      x: (clientX - rect.left) * scaleX,
+      y: (clientY - rect.top) * scaleY
+    };
+  };
+
+  const startDraw = (e) => {
+    if (e.cancelable) e.preventDefault();
+    isDrawing = true;
+    const pos = getPos(e);
+    sigCtx.beginPath();
+    sigCtx.moveTo(pos.x, pos.y);
+  };
+
+  const doDraw = (e) => {
+    if (e.cancelable) e.preventDefault();
+    if (!isDrawing) return;
+    const pos = getPos(e);
+    sigCtx.lineTo(pos.x, pos.y);
+    sigCtx.stroke();
+  };
+
+  const stopDraw = (e) => {
+    if (e && e.cancelable) e.preventDefault();
+    isDrawing = false;
+    sigCtx.beginPath();
+  };
+
+  // 🖱️ ผูก Event เมาส์
+  sigCanvas.addEventListener('mousedown', startDraw);
+  sigCanvas.addEventListener('mousemove', doDraw);
+  sigCanvas.addEventListener('mouseup', stopDraw);
+  sigCanvas.addEventListener('mouseout', stopDraw);
+
+  // 📱 ผูก Event นิ้วมือ
+  sigCanvas.addEventListener('touchstart', startDraw, { passive: false });
+  sigCanvas.addEventListener('touchmove', doDraw, { passive: false });
+  sigCanvas.addEventListener('touchend', stopDraw, { passive: false });
+  sigCanvas.addEventListener('touchcancel', stopDraw, { passive: false });
+}
+
+function clearSignature() {
+  if (sigCtx && sigCanvas) {
+    sigCtx.clearRect(0, 0, sigCanvas.width, sigCanvas.height);
+    sigCtx.beginPath();
+  }
+}
+
+function getCompressedSignature() {
+  if (!sigCanvas) return "";
+
+  const tempCanvas = document.createElement('canvas');
+  tempCanvas.width = sigCanvas.width;
+  tempCanvas.height = sigCanvas.height;
+  const ctx = tempCanvas.getContext('2d');
+
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+  ctx.drawImage(sigCanvas, 0, 0);
+  
+  return tempCanvas.toDataURL('image/jpeg', 0.5);
+}
+
+function drawSig(e) { }
+
+function submitAcademicData() {
+  const classVal = document.getElementById('selectClass').value;
+  if (!classVal) return;
+  const item = JSON.parse(classVal);
+  
+  const isHR = (item[0].toUpperCase() === 'HR' || item[1].includes('โฮมรูม'));
+  if (isHR) { submitMorningCheckAcademic(); return; }
+
+  const topic = document.getElementById('inputTopic').value;
+  const dateInput = document.getElementById('teachingDate'); 
+  const user = getSessionUser();
+  
+  if(!topic) return alert("กรุณาระบุหัวข้อที่สอนด้วยครับ");
+  
+  // 🌟 ใช้ฟังก์ชันบีบอัดภาพแทน
+  const sigData = getCompressedSignature();
+  if(sigData.length < 1000) return alert("กรุณาลงชื่อผู้สอนก่อนบันทึกครับ");
+
+  const btn = document.getElementById('btnSubmitAll');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> กำลังบันทึก...';
+
+  const now = new Date();
+  const localDateStr = new Date(now.getTime() - (now.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
+  let date = dateInput && dateInput.value ? dateInput.value : localDateStr;
+  const normalizedClassName = getRealClassName(); 
+  
+  const attendanceBatch = currentStudents.map(s => {
+    return { date: date, term: user.currentTerm, year: user.currentYear, subjectCode: item[0], subjectName: item[1], className: normalizedClassName, period: item[5], studentId: s[0], studentName: s[2], status: document.querySelector(`input[name="status_${s[0]}"]:checked`).value, teacherId: user.id };
+  });
+
+  const lessonRecord = {
+    date: date, subjectCode: item[0], subjectName: item[1], className: normalizedClassName, period: item[5], topic: topic,
+    totalPresent: parseInt(document.getElementById('sumPresent').innerText) + parseInt(document.querySelectorAll('input[value="สาย"]:checked').length),
+    totalAbsent: document.getElementById('sumAbsent').innerText,
+    totalLeave: document.querySelectorAll('input[value="ลา"]:checked').length,
+    teacherId: user.id, signature: sigData // 🌟 ส่งภาพที่บีบอัดแล้วไป
+  };
+
+  showLoader(true);
+  safeRun(3)
+    .withFailureHandler(function(err) { showLoader(false); btn.disabled = false; btn.innerHTML = 'บันทึกข้อมูลทั้งหมด'; alert("❌ เกิดข้อผิดพลาด: " + err.message); })
+    .withSuccessHandler(function() {
+      safeRun(3)
+        .withFailureHandler(function(err) { showLoader(false); btn.disabled = false; btn.innerHTML = 'บันทึกข้อมูลทั้งหมด'; alert("❌ เกิดข้อผิดพลาดตอนบันทึกการสอน: " + err.message); })
+        .withSuccessHandler(function() {
+          showLoader(false);
+          const userData = sessionStorage.getItem('pssms_user');
+          sessionStorage.clear();
+          if(userData) sessionStorage.setItem('pssms_user', userData);
+          alert("✅ บันทึกข้อมูลเช็คชื่อและผลการสอนเรียบร้อยแล้ว");
+          loadPage('Page_Dashboard_Teacher'); 
+      }).saveLessonRecord(lessonRecord);
+  }).saveAttendanceBatch(attendanceBatch);
+}
+
+// 🌟 ฟังก์ชันกล่องสรุปรายชื่อแบบเรียลไทม์ (วิชาปกติ)
+function updateSummary() {
+  const present = document.querySelectorAll('input[value="มา"]:checked').length;
+  const late = document.querySelectorAll('input[value="สาย"]:checked').length;
+  const leave = document.querySelectorAll('input[value="ลา"]:checked').length;
+  const absent = document.querySelectorAll('input[value="ขาด"]:checked').length;
+
+  if(document.getElementById('sumPresent')) document.getElementById('sumPresent').innerText = present;
+  if(document.getElementById('sumAbsent')) document.getElementById('sumAbsent').innerText = absent;
+  if(document.getElementById('sumOther')) document.getElementById('sumOther').innerText = late + leave;
+
+  // กวาดรายชื่อมาโชว์ในกล่องสรุป
+  let absentNames = [], lateNames = [], leaveNames = [];
+  document.querySelectorAll('#studentRows tr').forEach(tr => {
+      const nameDiv = tr.querySelector('.fw-bold');
+      if(!nameDiv) return;
+      const name = nameDiv.innerText;
+      if(tr.querySelector('input[value="ขาด"]:checked')) absentNames.push(name);
+      if(tr.querySelector('input[value="สาย"]:checked')) lateNames.push(name);
+      if(tr.querySelector('input[value="ลา"]:checked')) leaveNames.push(name);
+  });
+
+  const oldSummary = document.getElementById('attendanceSummaryAlert');
+  if(oldSummary) oldSummary.remove();
+
+  let summaryHtml = `<div id="attendanceSummaryAlert" class="alert alert-primary shadow-sm py-2 mb-3 border-start border-4 border-primary animate__animated animate__fadeIn">
+      <div class="fw-bold mb-1" style="font-size:0.9rem;"><i class="fas fa-users me-1"></i> สรุปรายชื่อผู้ที่ไม่ได้เข้าเรียนปกติ:</div>`;
+  if (absentNames.length === 0 && lateNames.length === 0 && leaveNames.length === 0) {
+      summaryHtml += `<div class="text-success small fw-bold"><i class="fas fa-check-circle me-1"></i>มาครบทุกคน 🎉</div>`;
+  } else {
+      if(absentNames.length > 0) summaryHtml += `<div class="text-danger small mb-1"><b>ขาด (${absentNames.length}):</b> ${absentNames.join(', ')}</div>`;
+      if(lateNames.length > 0) summaryHtml += `<div class="text-warning text-dark small mb-1"><b>สาย (${lateNames.length}):</b> ${lateNames.join(', ')}</div>`;
+      if(leaveNames.length > 0) summaryHtml += `<div class="text-info text-dark small mb-1"><b>ลา (${leaveNames.length}):</b> ${leaveNames.join(', ')}</div>`;
+  }
+  summaryHtml += `</div>`;
+  
+  const tableContainer = document.getElementById('studentRows')?.closest('.table-responsive');
+  if(tableContainer) tableContainer.insertAdjacentHTML('beforebegin', summaryHtml);
+}
+
+// ==========================================
+// 6. ฟังก์ชันบันทึกกิจกรรมยามเช้า (จากหน้าหลัก)
+// ==========================================
+function submitMorningCheckAcademic() {
+  const classVal = document.getElementById('selectClass').value;
+  const item = JSON.parse(classVal);
+  const dateInput = document.getElementById('teachingDate');
+  const user = getSessionUser();
+  
+  const now = new Date();
+  const localDateStr = new Date(now.getTime() - (now.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
+  let dateStr = dateInput && dateInput.value ? dateInput.value : localDateStr;
+  const className = getRealClassName();
+  
+  // 🌟 ใช้ฟังก์ชันบีบอัดภาพแทน
+  const sigData = getCompressedSignature();
+  if(sigData.length < 1000) return alert("กรุณาลงลายเซ็นครูที่ปรึกษาก่อนบันทึกครับ");
+
+  const records = [];
+  currentStudents.forEach(s => {
+    const stdId = String(s[0]).trim();
+    records.push({
+      studentId: stdId,
+      studentName: s[2],
+      area: document.querySelector(`#studentRows input[name="area_${stdId}"]:checked`).value,
+      duty: document.querySelector(`#studentRows input[name="duty_${stdId}"]:checked`).value,
+      flag: document.querySelector(`#studentRows input[name="flag_${stdId}"]:checked`).value
+    });
+  });
+
+  const payload = {
+    date: dateStr, term: user.currentTerm, year: user.currentYear,
+    className: className, teacherId: user.id, records: records
+  };
+
+  const btn = document.getElementById('btnSubmitAll');
+  const oldText = btn.innerHTML;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>กำลังบันทึก...';
+  btn.disabled = true;
+  showLoader(true);
+
+  safeRun(3)
+    .withSuccessHandler(res => {
+      showLoader(false);
+      btn.innerHTML = oldText;
+      btn.disabled = false;
+      alert(res.message);
+      const userData = sessionStorage.getItem('pssms_user');
+      sessionStorage.clear();
+      if(userData) sessionStorage.setItem('pssms_user', userData);
+      loadPage('Page_Dashboard_Teacher'); 
+    })
+    .withFailureHandler(err => {
+      showLoader(false);
+      btn.innerHTML = oldText;
+      btn.disabled = false;
+      alert("❌ เกิดข้อผิดพลาด: " + err.message);
+    })
+    .saveMorningActivityBatch(payload);
+}
+
+function getSessionUser() { return JSON.parse(localStorage.getItem('pssms_user') || sessionStorage.getItem('pssms_user')); }
+
+// ----------------------------------------------------------------------
+// ชุดฟังก์ชัน Modal ประวัติย้อนหลัง
+// ----------------------------------------------------------------------
+function viewTodayHistory() {
+  const classVal = document.getElementById('selectClass').value;
+  const dateInput = document.getElementById('teachingDate'); 
+  if(!classVal) return alert("กรุณาเลือกวิชาที่สอนก่อนครับ");
+  
+  const item = JSON.parse(classVal);
+  const subjectCode = item[0];
+  const className = getRealClassName(); 
+  let dateStr = dateInput && dateInput.value ? dateInput.value : new Date().toISOString().split('T')[0];
+
+  showLoader(true);
+  google.script.run.withSuccessHandler(function(history) {
+    showLoader(false);
+    if (!history || history.length === 0) return alert("วันที่เลือกยังไม่มีการบันทึกข้อมูลครับ");
+    tempHistoryData = history;
+    renderHistoryModal(subjectCode);
+  }).getTodayAttendanceHistory(dateStr, subjectCode, className);
+}
+
+function viewAllHistory() {
+  const classVal = document.getElementById('selectClass').value;
+  if(!classVal) return alert("กรุณาเลือกวิชาที่สอนก่อนครับ");
+  
+  const item = JSON.parse(classVal);
+  const subjectCode = item[0];
+  const className = getRealClassName(); 
+
+  showLoader(true);
+  google.script.run.withSuccessHandler(function(sessions) {
+    showLoader(false);
+    renderSessionListModal(sessions, subjectCode, className);
+  }).getCourseSessionList(subjectCode, className);
+}
+
+function renderSessionListModal(sessions, subjectCode, className) {
+  let html = '';
+  if (sessions.length === 0) {
+    html = '<div class="text-center p-4 text-muted">ยังไม่มีประวัติการสอนในวิชานี้</div>';
+  } else {
+    html = '<div class="list-group list-group-flush">';
+    sessions.forEach(s => {
+      html += `<button type="button" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center py-3" onclick="loadHistoryForEdit('${s.date}')"><div><div class="fw-bold text-primary"><i class="fas fa-calendar-alt me-2"></i>${s.displayDate}</div><div class="small text-muted">คาบที่ ${s.period}</div></div><span class="badge bg-light text-dark border rounded-pill">บันทึกแล้ว ${s.count} คน <i class="fas fa-chevron-right ms-2 text-secondary"></i></span></button>`;
+    });
+    html += '</div>';
+  }
+
+  const modalHtml = `<div id="sessionListModal" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:10000; display:flex; align-items:center; justify-content:center; padding:15px;"><div class="bg-white rounded-3 shadow-lg animate__animated animate__fadeInUp" style="width:100%; max-width:500px; max-height:80vh; display:flex; flex-direction:column;"><div class="p-3 bg-primary text-white d-flex justify-content-between align-items-center rounded-top"><h6 class="mb-0 fw-bold"><i class="fas fa-history me-2"></i>ประวัติการสอน: ${className}</h6><button class="btn-close btn-close-white" onclick="document.getElementById('sessionListModal').remove()"></button></div><div class="p-0" style="overflow-y:auto;">${html}</div><div class="p-3 bg-light border-top text-center"><button class="btn btn-secondary btn-sm w-100" onclick="document.getElementById('sessionListModal').remove()">ปิดหน้าต่าง</button></div></div></div>`;
+  const old = document.getElementById('sessionListModal'); if(old) old.remove();
+  document.body.insertAdjacentHTML('beforeend', modalHtml);
+}
+
+function loadHistoryForEdit(dateStr) {
+  const modalList = document.getElementById('sessionListModal'); if(modalList) modalList.remove();
+  const classVal = document.getElementById('selectClass').value;
+  const item = JSON.parse(classVal);
+  const subjectCode = item[0];
+  const className = getRealClassName(); 
+  const dateInput = document.getElementById('teachingDate');
+  if(dateInput) { dateInput.value = dateStr; reloadTimetableByDate(); }
+
+  showLoader(true);
+  google.script.run.withSuccessHandler(function(historyArray) {
+    showLoader(false);
+    tempHistoryData = historyArray;
+    if (!tempHistoryData || tempHistoryData.length === 0) return alert("ไม่พบข้อมูลรายละเอียด");
+    renderHistoryModal(subjectCode);
+  }).getTodayAttendanceHistory(dateStr, subjectCode, className);
+}
+
+function renderHistoryModal(subjectCode) {
+  let html = tempHistoryData.map((h, index) => {
+    let badgeClass = h.status === 'มา' ? 'bg-success' : (h.status === 'สาย' ? 'bg-warning text-dark' : 'bg-danger');
+    return `<div class="d-flex justify-content-between align-items-center border-bottom py-2"><div style="flex-grow: 1;"><div class="fw-bold" style="font-size: 0.85rem;">${h.studentName}</div><div id="status-badge-${index}" class="badge ${badgeClass}" style="font-size: 0.7rem;">${h.status}</div></div><div class="btn-group btn-group-sm"><button class="btn btn-outline-success" onclick="updateLocalStatus(${index}, 'มา')">มา</button><button class="btn btn-outline-warning" onclick="updateLocalStatus(${index}, 'สาย')">สาย</button><button class="btn btn-outline-info" onclick="updateLocalStatus(${index}, 'ลา')">ลา</button><button class="btn btn-outline-danger" onclick="updateLocalStatus(${index}, 'ขาด')">ขาด</button></div></div>`;
+  }).join('');
+
+  const modalHtml = `<div id="historyModal" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:10000; display:flex; align-items:center; justify-content:center; padding:15px;"><div class="bg-white rounded-3 shadow-lg" style="width:100%; max-width:450px; max-height:85vh; display:flex; flex-direction:column;"><div class="p-3 bg-dark text-white d-flex justify-content-between align-items-center"><h6 class="mb-0 fw-bold"><i class="fas fa-user-edit me-2"></i>แก้ไขประวัติ</h6><button class="btn-close btn-close-white" onclick="document.getElementById('historyModal').remove()"></button></div><div class="p-3" style="overflow-y:auto;"><div class="alert alert-secondary small py-1 mb-2">แก้ไขข้อมูลให้เรียบร้อยแล้วกดปุ่ม "บันทึกการแก้ไข" ด้านล่าง</div>${html}</div><div class="p-3 bg-light border-top"><button class="btn btn-primary w-100 fw-bold py-2" onclick="saveAllHistoryChanges()"><i class="fas fa-save me-2"></i>บันทึกการแก้ไขทั้งหมด</button></div></div></div>`;
+  const oldModal = document.getElementById('historyModal'); if(oldModal) oldModal.remove();
+  document.body.insertAdjacentHTML('beforeend', modalHtml);
+}
+
+function updateLocalStatus(index, newStatus) {
+  tempHistoryData[index].status = newStatus;
+  const badge = document.getElementById(`status-badge-${index}`);
+  badge.innerText = newStatus;
+  badge.className = `badge ${newStatus === 'มา' ? 'bg-success' : (newStatus === 'สาย' ? 'bg-warning text-dark' : (newStatus === 'ลา' ? 'bg-info text-dark' : 'bg-danger'))}`;
+}
+
+function saveAllHistoryChanges() {
+  if(!confirm("ยืนยันการบันทึกการแก้ไขทั้งหมดใช่หรือไม่?")) return;
+  const user = getSessionUser();
+  showLoader(true);
+  safeRun(3)
+    .withFailureHandler(function(err) { showLoader(false); alert("❌ เกิดข้อผิดพลาด: " + err.message); })
+    .withSuccessHandler(function(res) {
+    showLoader(false);
+    if(res.status === "success") {
+      alert("✅ " + res.message);
+      document.getElementById('historyModal').remove();
+      if(user) sessionStorage.removeItem(`risk_dash_${user.id}_${user.currentTerm}_${user.currentYear}`);
+      loadStudentList(true); 
+    } else { alert("❌ เกิดข้อผิดพลาด: " + res.message); }
+  }).updateAttendanceBatch(tempHistoryData); 
+}
+
+// ==========================================
+// 7. ระบบบันทึกหลังสอนแบบละเอียด (Detailed Lesson)
+// ==========================================
+function openDetailedLessonModal() {
+  const topic = document.getElementById('inputTopic').value;
+  if(!topic) { alert("กรุณากรอก 'หัวข้อที่สอน' ก่อนกดบันทึกแบบละเอียดครับ"); document.getElementById('inputTopic').focus(); return; }
+  
+  // 🌟 ใช้ฟังก์ชันบีบอัดเช็คความถูกต้อง
+  const sigData = getCompressedSignature();
+  if(sigData.length < 1000) { alert("กรุณาลงชื่อผู้สอนด้านบนให้เรียบร้อยก่อนครับ"); return; }
+  
+  document.getElementById('detailedLessonForm').reset();
+  const modal = new bootstrap.Modal(document.getElementById('detailedLessonModal'));
+  modal.show();
+}
+
+function getBase64(file) {
+  return new Promise((resolve, reject) => {
+    if(!file) { resolve(null); return; }
+    const reader = new FileReader(); reader.readAsDataURL(file);
+    reader.onload = () => resolve(reader.result); reader.onerror = error => reject(error);
+  });
+}
+
+async function submitDetailedLesson() {
+  const classVal = document.getElementById('selectClass').value;
+  const topic = document.getElementById('inputTopic').value;
+  const dateInput = document.getElementById('teachingDate'); 
+  const user = getSessionUser();
+  const item = JSON.parse(classVal);
+  let date = dateInput && dateInput.value ? dateInput.value : new Date().toISOString().split('T')[0];
+  const normalizedClassName = getRealClassName(); 
+  
+  const dpaElements = document.querySelectorAll('.dpa-check:checked'); const dpaValues = Array.from(dpaElements).map(el => el.value);
+  const skillElements = document.querySelectorAll('.skill-check:checked'); const skillValues = Array.from(skillElements).map(el => el.value);
+  const workFile = document.getElementById('dl_work_file').files[0];
+  const imageFile = document.getElementById('dl_image_file').files[0];
+
+  const submitBtn = document.querySelector('#detailedLessonModal .btn-primary');
+  const originalBtnText = submitBtn.innerHTML;
+  submitBtn.disabled = true; submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>กำลังอัปโหลดไฟล์และบันทึก...';
+  showLoader(true);
+
+  try {
+    const workFileBase64 = await getBase64(workFile);
+    const imageFileBase64 = await getBase64(imageFile);
+
+    const detailedRecord = {
+      date: date, subjectCode: item[0], subjectName: item[1], className: normalizedClassName, period: item[5], topic: topic, teacherId: user.id,
+      outcomes: document.getElementById('dl_outcomes').value, problems: document.getElementById('dl_problems').value, solutions: document.getElementById('dl_solutions').value,
+      dpa: dpaValues, skills: skillValues, studentResults: document.getElementById('dl_student_results').value, workFileBase64: workFileBase64, imageFileBase64: imageFileBase64
+    };
+
+    const attendanceBatch = currentStudents.map(s => {
+      return { date: date, term: user.currentTerm, year: user.currentYear, subjectCode: item[0], subjectName: item[1], className: normalizedClassName, period: item[5], studentId: s[0], studentName: s[2], status: document.querySelector(`input[name="status_${s[0]}"]:checked`).value, teacherId: user.id };
+    });
+
+    const basicRecord = {
+      date: date, subjectCode: item[0], subjectName: item[1], className: normalizedClassName, period: item[5], topic: topic,
+      totalPresent: parseInt(document.getElementById('sumPresent').innerText) + parseInt(document.querySelectorAll('input[value="สาย"]:checked').length),
+      totalAbsent: document.getElementById('sumAbsent').innerText, totalLeave: document.querySelectorAll('input[value="ลา"]:checked').length,
+      teacherId: user.id, 
+      signature: getCompressedSignature() // 🌟 ส่งภาพที่บีบอัดแล้วไป
+    };
+
+    safeRun(3).withFailureHandler(err => { showLoader(false); submitBtn.disabled = false; submitBtn.innerHTML = originalBtnText; alert("❌ ผิดพลาดตอนเช็คชื่อ: " + err.message); }).withSuccessHandler(() => {
+      safeRun(3).withFailureHandler(err => { showLoader(false); submitBtn.disabled = false; submitBtn.innerHTML = originalBtnText; alert("❌ ผิดพลาดตอนบันทึกการสอน: " + err.message); }).withSuccessHandler(() => {
+        safeRun(3).withFailureHandler(err => { showLoader(false); submitBtn.disabled = false; submitBtn.innerHTML = originalBtnText; alert("❌ ผิดพลาดตอนบันทึกแบบละเอียด: " + err.message); }).withSuccessHandler((res) => {
+          showLoader(false);
+          bootstrap.Modal.getInstance(document.getElementById('detailedLessonModal')).hide();
+          sessionStorage.removeItem(`risk_dash_${user.id}_${user.currentTerm}_${user.currentYear}`);
+          sessionStorage.removeItem(`lesson_history_${user.id}_${user.currentTerm}_${user.currentYear}`);
+          alert(res.message);
+          loadPage('Page_Dashboard_Teacher'); 
+        }).saveDetailedLessonRecord(detailedRecord);
+      }).saveLessonRecord(basicRecord);
+    }).saveAttendanceBatch(attendanceBatch);
+
+  } catch (err) {
+    showLoader(false); submitBtn.disabled = false; submitBtn.innerHTML = originalBtnText; alert("เกิดข้อผิดพลาด: " + err.message);
+  }
+}
+
+// ==========================================
+// 8. ACADEMIC REPORT LOGIC
+// ==========================================
+function initAcademicReportPage() { reloadReportSubjects(); }
+
+function reloadReportSubjects() {
+  const termEl = document.getElementById('reportTerm');
+  const yearEl = document.getElementById('reportYear');
+  const select = document.getElementById('reportClassSelect');
+  if(!termEl || !yearEl || !select) return;
+  const term = termEl.value; const year = yearEl.value; const user = getSessionUser();
+
+  select.innerHTML = `<option value="">⏳ กำลังโหลดวิชา...</option>`; select.disabled = true;
+  const tbody = document.getElementById('reportTableBody'); if(tbody) tbody.innerHTML = '<tr><td colspan="7" class="text-center p-4 text-muted">กรุณาเลือกวิชา</td></tr>';
+  const summaryDiv = document.getElementById('reportSummaryInfo'); if(summaryDiv) summaryDiv.remove();
+
+  const subjectCacheKey = `report_subjects_${user.id}_${term}_${year}`;
+  const cachedSubjects = sessionStorage.getItem(subjectCacheKey);
+  if (cachedSubjects) { buildReportSubjectDropdown(JSON.parse(cachedSubjects), term, year); return; }
+
+  google.script.run
+    .withFailureHandler(err => { select.innerHTML = '<option value="">❌ เกิดข้อผิดพลาด</option>'; select.disabled = false; alert(err.message); })
+    .withSuccessHandler(subjects => { sessionStorage.setItem(subjectCacheKey, JSON.stringify(subjects)); buildReportSubjectDropdown(subjects, term, year); })
+    .getTeacherSubjects(user.id, user.role, term, year);
+}
+
+function buildReportSubjectDropdown(subjects, term, year) {
+  const select = document.getElementById('reportClassSelect');
+  select.disabled = false;
+  if(subjects.length === 0) { select.innerHTML = `<option value="">⚠️ ไม่พบวิชาในเทอม ${term}/${year}</option>`; return; }
+  let html = '<option value="">-- เลือกรายวิชา --</option><option value="ALL" class="fw-bold text-white bg-primary">ดูทุกรายวิชาที่สอน (รวมทั้งหมด)</option>';
+  subjects.forEach(sub => { html += `<option value='${JSON.stringify(sub)}'>${sub[0]} - ${sub[3]} (${sub[1]})</option>`; });
+  select.innerHTML = html;
+}
+
+function generateReport() {
+  const val = document.getElementById('reportClassSelect').value;
+  if(!val) return alert("กรุณาเลือกรายวิชาก่อนครับ");
+  const term = document.getElementById('reportTerm').value; const year = document.getElementById('reportYear').value; const user = getSessionUser();
+  showLoader(true);
+
+  if (val === "ALL") {
+    google.script.run.withFailureHandler(err => { showLoader(false); alert("Error: " + err.message); })
+      .withSuccessHandler(function(res) { try { renderAllSubjectsReportTable(res); } catch (e) { showLoader(false); console.error(e); } })
+      .getAllSubjectsReport(user.id, term, year);
+  } else {
+    try {
+      const item = JSON.parse(val); 
+      google.script.run.withFailureHandler(err => { showLoader(false); alert("Error: " + err.message); })
+        .withSuccessHandler(function(res) { try { renderReportTable(res, item[0], item[1], item[2]); } catch (e) { showLoader(false); console.error(e); } })
+        .getSemesterReport(item[0], item[2], term, year);
+    } catch (e) { showLoader(false); alert("ข้อมูลรายวิชาไม่ถูกต้อง: " + e.message); }
+  }
+}
+
+function renderReportTable(res, subjectCode, subjectName, className) {
+  showLoader(false);
+  const tbody = document.getElementById('reportTableBody'); if (!tbody) return;
+  tbody.innerHTML = '';
+  const oldHeader = document.getElementById('reportSummaryInfo'); if(oldHeader) oldHeader.remove();
+
+  if(!res || !res.students || res.students.length === 0) { tbody.innerHTML = '<tr><td colspan="7" class="text-center p-4 text-muted">ไม่พบข้อมูลการเช็คชื่อในรายวิชานี้</td></tr>'; return; }
+
+  const data = res.students; const meta = res.meta || { periodsPerWeek: 0, totalCoursePeriods: 0, maxAbsenceQuota: 0, currentTotalTaught: 0 }; 
+  const taught = meta.currentTotalTaught; const total = meta.totalCoursePeriods; const progressPercent = total > 0 ? Math.min((taught / total) * 100, 100).toFixed(1) : 0; const remaining = total - taught;
+  const critical = []; const ms = []; const risk = [];
+  data.forEach(s => { const p = parseFloat(s.percent); if (p < 60) critical.push(s); else if (p < 80) ms.push(s); else if (p <= 85) risk.push(s); });
+
+  const renderList = (arr, colorClass) => {
+    if(arr.length === 0) return `<div class="text-center text-muted small py-3">ไม่มีนักเรียนในกลุ่มนี้ 🎉</div>`;
+    return arr.map(s => `<div class="d-flex justify-content-between align-items-center border-bottom py-2"><div><div class="fw-bold text-dark" style="font-size: 0.85rem;">${s.id} ${s.name}</div><div class="text-muted" style="font-size: 0.75rem;">มา <span class="text-success fw-bold">${s.present + s.late}</span>/${taught} คาบ (ขาด <span class="text-danger">${s.absent}</span>, ลา <span class="text-info">${s.leave}</span>)</div></div><span class="badge bg-${colorClass} rounded-pill" style="font-size: 0.8rem;">${s.percent}%</span></div>`).join('');
+  };
+
+  let infoHtml = `<div id="reportSummaryInfo" class="mb-4 animate__animated animate__fadeIn"><div class="card border-0 shadow-sm mb-4" style="background: linear-gradient(to right, #ffffff, #f8f9fa);"><div class="card-body"><div class="d-flex justify-content-between align-items-center mb-2"><h6 class="fw-bold text-primary m-0"><i class="fas fa-clock me-2"></i>ความคืบหน้า: ${subjectCode} ${subjectName} (${className})</h6><span class="badge bg-light text-dark border">สอนแล้ว ${taught} / ${total} คาบ</span></div><div class="progress" style="height: 15px; border-radius: 10px; background-color: #e9ecef;"><div class="progress-bar progress-bar-striped progress-bar-animated bg-primary" role="progressbar" style="width: ${progressPercent}%">${progressPercent}%</div></div><div class="d-flex justify-content-between mt-2" style="font-size: 0.8rem;"><span class="text-secondary"><i class="fas fa-info-circle me-1"></i>เกณฑ์: ขาดได้สูงสุด <b>${meta.maxAbsenceQuota}</b> ครั้ง (20%)</span><span class="text-success fw-bold">เหลืออีก ${remaining > 0 ? remaining : 0} คาบ</span></div></div></div><h6 class="fw-bold text-danger mb-3"><i class="fas fa-exclamation-triangle me-2"></i>กระดานแจ้งเตือนรายบุคคล</h6><div class="row g-3 mb-4"><div class="col-md-4"><div class="card border-info shadow-sm h-100"><div class="card-header bg-info text-dark fw-bold small d-flex justify-content-between"><span>กลุ่มเสี่ยง (80-85%)</span><span class="badge bg-white text-dark">${risk.length}</span></div><div class="card-body p-2" style="max-height: 250px; overflow-y: auto;">${renderList(risk, 'info text-dark')}</div></div></div><div class="col-md-4"><div class="card border-warning shadow-sm h-100"><div class="card-header bg-warning text-dark fw-bold small d-flex justify-content-between"><span>ติด มส. (60-79%)</span><span class="badge bg-white text-dark">${ms.length}</span></div><div class="card-body p-2" style="max-height: 250px; overflow-y: auto;">${renderList(ms, 'warning text-dark')}</div></div></div><div class="col-md-4"><div class="card border-danger shadow-sm h-100"><div class="card-header bg-danger text-white fw-bold small d-flex justify-content-between"><span>หมดสิทธิ์ (< 60%)</span><span class="badge bg-white text-danger">${critical.length}</span></div><div class="card-body p-2" style="max-height: 250px; overflow-y: auto;">${renderList(critical, 'danger')}</div></div></div></div></div>`;
+  const tableEl = document.querySelector('table');
+  if(tableEl) { tableEl.insertAdjacentHTML('beforebegin', infoHtml); const theads = tableEl.querySelectorAll('th'); if (theads.length >= 3) { theads[1].innerText = "รหัสนักเรียน"; theads[2].innerText = "ชื่อ-สกุล"; } }
+
+  let html = '';
+  data.forEach((s, index) => {
+    const p = parseFloat(s.percent); const totalMissed = (s.leave || 0) + (s.absent || 0); const remainingQuota = meta.maxAbsenceQuota - totalMissed;
+    let statusBadge = ''; let rowClass = ''; let progressColor = ''; let quotaText = '';
+    if (remainingQuota >= 0) quotaText = `<span class="text-muted small">ขาดได้อีก <b>${remainingQuota}</b> ครั้ง</span>`; else quotaText = `<span class="text-danger fw-bold small">เกินโควตา <b>${Math.abs(remainingQuota)}</b> ครั้ง</span>`;
+    if (p > 85) { statusBadge = '<span class="badge bg-success rounded-pill px-2">ปกติ</span>'; progressColor = 'bg-success'; } else if (p >= 80) { statusBadge = '<span class="badge bg-info text-dark rounded-pill px-2">เฝ้าระวัง</span>'; progressColor = 'bg-info'; } else if (p >= 60) { statusBadge = '<span class="badge bg-warning text-dark rounded-pill px-2">มส.</span>'; rowClass = 'table-warning'; progressColor = 'bg-warning'; } else { statusBadge = '<span class="badge bg-danger rounded-pill px-2">หมดสิทธิ์</span>'; rowClass = 'table-danger'; progressColor = 'bg-danger'; }
+    html += `<tr class="${rowClass}"><td class="text-center small">${index + 1}</td><td><div class="fw-bold text-primary small">${s.id}</div></td><td><div class="fw-bold small">${s.name}</div></td><td class="text-center"><span class="text-success fw-bold">${s.present}</span> <span class="text-muted">/</span> <span class="text-warning fw-bold">${s.late}</span></td><td class="text-center"><span class="text-info">${s.leave}</span> <span class="text-muted">/</span> <span class="text-danger fw-bold">${s.absent}</span><div class="mt-1">${quotaText}</div></td><td style="vertical-align: middle;"><div class="d-flex align-items-center"><div class="flex-grow-1 me-2"><div class="progress" style="height: 6px;"><div class="progress-bar ${progressColor}" style="width: ${p}%"></div></div></div><span class="fw-bold small ${p < 80 ? 'text-danger' : 'text-success'}">${p}%</span></div></td><td class="text-center">${statusBadge}</td></tr>`;
+  });
+  tbody.innerHTML = html;
+}
+
+function renderAllSubjectsReportTable(data) {
+  showLoader(false);
+  const tbody = document.getElementById('reportTableBody'); if (!tbody) return;
+  tbody.innerHTML = '';
+  const oldHeader = document.getElementById('reportSummaryInfo'); if(oldHeader) oldHeader.remove();
+  if(!data || data.length === 0) { tbody.innerHTML = '<tr><td colspan="7" class="text-center p-4 text-muted">ไม่พบข้อมูลการเช็คชื่อในเทอมนี้</td></tr>'; return; }
+
+  const critical = []; const ms = []; const risk = [];
+  data.forEach(s => { const p = parseFloat(s.percent); if (p < 60) critical.push(s); else if (p < 80) ms.push(s); else if (p <= 85) risk.push(s); });
+  const renderList = (arr, colorClass) => {
+    if(arr.length === 0) return `<div class="text-center text-muted small py-3">ไม่มีนักเรียนในกลุ่มนี้ 🎉</div>`;
+    return arr.map(s => `<div class="d-flex justify-content-between align-items-center border-bottom py-2"><div style="flex-grow:1; padding-right:10px;"><div class="fw-bold text-dark" style="font-size: 0.85rem;">${s.id} ${s.name}</div><div class="text-primary" style="font-size: 0.75rem;"><i class="fas fa-book me-1"></i>${s.subjectCode} (${s.className})</div></div><span class="badge bg-${colorClass} rounded-pill" style="font-size: 0.8rem;">${s.percent}%</span></div>`).join('');
+  };
+
+  let infoHtml = `<div id="reportSummaryInfo" class="mb-4 animate__animated animate__fadeIn"><div class="card border-0 shadow-sm mb-4 bg-primary text-white text-center py-3" style="border-radius: 10px;"><h5 class="fw-bold m-0"><i class="fas fa-layer-group me-2"></i>สรุปสถิติเวลาเรียนรวมทุกรายวิชา</h5><div class="small mt-1 opacity-75">จำนวนข้อมูลนักเรียนทั้งหมด: <b>${data.length}</b> รายการ (แยกตามกลุ่มรายวิชา)</div></div><h6 class="fw-bold text-danger mb-3"><i class="fas fa-exclamation-triangle me-2"></i>กระดานแจ้งเตือนรายบุคคล (รวมทุกวิชา)</h6><div class="row g-3 mb-4"><div class="col-md-4"><div class="card border-info shadow-sm h-100"><div class="card-header bg-info text-dark fw-bold small d-flex justify-content-between"><span>กลุ่มเสี่ยง (80-85%)</span><span class="badge bg-white text-dark">${risk.length}</span></div><div class="card-body p-2" style="max-height: 250px; overflow-y: auto;">${renderList(risk, 'info text-dark')}</div></div></div><div class="col-md-4"><div class="card border-warning shadow-sm h-100"><div class="card-header bg-warning text-dark fw-bold small d-flex justify-content-between"><span>ติด มส. (60-79%)</span><span class="badge bg-white text-dark">${ms.length}</span></div><div class="card-body p-2" style="max-height: 250px; overflow-y: auto;">${renderList(ms, 'warning text-dark')}</div></div></div><div class="col-md-4"><div class="card border-danger shadow-sm h-100"><div class="card-header bg-danger text-white fw-bold small d-flex justify-content-between"><span>หมดสิทธิ์ (< 60%)</span><span class="badge bg-white text-danger">${critical.length}</span></div><div class="card-body p-2" style="max-height: 250px; overflow-y: auto;">${renderList(critical, 'danger')}</div></div></div></div></div>`;
+  const tableEl = document.querySelector('table');
+  if(tableEl) { tableEl.insertAdjacentHTML('beforebegin', infoHtml); const theads = tableEl.querySelectorAll('th'); if (theads.length >= 3) { theads[1].innerText = "รหัสนักเรียน"; theads[2].innerText = "ชื่อ-สกุล"; } }
+
+  let html = ''; let currentGroup = ''; let studentIndex = 1; 
+  data.forEach((s) => {
+    const p = parseFloat(s.percent); const remainingQuota = s.remainingQuota; const groupKey = `${s.subjectCode}_${s.className}`;
+    if (groupKey !== currentGroup) {
+      studentIndex = 1; 
+      html += `<tr style="background-color: #e7f1ff; border-top: 2px solid #0d6efd; border-bottom: 2px solid #0d6efd;"><td colspan="7" class="fw-bold text-primary text-start py-3 ps-3"><i class="fas fa-book-open me-2 text-primary"></i> <span style="font-size: 1.05rem;">วิชา: ${s.subjectCode} ${s.subjectName}</span><span class="badge bg-primary rounded-pill ms-2" style="font-size:0.85rem;"><i class="fas fa-users me-1"></i>ห้อง ${s.className}</span><span class="badge bg-light text-dark border ms-2 shadow-sm">สอนไปแล้ว ${s.taught} คาบ</span></td></tr>`;
+      currentGroup = groupKey;
+    }
+    let statusBadge = ''; let rowClass = ''; let progressColor = ''; let quotaText = '';
+    if (remainingQuota >= 0) quotaText = `<span class="text-muted small">เหลือโควตา <b>${remainingQuota}</b></span>`; else quotaText = `<span class="text-danger fw-bold small">เกิน <b>${Math.abs(remainingQuota)}</b></span>`;
+    if (p > 85) { statusBadge = '<span class="badge bg-success rounded-pill px-2">ปกติ</span>'; progressColor = 'bg-success'; } else if (p >= 80) { statusBadge = '<span class="badge bg-info text-dark rounded-pill px-2">เฝ้าระวัง</span>'; progressColor = 'bg-info'; } else if (p >= 60) { statusBadge = '<span class="badge bg-warning text-dark rounded-pill px-2">มส.</span>'; rowClass = 'table-warning'; progressColor = 'bg-warning'; } else { statusBadge = '<span class="badge bg-danger rounded-pill px-2">หมดสิทธิ์</span>'; rowClass = 'table-danger'; progressColor = 'bg-danger'; }
+    html += `<tr class="${rowClass}"><td class="text-center small">${studentIndex++}</td><td><div class="fw-bold text-primary small">${s.id}</div></td><td><div class="fw-bold small">${s.name}</div></td><td class="text-center"><span class="text-success fw-bold">${s.present}</span> <span class="text-muted">/</span> <span class="text-warning fw-bold">${s.late}</span></td><td class="text-center"><span class="text-info">${s.leave}</span> <span class="text-muted">/</span> <span class="text-danger fw-bold">${s.absent}</span><div class="mt-1">${quotaText}</div></td><td style="vertical-align: middle;"><div class="d-flex align-items-center"><div class="flex-grow-1 me-2"><div class="progress" style="height: 6px;"><div class="progress-bar ${progressColor}" style="width: ${p}%"></div></div></div><span class="fw-bold small ${p < 80 ? 'text-danger' : 'text-success'}">${p}%</span></div></td><td class="text-center">${statusBadge}</td></tr>`;
+  });
+  tbody.innerHTML = html;
+}
+
+// ==========================================
+// 9. ระบบกิจกรรมยามเช้า / โฮมรูม (UI & Logic)
+// ==========================================
+let currentMorningStudents = [];
+
+// 1. เปิดหน้าต่างเช็คชื่อโฮมรูม
+function openMorningCheckModal(item) {
+  const fullClassName = String(item[2]).trim(); // ดึงชื่อห้อง (เช่น 4/1)
+  const now = new Date();
+  const dateStr = new Date(now.getTime() - (now.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
+  
+  showLoader(true);
+  
+  // ดึงรายชื่อนักเรียนในห้อง และ ข้อมูลประวัติการเช็คชื่อของวันนี้ (ถ้ามี) มาพร้อมกัน
+  google.script.run.withSuccessHandler(function(students) {
+     currentMorningStudents = students;
+     google.script.run.withSuccessHandler(function(historyData) {
+        showLoader(false);
+        renderMorningCheckModal(students, historyData, fullClassName, dateStr);
+     }).getMorningActivityData(dateStr, fullClassName);
+  }).getStudentsByClass(fullClassName);
+}
+
+// 2. สร้างตารางและหน้าต่าง Pop-up
+function renderMorningCheckModal(students, historyData, className, dateStr) {
+  let html = '';
+  students.sort((a, b) => String(a[0]).localeCompare(String(b[0])));
+  
+  students.forEach((s, index) => {
+    const rawId = String(s[0]).trim();
+    const cleanId = String(parseInt(rawId, 10)); // 🌟 กันรหัสโดนตัดเลข 0
+    const stdName = s[2];
+    
+    // 🌟 ดึงข้อมูลเก่าแบบแม่นยำ (แมตช์ได้ทั้งมี 0 และไม่มี 0)
+    const h = historyData[rawId] || historyData[cleanId] || {};
+    let hArea = String(h.area || '').trim(); 
+    let hDuty = String(h.duty || '').trim();
+    let hFlag = String(h.flag || '').trim();
+    
+    // 🛠️ Auto-Converter
+    if (["มา", "สาย", "ลา", "ขาด"].includes(hArea) || ["เข้าร่วม", "ไม่เข้า"].includes(hFlag)) {
+        let tempArea = hArea;
+        hArea = ["เข้าร่วม", "ไม่เข้า"].includes(hFlag) ? hFlag : 'เข้าร่วม';
+        hFlag = ["มา", "สาย", "ลา", "ขาด"].includes(tempArea) ? tempArea : 'มา';
+    }
+    if (hDuty === 'มาทำ') hDuty = 'ทำ';
+    if (hDuty === 'ไม่มา') hDuty = 'ไม่ทำ';
+    
+    if (!hArea) hArea = 'เข้าร่วม';
+    if (!hDuty) hDuty = 'ทำ';
+    if (!hFlag) hFlag = 'มา';
+    
+    // 🌟 เปลี่ยนชื่อ name เป็น modal_ นำหน้า ป้องกันการตีกันกับหน้าปกติ
+    html += `<tr>
+      <td class="text-center text-muted fw-bold align-middle">${index + 1}</td>
+      <td class="text-start align-middle px-2">
+         <div class="fw-bold text-dark" style="font-size:0.85rem;">${stdName}</div>
+         <div class="small text-muted font-monospace">ID: ${rawId} ${Object.keys(h).length > 0 ? '<i class="fas fa-check-circle text-success ms-1"></i>' : ''}</div>
+      </td>
+      
+      <td class="align-middle"><div class="btn-group btn-group-sm w-100 shadow-sm">
+        <input type="radio" class="btn-check" name="modal_area_${rawId}" id="m_a_เข้า_${rawId}" value="เข้าร่วม" ${hArea==='เข้าร่วม'?'checked':''}>
+        <label class="btn btn-outline-info text-dark px-1" for="m_a_เข้า_${rawId}">เข้าร่วม</label>
+        <input type="radio" class="btn-check" name="modal_area_${rawId}" id="m_a_ไม่เข้า_${rawId}" value="ไม่เข้า" ${hArea==='ไม่เข้า'?'checked':''}>
+        <label class="btn btn-outline-secondary px-1" for="m_a_ไม่เข้า_${rawId}">ไม่เข้า</label>
+      </div></td>
+      
+      <td class="align-middle"><div class="btn-group btn-group-sm w-100 shadow-sm">
+        <input type="radio" class="btn-check" name="modal_duty_${rawId}" id="m_d_ทำ_${rawId}" value="ทำ" ${hDuty==='ทำ'?'checked':''}>
+        <label class="btn btn-outline-primary px-1" for="m_d_ทำ_${rawId}">ทำ</label>
+        <input type="radio" class="btn-check" name="modal_duty_${rawId}" id="m_d_ไม่ทำ_${rawId}" value="ไม่ทำ" ${hDuty==='ไม่ทำ'?'checked':''}>
+        <label class="btn btn-outline-secondary px-1" for="m_d_ไม่ทำ_${rawId}">ไม่ทำ</label>
+      </div></td>
+      
+      <td class="align-middle"><div class="btn-group btn-group-sm w-100 shadow-sm">
+        <input type="radio" class="btn-check" name="modal_flag_${rawId}" id="m_f_มา_${rawId}" value="มา" ${hFlag==='มา'?'checked':''}>
+        <label class="btn btn-outline-success px-1" for="m_f_มา_${rawId}">มา</label>
+        <input type="radio" class="btn-check" name="modal_flag_${rawId}" id="m_f_สาย_${rawId}" value="สาย" ${hFlag==='สาย'?'checked':''}>
+        <label class="btn btn-outline-warning px-1" for="m_f_สาย_${rawId}">สาย</label>
+        <input type="radio" class="btn-check" name="modal_flag_${rawId}" id="m_f_ลา_${rawId}" value="ลา" ${hFlag==='ลา'?'checked':''}>
+        <label class="btn btn-outline-info px-1" for="m_f_ลา_${rawId}">ลา</label>
+        <input type="radio" class="btn-check" name="modal_flag_${rawId}" id="m_f_ขาด_${rawId}" value="ขาด" ${hFlag==='ขาด'?'checked':''}>
+        <label class="btn btn-outline-danger px-1" for="m_f_ขาด_${rawId}">ขาด</label>
+      </div></td>
+    </tr>`;
+  });
+
+  const modalHtml = `
+  <div class="modal fade" id="morningCheckModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-fullscreen-lg-down">
+      <div class="modal-content bg-light" style="border-radius: 12px; overflow: hidden;">
+        <div class="modal-header bg-warning text-dark border-0 p-3 shadow-sm" style="z-index: 10;">
+          <div>
+            <h5 class="modal-title fw-bold mb-0"><i class="fas fa-sun me-2 text-primary"></i>บันทึกกิจกรรมโฮมรูม & หน้าเสาธง</h5>
+            <div class="small fw-bold mt-1 text-secondary"><i class="fas fa-users me-1"></i>ห้อง ${className} | <i class="fas fa-calendar-alt me-1 ms-2"></i>${formatThaiDate(dateStr)}</div>
+          </div>
+          <button type="button" class="btn-close shadow-none" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body p-0">
+          <div class="table-responsive bg-white" style="max-height: 65vh;">
+            <table class="table table-hover align-middle mb-0 text-center text-nowrap">
+              <thead class="table-light text-muted small sticky-top shadow-sm" style="z-index: 5;">
+                <tr>
+                  <th style="width: 40px;">ที่</th>
+                  <th class="text-start ps-3">ชื่อ-สกุล</th>
+                  <th style="min-width: 120px;">เข้าเขตพื้นที่</th>
+                  <th style="min-width: 110px;">ทำเวรประจำวัน</th>
+                  <th style="min-width: 150px;">กิจกรรมหน้าเสาธง</th>
+                </tr>
+              </thead>
+              <tbody>${html}</tbody>
+            </table>
+          </div>
+        </div>
+        <div class="modal-footer bg-white border-top p-3 d-flex justify-content-between align-items-center">
+          <span class="text-muted small d-none d-md-inline"><i class="fas fa-database me-1"></i>ข้อมูลถูกแยกจัดเก็บในฐานข้อมูลงานกิจการนักเรียน</span>
+          <button class="btn btn-success fw-bold px-5 py-2 shadow-sm w-sm-100" onclick="submitMorningCheck('${dateStr}', '${className}')">
+            <i class="fas fa-save me-2"></i>บันทึกข้อมูลโฮมรูม
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>`;
+
+  const oldModal = document.getElementById('morningCheckModal');
+  if(oldModal) oldModal.remove();
+  document.body.insertAdjacentHTML('beforeend', modalHtml);
+  
+  const modal = new bootstrap.Modal(document.getElementById('morningCheckModal'), { backdrop: 'static' });
+  modal.show();
+}
+
+// 3. รวบรวมข้อมูลและส่งไปบันทึก
+function submitMorningCheck(dateStr, className) {
+  const user = getSessionUser();
+  const records = [];
+  
+  currentMorningStudents.forEach(s => {
+    const rawId = String(s[0]).trim();
+    // 🌟 ดึงข้อมูลจาก name ใหม่ที่มีคำว่า modal_ นำหน้า
+    records.push({
+      studentId: rawId,
+      studentName: s[2],
+      area: document.querySelector(`input[name="modal_area_${rawId}"]:checked`).value,
+      duty: document.querySelector(`input[name="modal_duty_${rawId}"]:checked`).value,
+      flag: document.querySelector(`input[name="modal_flag_${rawId}"]:checked`).value
+    });
+  });
+
+  const payload = {
+    date: dateStr,
+    term: user.currentTerm,
+    year: user.currentYear,
+    className: className,
+    teacherId: user.id,
+    records: records
+  };
+
+  const btn = document.querySelector('#morningCheckModal .btn-success');
+  const oldText = btn.innerHTML;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>กำลังบันทึก...';
+  btn.disabled = true;
+
+  safeRun(3)
+    .withSuccessHandler(res => {
+      btn.innerHTML = oldText;
+      btn.disabled = false;
+      bootstrap.Modal.getInstance(document.getElementById('morningCheckModal')).hide();
+      showToast(res.message, "success");
+    })
+    .withFailureHandler(err => {
+      btn.innerHTML = oldText;
+      btn.disabled = false;
+      alert("❌ เกิดข้อผิดพลาด: " + err.message);
+    })
+    .saveMorningActivityBatch(payload);
+}
+
+// ==========================================
+// 10. LESSON HISTORY DASHBOARD
+// ==========================================
+let allLessonHistories = []; 
+
+function initLessonHistoryPage() {
+  const user = getSessionUser();
+  if(!user) return;
+  if(document.getElementById('history-header-info')) document.getElementById('history-header-info').innerText = `คุณครูผู้สอน: ${user.name} | ภาคเรียน ${user.currentTerm}/${user.currentYear}`;
+  const cacheKey = `lesson_history_${user.id}_${user.currentTerm}_${user.currentYear}`;
+
+  if (sessionStorage.getItem(cacheKey)) {
+     allLessonHistories = JSON.parse(sessionStorage.getItem(cacheKey));
+     renderLessonHistoryCards(allLessonHistories); return;
+  }
+  showLoader(true);
+  google.script.run.withFailureHandler(err => { showLoader(false); alert("Error: " + err.message); })
+    .withSuccessHandler(res => { showLoader(false); sessionStorage.setItem(cacheKey, JSON.stringify(res)); allLessonHistories = res; renderLessonHistoryCards(res); })
+    .getDetailedLessonRecords(user.id, user.currentTerm, user.currentYear);
+}
+
+function filterLessonHistory() {
+  const keyword = document.getElementById('searchLessonHistory').value.toLowerCase();
+  const filtered = allLessonHistories.filter(item => item.subjectCode.toLowerCase().includes(keyword) || item.subjectName.toLowerCase().includes(keyword) || item.className.toLowerCase().includes(keyword) || item.topic.toLowerCase().includes(keyword));
+  renderLessonHistoryCards(filtered);
+}
+
+function renderLessonHistoryCards(data) {
+  const container = document.getElementById('lessonHistoryContainer'); if(!container) return;
+  if (data.length === 0) { container.innerHTML = `<div class="col-12 text-center p-5 text-muted"><i class="fas fa-folder-open fa-3x mb-3 opacity-25"></i><h5>ยังไม่มีบันทึกการสอนแบบละเอียดในเทอมนี้</h5></div>`; return; }
+
+  let html = '';
+  data.forEach((item, index) => {
+    const dpaBadges = item.dpa.length > 0 ? item.dpa.map(d => `<span class="badge bg-info text-dark me-1 mb-1 shadow-sm">${d}</span>`).join('') : '<span class="text-muted small">- ไม่ได้ระบุ -</span>';
+    const skillBadges = item.skills.length > 0 ? item.skills.map(s => `<span class="badge bg-warning text-dark me-1 mb-1 shadow-sm">${s}</span>`).join('') : '<span class="text-muted small">- ไม่ได้ระบุ -</span>';
+    let attachments = ''; let availableFiles = [];
+    if (item.workUrl && !item.workUrl.includes("Error")) availableFiles.push({ url: item.workUrl, title: 'ไฟล์ผลงาน/ชิ้นงาน' });
+    if (item.imageUrl && !item.imageUrl.includes("Error")) availableFiles.push({ url: item.imageUrl, title: 'ภาพบรรยากาศ' });
+    if (availableFiles.length > 0) {
+      const encodedFiles = encodeURIComponent(JSON.stringify(availableFiles));
+      attachments += `<hr class="text-muted mt-2 mb-2"><div class="d-flex gap-2">`;
+      availableFiles.forEach((file, fIndex) => {
+         let btnClass = fIndex === 0 ? "btn-outline-primary" : "btn-outline-success"; let icon = fIndex === 0 ? "fa-file-alt" : "fa-image";
+         attachments += `<button type="button" onclick="openGalleryModal('${encodedFiles}', ${fIndex})" class="btn btn-sm ${btnClass}"><i class="fas ${icon} me-1"></i> ${file.title}</button>`;
+      });
+      attachments += `</div>`;
+    }
+    const safeTs = encodeURIComponent(item.timestamp);
+    html += `<div class="col-md-6 col-xl-4"><div class="card shadow-sm border-0 w-100 mb-2" style="border-radius: 12px; overflow: hidden;"><div class="card-header bg-dark text-white p-3 d-flex justify-content-between align-items-start gap-2 position-relative"><div style="min-width: 90px;"><span class="badge bg-light text-dark fw-bold mb-1">${formatThaiDate(item.date)}</span><div class="small"><i class="fas fa-clock me-1"></i> คาบ ${item.period}</div></div><div class="text-end pe-4" style="flex-grow: 1;"><div class="fw-bold text-info" style="font-size: 0.9rem; line-height: 1.2; margin-bottom: 3px;">${item.subjectCode} ${item.subjectName}</div><div class="badge bg-primary">ห้อง ${item.className}</div></div><div class="dropdown position-absolute" style="top: 12px; right: 10px;"><button class="btn btn-sm text-white opacity-75 shadow-none p-1" type="button" data-bs-toggle="dropdown"><i class="fas fa-ellipsis-v fa-lg"></i></button><ul class="dropdown-menu dropdown-menu-end shadow"><li><a class="dropdown-item" href="javascript:void(0)" onclick="openEditLessonHistory('${safeTs}')"><i class="fas fa-edit me-2 text-warning"></i> แก้ไขข้อมูล</a></li><li><hr class="dropdown-divider"></li><li><a class="dropdown-item text-danger" href="javascript:void(0)" onclick="deleteLessonHistory('${safeTs}')"><i class="fas fa-trash-alt me-2"></i> ลบรายการนี้</a></li></ul></div></div><div class="card-body bg-white"><h6 class="fw-bold text-primary mb-3 pb-2 border-bottom"><i class="fas fa-lightbulb me-2"></i>${item.topic}</h6><div class="mb-3"><div class="small fw-bold text-secondary mb-1">ผลการจัดการเรียนรู้:</div><div class="small text-dark bg-light p-2 rounded border-start border-3 border-success" style="white-space: pre-wrap; font-size: 0.8rem;">${item.outcomes || '-'}</div></div><div class="row g-2 mb-3"><div class="col-6"><div class="small fw-bold text-danger mb-1"><i class="fas fa-exclamation-circle me-1"></i> ปัญหา:</div><div class="small text-dark bg-light p-2 rounded border-start border-3 border-danger" style="white-space: pre-wrap; font-size: 0.8rem;">${item.problems || '-'}</div></div><div class="col-6"><div class="small fw-bold text-success mb-1"><i class="fas fa-check-circle me-1"></i> แก้ไข:</div><div class="small text-dark bg-light p-2 rounded border-start border-3 border-info" style="white-space: pre-wrap; font-size: 0.8rem;">${item.solutions || '-'}</div></div></div><div><div class="mb-2"><div class="small fw-bold text-secondary mb-1" style="font-size: 0.75rem;">ตัวชี้วัด DPA:</div><div>${dpaBadges}</div></div><div class="mb-2"><div class="small fw-bold text-secondary mb-1" style="font-size: 0.75rem;">ทักษะ 3R8C:</div><div>${skillBadges}</div></div>${attachments}</div></div></div></div>`;
+  });
+  container.innerHTML = html;
+}
+
+function deleteLessonHistory(encodedTs) {
+  if(!confirm("⚠️ ยืนยันการลบบันทึกหลังสอนรายการนี้ใช่หรือไม่? (ลบแล้วไม่สามารถกู้คืนได้)")) return;
+  const ts = decodeURIComponent(encodedTs); showLoader(true);
+  google.script.run.withSuccessHandler(res => { showLoader(false); alert(res.message); if(res.status === 'success') { const user = getSessionUser(); sessionStorage.removeItem(`lesson_history_${user.id}_${user.currentTerm}_${user.currentYear}`); initLessonHistoryPage(); } }).deleteDetailedLessonRecord(ts);
+}
+
+function openEditLessonHistory(encodedTs) {
+  const ts = decodeURIComponent(encodedTs); const item = allLessonHistories.find(i => String(i.timestamp) === ts); if(!item) return alert("ไม่พบข้อมูล");
+  document.getElementById('edit_dl_ts').value = ts; document.getElementById('edit_dl_topic').value = item.topic; document.getElementById('edit_dl_outcomes').value = item.outcomes; document.getElementById('edit_dl_problems').value = item.problems; document.getElementById('edit_dl_solutions').value = item.solutions; document.getElementById('edit_dl_student_results').value = item.studentResults;
+  document.querySelectorAll('.edit-dpa-check').forEach(cb => cb.checked = false); document.querySelectorAll('.edit-skill-check').forEach(cb => cb.checked = false);
+  item.dpa.forEach(val => { const cb = document.querySelector(`.edit-dpa-check[value="${val}"]`); if(cb) cb.checked = true; });
+  item.skills.forEach(val => { const cb = document.querySelector(`.edit-skill-check[value="${val}"]`); if(cb) cb.checked = true; });
+  const modal = new bootstrap.Modal(document.getElementById('editLessonHistoryModal')); modal.show();
+}
+
+async function saveEditLessonHistory() {
+  const ts = document.getElementById('edit_dl_ts').value;
+  const dpaElements = document.querySelectorAll('.edit-dpa-check:checked'); const dpaValues = Array.from(dpaElements).map(el => el.value);
+  const skillElements = document.querySelectorAll('.edit-skill-check:checked'); const skillValues = Array.from(skillElements).map(el => el.value);
+  const workFile = document.getElementById('edit_dl_work_file').files[0]; const imageFile = document.getElementById('edit_dl_image_file').files[0];
+  const btn = document.getElementById('btnSaveEditLesson'); const oldText = btn.innerHTML; btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>กำลังบันทึกข้อมูล...';
+  try {
+    const workFileBase64 = await getBase64(workFile); const imageFileBase64 = await getBase64(imageFile);
+    const record = { topic: document.getElementById('edit_dl_topic').value, outcomes: document.getElementById('edit_dl_outcomes').value, problems: document.getElementById('edit_dl_problems').value, solutions: document.getElementById('edit_dl_solutions').value, dpa: dpaValues, skills: skillValues, studentResults: document.getElementById('edit_dl_student_results').value, workFileBase64: workFileBase64, imageFileBase64: imageFileBase64 };
+    safeRun(3)
+      .withFailureHandler(err => { btn.disabled = false; btn.innerHTML = oldText; alert("❌ Error: " + err.message); })
+      .withSuccessHandler(res => { btn.disabled = false; btn.innerHTML = oldText; bootstrap.Modal.getInstance(document.getElementById('editLessonHistoryModal')).hide(); alert(res.message); if (res.status === 'success') { const user = getSessionUser(); sessionStorage.removeItem(`lesson_history_${user.id}_${user.currentTerm}_${user.currentYear}`); initLessonHistoryPage(); } })
+      .updateDetailedLessonRecord(ts, record);
+  } catch(e) { btn.disabled = false; btn.innerHTML = oldText; alert("Error: " + e.message); }
+}
+
+
+
+// ==========================================
+// 🌟 ฟังก์ชันแสดงรูปภาพ/ไฟล์ แบบ Popup
+// ==========================================
+let galleryItems = []; let galleryCurrentIndex = 0;
+function openGalleryModal(encodedFiles, startIndex) {
+  galleryItems = JSON.parse(decodeURIComponent(encodedFiles)); galleryCurrentIndex = parseInt(startIndex);
+  let modalEl = document.getElementById('galleryViewerModal');
+  if (!modalEl) {
+    const modalHtml = `<div class="modal fade" id="galleryViewerModal" tabindex="-1" aria-hidden="true"><div class="modal-dialog modal-xl modal-dialog-centered" style="max-width: 90vw;"><div class="modal-content bg-dark" style="height: 85vh; border-radius: 12px; overflow: hidden;"><div class="modal-header border-0 text-white p-3" style="background-color: rgba(0,0,0,0.6); position: absolute; width: 100%; z-index: 10;"><h6 class="modal-title fw-bold" id="galleryViewerTitle">กำลังโหลด...</h6><button type="button" class="btn-close btn-close-white shadow-none" data-bs-dismiss="modal" aria-label="Close"></button></div><div class="modal-body p-0 position-relative"><div class="position-absolute top-50 start-50 translate-middle text-white text-center" style="z-index: 1;"><div class="spinner-border text-light mb-2" role="status"></div><div class="small">กำลังโหลดข้อมูลจาก Google Drive...</div></div><iframe id="galleryViewerIframe" src="" width="100%" height="100%" style="border: none; position: relative; z-index: 2; background-color: white;"></iframe><button id="btnGalleryPrev" class="btn btn-dark position-absolute top-50 start-0 translate-middle-y ms-3 shadow-lg" style="z-index: 10; border-radius: 50%; width: 50px; height: 50px; opacity: 0.85;" onclick="navigateGallery(-1)"><i class="fas fa-chevron-left fa-lg"></i></button><button id="btnGalleryNext" class="btn btn-dark position-absolute top-50 end-0 translate-middle-y me-3 shadow-lg" style="z-index: 10; border-radius: 50%; width: 50px; height: 50px; opacity: 0.85;" onclick="navigateGallery(1)"><i class="fas fa-chevron-right fa-lg"></i></button></div></div></div></div>`;
+    document.body.insertAdjacentHTML('beforeend', modalHtml); modalEl = document.getElementById('galleryViewerModal');
+  }
+  updateGalleryView(); const modal = new bootstrap.Modal(modalEl); modal.show();
+}
+
+function updateGalleryView() {
+  const item = galleryItems[galleryCurrentIndex];
+  document.getElementById('galleryViewerTitle').innerHTML = `<i class="fas fa-search-plus me-2 text-info"></i> ${item.title} <span class="badge bg-light text-dark ms-2" style="font-size:0.75rem;">${galleryCurrentIndex + 1} / ${galleryItems.length}</span>`;
+  let embedUrl = item.url; if (embedUrl && embedUrl.includes('/view')) embedUrl = embedUrl.replace(/\/view.*/, '/preview');
+  document.getElementById('galleryViewerIframe').src = embedUrl;
+  const showNav = galleryItems.length > 1 ? 'block' : 'none'; document.getElementById('btnGalleryPrev').style.display = showNav; document.getElementById('btnGalleryNext').style.display = showNav;
+}
+
+function navigateGallery(direction) {
+  galleryCurrentIndex += direction;
+  if (galleryCurrentIndex < 0) galleryCurrentIndex = galleryItems.length - 1;
+  if (galleryCurrentIndex >= galleryItems.length) galleryCurrentIndex = 0;
+  updateGalleryView(); 
+}
+
+// ==========================================
+// 11. ฟังก์ชัน AI-Insights
+// ==========================================
+function analyzeProblems() {
+  const body = document.getElementById('problemAnalysisBody');
+  const recordsWithProblems = allLessonHistories.filter(item => { const p = item.problems ? item.problems.trim() : ""; return p !== "" && p !== "-"; });
+  if (recordsWithProblems.length === 0) { body.innerHTML = `<div class="text-center p-5 text-muted"><i class="fas fa-smile-beam fa-4x mb-3 text-success"></i><h5 class="fw-bold text-success">ยอดเยี่ยมมากครับ!</h5><p>ไม่พบปัญหาอุปสรรคในการจัดการเรียนรู้ในช่วงเวลานี้เลยครับ</p></div>`; new bootstrap.Modal(document.getElementById('problemAnalysisModal')).show(); return; }
+  body.innerHTML = `<div class="text-center p-5 animate__animated animate__fadeIn"><div class="spinner-grow text-danger mb-3" style="width: 3rem; height: 3rem;" role="status"></div><h5 class="fw-bold text-danger animate__animated animate__pulse animate__infinite">PSSMS AI กำลังวิเคราะห์ข้อมูล...</h5><p class="text-muted small">กำลังสแกนคีย์เวิร์ด จัดกลุ่มพฤติกรรม และสร้างข้อเสนอแนะงานวิจัย (CAR)</p></div>`;
+  const modal = new bootstrap.Modal(document.getElementById('problemAnalysisModal')); modal.show();
+  setTimeout(() => { runSmartAIAnalysis(recordsWithProblems, body); }, 1500);
+}
+
+function runSmartAIAnalysis(records, body) {
+  const categories = {
+    "ด้านพฤติกรรมและความสนใจ": { keywords: ["คุย", "เล่น", "โทรศัพท์", "หลับ", "ไม่สนใจ", "เสียงดัง", "วอกแวก", "สมาธิ", "เบื่อ", "ไม่ตั้งใจ", "เกม", "กวน", "แกล้ง", "ทะเลาะ", "เหม่อ", "หยอก", "พูดแทรก", "ไม่ให้ความร่วมมือ", "ขาดสมาธิ", "โซเชียล", "แชท", "แต่งหน้า", "กินขนม", "ซน", "หาว", "ฟุบ", "นินทา", "ตีกัน", "วิ่งเล่น", "เดินเพ่นพ่าน", "ไม่ฟัง", "หันหลัง", "คุยข้ามโต๊ะ", "เล่นมือถือ", "ร้องเพลง", "เคาะโต๊ะ", "โยนของ", "ไม่ตอบคำถาม", "ไม่กระตือรือร้น", "เฉื่อยชา", "นิ่งเฉย", "ก้าวร้าว", "หยาบคาย", "พูดคำหยาบ", "ไม่เคารพ", "ต่อต้าน", "ชวนเพื่อนคุย", "แอบกิน", "ไม่จด", "นั่งเหม่อ", "ถ่ายรูป", "เซลฟี่", "ตะโกน", "รบกวน", "ดื้อ", "ไม่นิ่ง", "ยุกยิก", "ลุกจากที่", "วาดรูปเล่น", "พับกระดาษ", "ฟังเพลง", "ใส่หูฟัง", "ส่องกระจก", "หวีผม", "ทาลิป", "คุยแทรก", "เถียง", "หัวเราะ", "โหวกเหวก", "ง่วง", "อิดออด", "ไม่กระฉับกระเฉง", "ถอนหายใจ", "ไร้สมาธิ", "ลอยไปลอยมา", "ไม่จดจ่อ", "หลุกหลิก", "เล่นกัน", "หยอกล้อ", "ก่อกวน", "รังแก", "บูลลี่", "ไม่ปฏิบัติตาม", "เล่นหัว", "ไม่ใส่ใจ"], count: 0, items: [] },
+    "ด้านทักษะและการเรียนรู้": { keywords: ["ช้า", "ไม่เข้าใจ", "ลืม", "พื้นฐาน", "อ่านไม่ออก", "เขียน", "คิดเลข", "คำนวณ", "ยาก", "ไม่ทัน", "สับสน", "สอบ", "คะแนน", "ตามไม่ทัน", "วิเคราะห์", "สรุป", "คำนวณ", "อ่อน", "ทักษะ", "จับใจความ", "ตีความ", "ปฏิบัติไม่ได้", "ทดลอง", "ประยุกต์", "ทำไม่ได้", "คลาดเคลื่อน", "อ่านสะกด", "สะกดคำ", "อ่านตะกุกตะกัก", "เขียนผิด", "ลายมือ", "อ่านช้า", "เขียนช้า", "ไม่รู้เรื่อง", "ตีโจทย์", "ไม่แตก", "คิดไม่ออก", "จำไม่ได้", "ไม่ได้หน้าลืมหลัง", "ความจำ", "ประเมินค่า", "สังเคราะห์", "แยกแยะ", "สื่อสารไม่ได้", "นำเสนอไม่ได้", "ไม่กล้าตอบ", "ตอบผิด", "เข้าใจผิด", "มโนทัศน์คลาดเคลื่อน", "ความรู้เดิม", "ลืมเนื้อหา", "เชื่อมโยงไม่ได้", "ไม่เห็นภาพ", "นึกไม่ออก", "ขาดทักษะ", "แก้ปัญหาไม่ได้", "ไม่รู้ขั้นตอน", "ทำผิดสเต็ป", "ลำดับความคืบหน้า", "ใช้เครื่องมือไม่เป็น", "ไม่เข้าใจคำสั่ง", "งง", "ซับซ้อน", "เนื้อหาลึก", "ไม่บรรลุ", "ตกประเมิน", "ไม่ผ่านเกณฑ์", "ซ่อมเสริม", "อ่านข้าม", "เขียนตก", "คำนวณผิด", "บวกเลขผิด", "สูตรคณิต", "ท่องจำ", "พรีเซนต์", "นำเสนอ", "ขาดไหวพริบ", "ไม่เข้าใจเนื้อหา", "เรียนอ่อน", "เรียนช้า", "อ่านไม่ออกเขียนไม่ได้"], count: 0, items: [] },
+    "ด้านความรับผิดชอบและวินัย": { keywords: ["ไม่ส่งงาน", "การบ้าน", "สาย", "ขาด", "หนี", "อุปกรณ์", "หนังสือ", "ไม่เอา", "ลืมนำ", "ภาระงาน", "วินัย", "ตรงต่อเวลา", "ลอก", "ทุจริต", "ข้อตกลง", "กฎ", "ระเบียบ", "นัดหมาย", "ละทิ้ง", "แต่งกาย", "ผลัดวัน", "ค้าง", "งานค้าง", "ดินสอ", "ปากกา", "สมุด", "หาย", "ทิ้ง", "ไม่รับผิดชอบ", "โดดเรียน", "มาสาย", "เข้าเรียนช้า", "ออกก่อน", "ไม่เข้าคลาส", "ลอกเพื่อน", "ให้เพื่อนทำแทน", "ก๊อปปี้", "วางทิ้งไว้", "ไม่เก็บของ", "ไม่ทำเวร", "สกปรก", "ทิ้งขยะ", "ขาดเรียน", "หนีเรียน", "แอบหนี", "ออกนอกห้อง", "อ้างเหตุผล", "แก้ตัว", "เลท", "ไม่เตรียมตัว", "สมุดหมด", "ลืมเอามา", "ลืมทำ", "ค้างส่ง", "ผลัดวันประกันพรุ่ง", "หมักหมม", "ดองงาน", "ไม่ตามงาน", "ไม่ส่งใบงาน", "ขาดความรับผิดชอบ", "ไม่รักษาสัญญา", "ผิดนัด", "ลอกการบ้าน", "แอบดู", "ลืมหนังสือ", "แต่งตัวผิดระเบียบ", "เสื้อหลุด", "ผมยาว", "ไม่รักษากฎ", "ฝ่าฝืน", "ขัดคำสั่ง"], count: 0, items: [] },
+    "ด้านสภาพแวดล้อมและทรัพยากร": { keywords: ["เน็ต", "อินเทอร์เน็ต", "คอม", "โปรเจคเตอร์", "ร้อน", "ไฟดับ", "ฝนตก", "พัง", "เสียงรบกวน", "แออัด", "สัญญาณ", "จอ", "คับแคบ", "อากาศ", "มืด", "ไม่พร้อม", "ชำรุด", "ซ่อมแซม", "สถานที่", "เครื่องมือ", "ไมค์", "ไมโครโฟน", "ลำโพง", "สะดุด", "หลุด", "ค้าง", "กระตุก", "แอร์เสีย", "พัดลม", "อบอ้าว", "หนาว", "แสงสว่าง", "มืดไป", "เสียงดังจากข้างนอก", "ก่อสร้าง", "ตัดหญ้า", "กิจกรรมโรงเรียน", "ขัดจังหวะ", "แขกมาเยือน", "ประกาศ", "แท็บเล็ต", "โทรทัศน์", "สาย HDMI", "ปลั๊กไฟ", "โต๊ะพัง", "เก้าอี้เสีย", "ห้องไม่สะอาด", "ฝุ่น", "เหม็น", "กลิ่น", "อินเตอร์เน็ต", "หลุดบ่อย", "ไวไฟ", "wifi", "ช้ามาก", "โหลดไม่ขึ้น", "อุปกรณ์ไม่พอ", "ไม่เพียงพอ", "แบ่งกัน", "แย่งกัน", "ห้องเรียน", "อาคาร", "ฝนตกหนัก", "น้ำท่วม", "เสียงแทรก", "กิจกรรมชน", "เครื่องพริ้น", "กระดาษหมด", "หมึกหมด", "แบตหมด"], count: 0, items: [] },
+    "ปัญหาอื่นๆ ทั่วไป": { keywords: [], count: 0, items: [] }
+  };
+
+  records.forEach(item => {
+     let matched = false; const text = (item.problems + " " + item.outcomes).toLowerCase();
+     for (const cat in categories) {
+        if(cat === "ปัญหาอื่นๆ ทั่วไป") continue;
+        if (categories[cat].keywords.some(kw => text.includes(kw))) { categories[cat].count++; categories[cat].items.push(item); matched = true; break; }
+     }
+     if(!matched) { categories["ปัญหาอื่นๆ ทั่วไป"].count++; categories["ปัญหาอื่นๆ ทั่วไป"].items.push(item); }
+  });
+
+  let topCat = "ปัญหาอื่นๆ ทั่วไป"; let maxCount = -1;
+  for (const cat in categories) { if (categories[cat].count > maxCount && cat !== "ปัญหาอื่นๆ ทั่วไป") { maxCount = categories[cat].count; topCat = cat; } }
+
+  let aiInsight = "";
+  if (topCat === "ด้านพฤติกรรมและความสนใจ") { aiInsight = "📌 <b>AI เสนอแนะแนวทางพัฒนา (CAR):</b> ปัญหาหลักของผู้เรียนอยู่ในกลุ่มพฤติกรรมและการมีส่วนร่วม แนะนำวิจัยเรื่อง <span class='text-primary fw-bold'>'การปรับพฤติกรรมและเพิ่มการมีส่วนร่วมในชั้นเรียน โดยใช้กระบวนการ Gamification (เกมมิฟิเคชัน) ร่วมกับการเสริมแรงทางบวก'</span> หรือ <span class='text-primary fw-bold'>'การใช้ Active Learning เพื่อลดพฤติกรรมไม่พึงประสงค์ในห้องเรียน'</span>"; } 
+  else if (topCat === "ด้านทักษะและการเรียนรู้") { aiInsight = "📌 <b>AI เสนอแนะแนวทางพัฒนา (CAR):</b> ผู้เรียนมีข้อจำกัดด้านทักษะพื้นฐานและความเข้าใจ แนะนำวิจัยเรื่อง <span class='text-primary fw-bold'>'การยกระดับผลสัมฤทธิ์และแก้ปัญหาการเรียนรู้ช้า โดยใช้เทคนิคเพื่อนช่วยเพื่อน (Peer-Assisted Learning) ร่วมกับสื่อมัลติมีเดียเชิงโต้ตอบ'</span> หรือ <span class='text-primary fw-bold'>'การพัฒนาทักษะกระบวนการคิดโดยใช้แบบฝึกทักษะเฉพาะบุคคล'</span>"; } 
+  else if (topCat === "ด้านความรับผิดชอบและวินัย") { aiInsight = "📌 <b>AI เสนอแนะแนวทางพัฒนา (CAR):</b> พบปัญหาด้านวินัยและการส่งงานเด่นชัด แนะนำวิจัยเรื่อง <span class='text-primary fw-bold'>'การพัฒนาความรับผิดชอบและวินัยในตนเองเรื่องการส่งงาน โดยใช้ระบบเศรษฐกิจแบบโทเคน (Token Economy) ร่วมกับการทำสัญญาร่วมกัน'</span>"; } 
+  else if (topCat === "ด้านสภาพแวดล้อมและทรัพยากร") { aiInsight = "📌 <b>AI เสนอแนะแนวทางพัฒนา:</b> ปัญหาส่วนใหญ่เกิดจากปัจจัยภายนอกและสภาพแวดล้อม แนะนำให้ <span class='text-primary fw-bold'>'ออกแบบแผนการจัดการเรียนรู้แบบยืดหยุ่น (Flexible Lesson Plan) และเตรียมสื่อแบบ Unplugged (ไม่พึ่งพาไฟฟ้า/อินเทอร์เน็ต) สำรองไว้เสมอ'</span> รวมถึงแจ้งฝ่ายอาคารสถานที่เพื่อปรับปรุง"; } 
+  else { aiInsight = "📌 <b>AI เสนอแนะแนวทางพัฒนา:</b> ปัญหามีความหลากหลายและกระจายตัว แนะนำให้ <span class='text-primary fw-bold'>'วิเคราะห์ผู้เรียนเป็นรายบุคคล (Individual Analysis)'</span> และปรับใช้วิธีการสอนที่หลากหลาย (Differentiated Instruction) เพื่อตอบสนองความแตกต่างของผู้เรียนแต่ละกลุ่มครับ"; }
+
+  let html = `<div class="card border-0 shadow-sm mb-4 rounded-3" style="background: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%);"><div class="card-body"><div class="d-flex align-items-center mb-3 pb-2 border-bottom"><div class="bg-danger text-white rounded-circle d-flex justify-content-center align-items-center me-3 shadow" style="width: 45px; height: 45px;"><i class="fas fa-brain fa-lg"></i></div><div><h6 class="fw-bold mb-0 text-danger">PSSMS AI-Insights</h6><div class="small text-muted">สรุปแนวโน้มปัญหาจากบันทึกการสอนทั้งหมด <b>${records.length}</b> รายการ</div></div></div><div class="d-flex flex-wrap gap-2 mb-3">`;
+  for (const cat in categories) { if (categories[cat].count > 0) { let badgeColor = cat === topCat ? "bg-danger" : "bg-secondary"; let isTopAlert = cat === topCat ? '<i class="fas fa-exclamation-circle ms-1 animate__animated animate__flash animate__infinite"></i>' : ''; html += `<span class="badge ${badgeColor} p-2 shadow-sm" style="font-size: 0.85rem; border-radius: 8px;">${cat} : พบ ${categories[cat].count} คาบ ${isTopAlert}</span>`; } }
+  html += `</div><div class="alert alert-primary mb-0 shadow-sm border-start border-4 border-primary"><div class="d-flex"><i class="fas fa-lightbulb fa-2x text-warning me-3"></i><div style="font-size: 0.9rem; line-height: 1.5;">${aiInsight}</div></div></div></div></div><h6 class="fw-bold text-dark mb-3"><i class="fas fa-list-ul me-2"></i>เจาะลึกปัญหาแยกตามหมวดหมู่</h6>`;
+
+  for (const cat in categories) {
+     if (categories[cat].items.length > 0) {
+        let catIcon = "fa-folder"; if(cat.includes("พฤติกรรม")) catIcon = "fa-user-ninja"; else if(cat.includes("ทักษะ")) catIcon = "fa-chart-line"; else if(cat.includes("รับผิดชอบ")) catIcon = "fa-clipboard-check"; else if(cat.includes("แวดล้อม")) catIcon = "fa-wifi";
+        html += `<div class="mb-4"><span class="badge bg-dark fs-6 mb-2 shadow-sm"><i class="fas ${catIcon} me-2"></i>${cat}</span><div class="list-group shadow-sm border-0" style="border-radius: 10px; overflow: hidden;">`;
+        categories[cat].items.forEach(item => {
+          html += `<div class="list-group-item border-start border-4 border-danger border-top-0 border-end-0 border-bottom"><div class="d-flex justify-content-between small mb-2 bg-light p-1 rounded"><span class="fw-bold text-primary"><i class="fas fa-book me-1"></i>${item.subjectCode} (ห้อง ${item.className})</span><span class="text-secondary"><i class="fas fa-calendar-alt me-1"></i>${formatThaiDate(item.date)}</span></div><div style="font-size: 0.85rem; line-height: 1.5;"><span class="badge bg-danger-subtle text-danger border border-danger mb-1">ปัญหา</span> <span class="text-dark fw-bold">${item.problems}</span><br><span class="badge bg-success-subtle text-success border border-success mt-1">แนวทางแก้ไข</span> <span class="text-dark">${item.solutions || '-'}</span></div></div>`;
+        });
+        html += `</div></div>`;
+     }
+  }
+  body.innerHTML = html;
+}
+
+// ==========================================
+// 12. DASHBOARD & ACADEMIC LOGIC
+// ==========================================
+function loadStudentSummary() {
+  google.script.run.withSuccessHandler(function(data) {
+    if (data && data.length > 0) { renderStudentTable(data); renderStudentChart(data); }
+  }).getStudentSummaryStats();
+}
+
+function renderStudentTable(data) {
+  const tbody = document.getElementById('summaryTableBody');
+  const tfooter = document.getElementById('tableFooter');
+  if(!tbody) return;
+  let html = ''; let sumM = 0, sumF = 0, sumT = 0;
+  data.forEach(item => {
+    sumM += item.male; sumF += item.female; sumT += item.total;
+    html += `<tr><td><span class="badge bg-light text-dark border">${item.grade}</span></td><td class="text-center text-primary">${item.male}</td><td class="text-center text-danger">${item.female}</td><td class="text-center fw-bold">${item.total}</td></tr>`;
+  });
+  tbody.innerHTML = html;
+  if(tfooter) tfooter.innerHTML = `<tr><td>รวมทั้งหมด</td><td class="text-center text-primary">${sumM}</td><td class="text-center text-danger">${sumF}</td><td class="text-center bg-primary text-white">${sumT}</td></tr>`;
+}
+
+function renderStudentChart(data) {
+  const canvas = document.getElementById('studentChart');
+  if(!canvas) return;
+  if (window.myChart) window.myChart.destroy();
+  window.myChart = new Chart(canvas.getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels: data.map(i => i.grade),
+      datasets: [{ label: 'ชาย', data: data.map(i => i.male), backgroundColor: '#3498db' }, { label: 'หญิง', data: data.map(i => i.female), backgroundColor: '#e74c3c' }]
+    },
+    options: { indexAxis: 'y', responsive: true, plugins: { legend: { position: 'bottom' } }, scales: { x: { beginAtZero: true, ticks: { stepSize: 1 } } } }
+  });
+}
+</script>

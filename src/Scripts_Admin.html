@@ -1,0 +1,292 @@
+<script>
+// ==========================================
+// 1. System Settings Logic
+// ==========================================
+function loadCurrentConfig() {
+  google.script.run.withSuccessHandler(function(config) {
+    document.getElementById('inputTerm').value = config.term || "1";
+    document.getElementById('inputYear').value = config.year || "2568";
+    if (config.termStart) document.getElementById('inputStartDate').value = new Date(config.termStart).toISOString().split('T')[0];
+    if (config.termEnd) document.getElementById('inputEndDate').value = new Date(config.termEnd).toISOString().split('T')[0];
+    if(document.getElementById('currentTermDisplay')) document.getElementById('currentTermDisplay').innerText = `${config.term}/${config.year}`;
+    if(document.getElementById('currentRangeDisplay')) document.getElementById('currentRangeDisplay').innerText = `${formatThaiDate(config.termStart)} ถึง ${formatThaiDate(config.termEnd)}`;
+  }).getSystemConfig();
+}
+
+function saveConfig() {
+  const term = document.getElementById('inputTerm').value;
+  const year = document.getElementById('inputYear').value;
+  const startDate = document.getElementById('inputStartDate').value;
+  const endDate = document.getElementById('inputEndDate').value;
+  if(!term || !year || !startDate || !endDate) return alert('กรุณากรอกข้อมูลให้ครบทุกช่อง');
+  showLoader(true);
+  google.script.run.withSuccessHandler(function(res) { showLoader(false); alert(res.message); loadCurrentConfig(); }).saveSystemConfig(term, year, startDate, endDate);
+}
+
+// ==========================================
+// 2. User Management 
+// ==========================================
+var allUsers = [];
+function loadUserData() { google.script.run.withSuccessHandler(d => { allUsers = d; renderTable(d); }).getAllUsers(); }
+
+function renderTable(data) {
+  const tbodyStudent = document.getElementById('tableBodyStudent');
+  const tbodyStaff = document.getElementById('tableBodyStaff');
+  if(!tbodyStudent || !tbodyStaff) return;
+  let htmlStudent = ''; let htmlStaff = '';
+  data.forEach(row => {
+    const rawStatus = row[7] ? String(row[7]).trim() : "ปกติ";
+    if (row[3] === 'Student') {
+      let statusBadge = rawStatus === 'ปกติ' ? '<span class="badge bg-success-subtle text-success border border-success rounded-pill px-3">ปกติ</span>' : '<span class="badge bg-danger-subtle text-danger border border-danger rounded-pill px-3">แขวนลอย</span>';
+      let trClass = rawStatus === 'แขวนลอย' ? 'table-danger' : '';
+      htmlStudent += `<tr class="${trClass}"><td class="ps-4 fw-bold text-primary">${row[0]}</td><td>${row[2]}</td><td><span class="badge bg-light text-dark border">${row[4]}</span></td><td class="text-center">${statusBadge}</td><td class="text-end pe-4"><button class="btn btn-sm btn-outline-primary me-1 shadow-none" onclick="openModal('edit', '${row[0]}')"><i class="fas fa-edit"></i></button><button class="btn btn-sm btn-outline-danger shadow-none" onclick="confirmDelete('${row[0]}')"><i class="fas fa-trash"></i></button></td></tr>`;
+    } else {
+      let roleBadge = row[3] === 'Admin' ? '<span class="badge bg-danger">Admin</span>' : '<span class="badge bg-success">Teacher</span>';
+      htmlStaff += `<tr><td class="ps-4 text-muted">${row[0]}</td><td class="fw-bold">${row[2]}</td><td>${row[4]}</td><td class="text-center">${roleBadge}</td><td class="text-end pe-4"><button class="btn btn-sm btn-outline-primary me-1 shadow-none" onclick="openModal('edit', '${row[0]}')"><i class="fas fa-edit"></i></button><button class="btn btn-sm btn-outline-danger shadow-none" onclick="confirmDelete('${row[0]}')"><i class="fas fa-trash"></i></button></td></tr>`;
+    }
+  });
+  tbodyStudent.innerHTML = htmlStudent || '<tr><td colspan="5" class="text-center p-5 text-muted">ไม่พบข้อมูลนักเรียน</td></tr>';
+  tbodyStaff.innerHTML = htmlStaff || '<tr><td colspan="5" class="text-center p-5 text-muted">ไม่พบข้อมูลบุคลากร</td></tr>';
+  renderStudentSummary(data);
+}
+
+function renderStudentSummary(data) {
+  const summaryContainer = document.getElementById('studentSummaryContainer');
+  const tbody = document.getElementById('summaryTableBody');
+  if (!summaryContainer || !tbody) return;
+  const students = data.filter(row => row[3] === 'Student');
+  if (students.length === 0) { summaryContainer.style.display = 'none'; return; }
+  summaryContainer.style.display = 'block';
+  let totalActive = 0, totalSuspended = 0, totalMale = 0, totalFemale = 0;
+  const roomStats = {};
+  students.forEach(s => {
+    const room = String(s[4]).trim() || "ไม่ระบุ";
+    const name = String(s[2]).trim();
+    const status = String(s[7]).trim() || "ปกติ";
+    const isMale = /^(นาย|ด\.ช\.|ดช\.|เด็กชาย)/.test(name);
+    if (status === 'ปกติ') totalActive++; else totalSuspended++;
+    if (isMale) totalMale++; else totalFemale++;
+    if (!roomStats[room]) roomStats[room] = { male: 0, female: 0, active: 0, suspended: 0, total: 0 };
+    if (isMale) roomStats[room].male++; else roomStats[room].female++;
+    if (status === 'ปกติ') roomStats[room].active++; else roomStats[room].suspended++;
+    roomStats[room].total++;
+  });
+  document.getElementById('sumTotal').innerText = students.length;
+  document.getElementById('sumActive').innerText = totalActive;
+  document.getElementById('sumSuspended').innerText = totalSuspended;
+  document.getElementById('sumMale').innerText = totalMale;
+  document.getElementById('sumFemale').innerText = totalFemale;
+  let html = '';
+  const sortedRooms = Object.keys(roomStats).sort((a, b) => a.localeCompare(b, 'th', { numeric: true }));
+  sortedRooms.forEach(room => {
+    const stat = roomStats[room];
+    html += `<tr><td class="fw-bold text-start ps-3"><span class="badge bg-light text-dark border border-secondary-subtle shadow-sm">${room}</span></td><td>${stat.male > 0 ? stat.male : '-'}</td><td>${stat.female > 0 ? stat.female : '-'}</td><td class="text-success fw-bold">${stat.active > 0 ? stat.active : '-'}</td><td class="text-danger">${stat.suspended > 0 ? stat.suspended : '-'}</td><td class="fw-bold text-primary bg-light">${stat.total}</td></tr>`;
+  });
+  html += `<tr class="table-light fw-bold text-dark"><td class="text-end pe-3">รวมทั้งหมด</td><td>${totalMale}</td><td>${totalFemale}</td><td class="text-success">${totalActive}</td><td class="text-danger">${totalSuspended}</td><td class="text-primary fs-6">${students.length}</td></tr>`;
+  tbody.innerHTML = html;
+}
+
+function toggleStatusField() {
+  const role = document.getElementById('inputRole').value;
+  const statusContainer = document.getElementById('statusFieldContainer');
+  if(statusContainer) {
+    if(role === 'Student') statusContainer.classList.remove('d-none');
+    else statusContainer.classList.add('d-none');
+  }
+}
+
+function openModal(mode, id=null) {
+  const modal = new bootstrap.Modal(document.getElementById('userModal'));
+  document.getElementById('mode').value = mode;
+  if(mode === 'add') {
+    document.getElementById('modalTitle').innerHTML = '<i class="fas fa-user-plus me-2"></i>เพิ่มผู้ใช้งานใหม่';
+    document.getElementById('userForm').reset();
+    document.getElementById('inputUser').disabled = false;
+    document.getElementById('inputRole').value = 'Student'; 
+  } else {
+    document.getElementById('modalTitle').innerHTML = '<i class="fas fa-user-edit me-2"></i>แก้ไขข้อมูลผู้ใช้งาน';
+    const user = allUsers.find(r => String(r[0]) === String(id));
+    if(user) {
+      document.getElementById('inputUser').value = user[0];
+      document.getElementById('inputUser').disabled = true;
+      document.getElementById('inputPass').value = user[1];
+      document.getElementById('inputName').value = user[2];
+      document.getElementById('inputRole').value = user[3];
+      document.getElementById('inputDept').value = user[4];
+      document.getElementById('inputEmail').value = user[5];
+      if(document.getElementById('inputStatus')) document.getElementById('inputStatus').value = user[7] || "ปกติ";
+    }
+  }
+  toggleStatusField(); modal.show();
+}
+
+function saveUser() {
+  const mode = document.getElementById('mode').value;
+  const form = { 
+    username: document.getElementById('inputUser').value, password: document.getElementById('inputPass').value, 
+    fullname: document.getElementById('inputName').value, role: document.getElementById('inputRole').value, 
+    dept: document.getElementById('inputDept').value, email: document.getElementById('inputEmail').value,
+    status: document.getElementById('inputStatus') ? document.getElementById('inputStatus').value : 'ปกติ'
+  };
+  if(!form.username || !form.password || !form.fullname) return alert("ข้อมูลไม่ครบ");
+  showLoader(true);
+  const action = mode === 'add' ? 'addUser' : 'editUser';
+  google.script.run.withSuccessHandler(res => { 
+    showLoader(false); alert(res.message); 
+    if(res.status === 'success') { bootstrap.Modal.getInstance(document.getElementById('userModal')).hide(); loadUserData(); } 
+  })[action](form);
+}
+
+function confirmDelete(id) {
+  if(confirm('ยืนยันลบ ' + id + '?')) { showLoader(true); google.script.run.withSuccessHandler(res => { showLoader(false); alert(res.message); loadUserData(); }).deleteUser(id); }
+}
+
+function filterTable() {
+  const input = document.getElementById('searchInput').value.toLowerCase();
+  const filtered = allUsers.filter(r => String(r[0]).toLowerCase().includes(input) || String(r[2]).toLowerCase().includes(input) || String(r[4]).toLowerCase().includes(input));
+  renderTable(filtered);
+}
+
+function handleFileUpload(input, type) {
+  const file = input.files[0];
+  if (!file) return;
+  if (!confirm(`นำเข้าข้อมูล ${type === 'student' ? 'นักเรียน' : 'ครู'}?`)) { input.value = ''; return; }
+  document.getElementById('uploadStatus').classList.remove('d-none');
+  const reader = new FileReader();
+  reader.onload = e => {
+    const content = e.target.result.split(',')[1];
+    const func = type === 'student' ? 'importStudentCSV' : 'importTeacherCSV';
+    google.script.run.withSuccessHandler(res => { document.getElementById('uploadStatus').classList.add('d-none'); alert(res.message); input.value = ''; loadUserData(); })[func](content);
+  };
+  reader.readAsDataURL(file);
+}
+
+// ==========================================
+// 3. TIMETABLE LOGIC
+// ==========================================
+var currentTimetableData = []; 
+var editModalInstance = null;
+
+function handleTimetableUpload(input) {
+  const file = input.files[0];
+  if (!file) return;
+  alert("ฟังก์ชัน Import CSV กำลังปรับปรุงให้รองรับโครงสร้างใหม่ (โปรดใช้การเพิ่ม/แก้ไขทีละรายการไปก่อนครับ)");
+  input.value = '';
+}
+
+function initTimetablePage() {
+  google.script.run.withSuccessHandler(function(users) {
+    const selectView = document.getElementById('viewTeacherID');
+    if(!selectView) return;
+    let html = '<option value="">-- เลือกครู --</option>';
+    users.filter(u => u[3] === 'Teacher' || u[3] === 'Admin').forEach(u => { html += `<option value="${u[0]}">${u[0]} - ${u[2]}</option>`; });
+    selectView.innerHTML = html;
+  }).getAllUsers();
+}
+
+function viewTimetable() {
+  const tid = document.getElementById('viewTeacherID').value;
+  const term = document.getElementById('viewTerm').value;
+  const year = document.getElementById('viewYear').value;
+  if(!tid) return;
+  const tbody = document.getElementById('timetableDisplayBody');
+  tbody.innerHTML = '<tr><td colspan="6" class="text-center p-4">กำลังโหลด...</td></tr>';
+  google.script.run.withSuccessHandler(function(data) {
+    currentTimetableData = data; 
+    document.getElementById('totalPeriodsBadge').innerText = data.length;
+    renderTimetableList();
+    renderTimetableGrid();
+  }).getFilteredTimetables(tid, term, year);
+}
+
+function renderTimetableGrid() {
+  const days = ['จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์'];
+  const tbody = document.getElementById('timetableGridBody');
+  let html = '';
+  days.forEach(day => {
+    html += `<tr><td class="bg-light fw-bold" style="vertical-align: middle;">${day}</td>`;
+    for(let p = 1; p <= 8; p++) {
+      if (p === 5) html += `<td class="bg-warning-subtle align-middle fw-bold text-muted" style="width: 60px; font-size: 12px;">พัก</td>`;
+      const match = currentTimetableData.find(item => item.data[6] === day && parseInt(item.data[7]) === p);
+      if(match) {
+        const r = match.data;
+        html += `<td class="p-1" onclick="openEditTimetable(${match.rowIndex})" style="cursor:pointer; background-color: #e7f1ff; min-width: 110px; border: 1px solid #dee2e6;"><div class="text-primary fw-bold small">${r[0]}</div><div class="text-dark truncate-text" style="font-size: 11px; line-height: 1.2;">${r[1]}</div><div class="badge bg-secondary mt-1" style="font-size: 10px;">${r[2]}/${r[3]} (${r[4]})</div></td>`;
+      } else { html += `<td class="text-muted align-middle" style="background-color: #fafafa; border: 1px solid #dee2e6;">-</td>`; }
+    }
+    html += `</tr>`;
+  });
+  tbody.innerHTML = html;
+}
+
+function renderTimetableList() {
+  const tbody = document.getElementById('timetableDisplayBody');
+  let html = '';
+  if(currentTimetableData.length === 0) html = '<tr><td colspan="5" class="text-center p-4">ไม่มีข้อมูลตารางสอน</td></tr>';
+  else {
+    const dayOrder = {'จันทร์':1, 'อังคาร':2, 'พุธ':3, 'พฤหัสบดี':4, 'ศุกร์':5};
+    currentTimetableData.sort((a,b) => {
+      if(dayOrder[a.data[6]] !== dayOrder[b.data[6]]) return dayOrder[a.data[6]] - dayOrder[b.data[6]];
+      return a.data[7] - b.data[7];
+    });
+    currentTimetableData.forEach(item => {
+      const r = item.data;
+      html += `<tr><td><span class="badge bg-light text-dark border">${r[6]}</span></td><td>คาบ ${r[7]}</td><td><div class="fw-bold text-primary">${r[0]}</div><div class="small text-muted">${r[1]}</div></td><td>${r[2]}/${r[3]} (${r[4]})</td><td class="text-end"><button class="btn btn-sm btn-outline-primary" onclick="openEditTimetable(${item.rowIndex})"><i class="fas fa-edit"></i></button></td></tr>`;
+    });
+  }
+  tbody.innerHTML = html;
+}
+
+function openEditTimetable(rowIndex) {
+  const item = currentTimetableData.find(i => i.rowIndex === rowIndex);
+  if(!item) return;
+  document.getElementById('editRowIndex').value = rowIndex;
+  document.getElementById('editSubjectCode').value = item.data[0];
+  document.getElementById('editSubjectName').value = item.data[1];
+  if(document.getElementById('editLevel')) document.getElementById('editLevel').value = item.data[2];
+  if(document.getElementById('editRoom')) document.getElementById('editRoom').value = item.data[3];
+  if(document.getElementById('editLocation')) document.getElementById('editLocation').value = item.data[4];
+  document.getElementById('editDay').value = item.data[6];
+  document.getElementById('editPeriod').value = item.data[7];
+  const modalEl = document.getElementById('editTimetableModal');
+  if(modalEl) {
+    if (!editModalInstance) editModalInstance = new bootstrap.Modal(modalEl);
+    editModalInstance.show();
+  } else { alert("ไม่พบ HTML ของ Modal"); }
+}
+
+function saveTimetableEdit() {
+  const rowIndex = document.getElementById('editRowIndex').value;
+  const tid = document.getElementById('viewTeacherID').value;
+  const term = document.getElementById('viewTerm').value;
+  const year = document.getElementById('viewYear').value;
+  const rowData = [
+    document.getElementById('editSubjectCode').value, document.getElementById('editSubjectName').value, 
+    document.getElementById('editLevel').value, document.getElementById('editRoom').value, 
+    document.getElementById('editLocation').value, tid, document.getElementById('editDay').value, 
+    document.getElementById('editPeriod').value, term, year
+  ];
+  const btn = document.getElementById('btnSaveTimetable');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+  google.script.run.withSuccessHandler(res => { 
+    btn.disabled = false; btn.innerHTML = 'บันทึกการแก้ไข'; alert(res.message); 
+    if(editModalInstance) editModalInstance.hide(); viewTimetable(); 
+  }).updateTimetableRow(rowIndex, rowData);
+}
+
+function confirmDeleteTimetable() {
+  if(confirm('ยืนยันลบคาบเรียนนี้?')) {
+    const rowIndex = document.getElementById('editRowIndex').value;
+    google.script.run.withSuccessHandler(res => { alert(res.message); if(editModalInstance) editModalInstance.hide(); viewTimetable(); }).deleteTimetableRow(rowIndex);
+  }
+}
+
+function switchTimetableView(mode) {
+  if(mode === 'list') { 
+    document.getElementById('sectionListView').classList.remove('d-none'); document.getElementById('sectionGridView').classList.add('d-none'); 
+    document.getElementById('btnListView').classList.add('active'); document.getElementById('btnGridView').classList.remove('active'); 
+  } else { 
+    document.getElementById('sectionListView').classList.add('d-none'); document.getElementById('sectionGridView').classList.remove('d-none'); 
+    document.getElementById('btnListView').classList.remove('active'); document.getElementById('btnGridView').classList.add('active'); 
+  }
+}
+</script>

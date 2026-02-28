@@ -1,0 +1,351 @@
+<script>
+// ==========================================
+// 1. Core System & UI
+// ==========================================
+window.onload = function() {
+  applySavedTheme();
+  checkAutoLogin();
+};
+
+function formatThaiDate(dateString) {
+  if (!dateString || dateString === "undefined" || dateString === "") return "ยังไม่กำหนด";
+  const date = new Date(dateString);
+  if (isNaN(date.getTime())) return dateString; 
+  const days = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์'];
+  const months = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
+  return `${days[date.getDay()]} ${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear() + 543}`;
+}
+
+const sidebar = document.getElementById('sidebar');
+const collapseBtn = document.getElementById('sidebarCollapse');
+if (collapseBtn) {
+  collapseBtn.onclick = () => sidebar.classList.toggle('active');
+}
+
+function showLoader(status) {
+  const loader = document.getElementById('loader');
+  if (loader) status ? loader.classList.remove('d-none') : loader.classList.add('d-none');
+}
+
+// ==========================================
+// 2. Authentication
+// ==========================================
+function checkAutoLogin() {
+  const savedUser = localStorage.getItem('pssms_user');
+  const sessionUser = sessionStorage.getItem('pssms_user');
+  if (savedUser) { renderApp(JSON.parse(savedUser)); } 
+  else if (sessionUser) { renderApp(JSON.parse(sessionUser)); } 
+  else { showLoader(false); document.getElementById('login-section').classList.remove('d-none'); }
+}
+
+function processLogin() {
+  const user = document.getElementById('username').value;
+  const pass = document.getElementById('password').value;
+  const rememberMe = document.getElementById('rememberMe').checked;
+  if(!user || !pass) return alert('กรุณากรอกข้อมูลให้ครบ');
+  showLoader(true);
+  google.script.run.withSuccessHandler(function(res) {
+    showLoader(false);
+    if (res.status === "success") {
+      const userData = JSON.stringify(res);
+      if (rememberMe) localStorage.setItem('pssms_user', userData);
+      else sessionStorage.setItem('pssms_user', userData);
+      renderApp(res);
+    } else { alert(res.message); }
+  }).checkLogin(user, pass);
+}
+
+function logout() {
+  if(confirm('ต้องการออกจากระบบใช่หรือไม่?')) {
+    localStorage.removeItem('pssms_user');
+    localStorage.removeItem('pssms_last_page'); 
+    sessionStorage.clear(); 
+    document.getElementById('main-app').classList.add('d-none');
+    document.getElementById('login-section').classList.remove('d-none');
+    document.getElementById('username').value = '';
+    document.getElementById('password').value = '';
+  }
+}
+
+// ==========================================
+// 3. Routing & Menu
+// ==========================================
+function renderApp(user) {
+  window.currentUser = user;
+  document.getElementById('login-section').classList.add('d-none');
+  document.getElementById('main-app').classList.remove('d-none');
+  
+  let termText = "";
+  if(user.currentTerm && user.currentYear) {
+    termText = `<span class="badge bg-info text-dark shadow-sm" style="font-size: 0.7rem; border-radius: 6px;">เทอม ${user.currentTerm}/${user.currentYear}</span>`;
+  }
+
+  const currentTheme = localStorage.getItem('pssms_theme') || 'light';
+  const themeIcon = currentTheme === 'dark' ? 'fa-sun text-warning' : 'fa-moon text-secondary';
+
+  document.getElementById('user-display').innerHTML = `
+  <div class="d-flex align-items-center justify-content-end gap-3">
+    <button class="btn btn-light rounded-circle shadow-sm border" style="width: 40px; height: 40px; transition: all 0.3s;" onclick="toggleDarkMode()">
+      <i id="darkModeIcon" class="fas ${themeIcon} fa-lg"></i>
+    </button>
+    <div class="text-end">
+      <div class="fw-bold text-dark theme-text" style="font-size: 0.95rem; line-height: 1;">${user.name}</div>
+      <div class="d-flex align-items-center justify-content-end gap-2 mt-1" style="font-size: 0.8rem;">
+        <span class="text-muted fw-bold">${user.role}</span>
+        ${termText}
+      </div>
+    </div>
+  </div>`;
+  
+  let menuHTML = '';
+  let startPage = '';
+  const role = user.role.toUpperCase();
+
+  if (role === 'STUDENT') {
+    startPage = 'Page_Dashboard_Student';
+    menuHTML += `<li class="mb-3"><a href="javascript:void(0)" class="nav-link-custom active" onclick="loadPage('Page_Dashboard_Student')"><i class="fas fa-home me-2"></i>หน้าแรกนักเรียน</a></li>`;
+  } else {
+    startPage = (role === 'ADMIN') ? 'Page_Dashboard_Admin' : 'Page_Dashboard_Teacher';
+    const homeLabel = (role === 'ADMIN') ? 'แดชบอร์ดผู้บริหาร' : 'แดชบอร์ดครู';
+    menuHTML += `<li class="mb-3"><a href="javascript:void(0)" class="nav-link-custom active" onclick="loadPage('${startPage}')"><i class="fas fa-chart-line me-2"></i>${homeLabel}</a></li>`;
+  }
+
+  if (role === 'ADMIN') {
+    menuHTML += `
+      <div class="menu-divider">การจัดการระบบ</div>
+      <li class="mb-1"><a href="javascript:void(0)" class="nav-link-sub text-warning" onclick="loadPage('Page_Admin_Users')"><i class="fas fa-users-cog me-2"></i>จัดการผู้ใช้งาน</a></li>
+      <li class="mb-1"><a href="javascript:void(0)" class="nav-link-sub text-info" onclick="loadPage('Page_Admin_Timetable')"><i class="fas fa-calendar-alt me-2"></i>จัดการตารางสอน</a></li>
+      <li class="mb-3"><a href="javascript:void(0)" class="nav-link-sub text-light" onclick="loadPage('Page_Admin_Settings')"><i class="fas fa-cogs me-2"></i>ตั้งค่าระบบ</a></li>
+    `;
+  }
+
+  if (role !== 'STUDENT') {
+    menuHTML += `
+      <div class="menu-divider">บริหารจัดการ 4 ฝ่าย</div>
+      <li class="mb-1"><a href="javascript:void(0)" class="dept-btn academic" onclick="loadPage('Page_Academic')"><i class="fas fa-graduation-cap"></i> <span>ฝ่ายวิชาการ</span></a></li>
+      <li class="mb-1 ms-3"><a href="javascript:void(0)" class="nav-link-sub text-success py-1" style="font-size: 0.85rem;" onclick="loadPage('Page_Score_Entry')"><i class="fas fa-edit me-2" style="font-size: 0.7rem;"></i>บันทึกคะแนน (ปพ.5)</a></li>
+      <li class="mb-1 ms-3"><a href="javascript:void(0)" class="nav-link-sub text-info py-1" style="font-size: 0.85rem;" onclick="loadPage('Page_Academic_Report')"><i class="fas fa-chart-pie me-2" style="font-size: 0.7rem;"></i>รายงานสถิติ (มส.)</a></li>
+      <li class="mb-2 ms-3"><a href="javascript:void(0)" class="nav-link-sub text-success py-1" style="font-size: 0.85rem;" onclick="loadPage('Page_Lesson_History')"><i class="fas fa-book-reader me-2" style="font-size: 0.7rem;"></i>แฟ้มบันทึกหลังสอน</a></li>
+      <li class="mb-2"><a href="javascript:void(0)" class="dept-btn budget" onclick="loadPage('Page_Budget')"><i class="fas fa-wallet"></i> <span>ฝ่ายงบประมาณ</span></a></li>
+      <li class="mb-2"><a href="javascript:void(0)" class="dept-btn personnel" onclick="loadPage('Page_Personnel')"><i class="fas fa-users"></i> <span>ฝ่ายบุคคล</span></a></li>
+      <li class="mb-2"><a href="javascript:void(0)" class="dept-btn general" onclick="loadPage('Page_General')"><i class="fas fa-building"></i> <span>ฝ่ายทั่วไป</span></a></li>
+    `;
+  }
+
+  document.getElementById('menu-list').innerHTML = menuHTML;
+  const lastPage = localStorage.getItem('pssms_last_page');
+  if (lastPage) loadPage(lastPage); else loadPage(startPage);
+  setTimeout(preloadTeacherDataBackground, 2000);
+}
+
+const pageCache = {}; 
+
+function loadPage(pageName) {
+  // 🌟 1. ล้างตัวแปร Global (State Reset) ป้องกันข้อมูลข้ามวิชา/ข้ามหน้า
+  // -- ระบบเช็คชื่อ --
+  currentStudents = [];
+  tempHistoryData = [];
+  currentMorningStudents = [];
+  isDrawing = false; 
+  
+  // -- ระบบบันทึกคะแนน (ปพ.5) --
+  currentScoreConfig = null;
+  currentScoreStudents = [];
+  currentAttStats = {};
+  isHeaderEditMode = false;
+  isQualVisible = false;
+  isSavingScores = false; 
+  
+  // -- ระบบอื่นๆ --
+  currentTimetableData = [];
+  allLessonHistories = [];
+
+  // 🌟 2. เก็บกวาด Modal (หน้าต่างเด้ง) และจอดำๆ ที่อาจจะค้างอยู่ตอนเปลี่ยนหน้า
+  const openModals = document.querySelectorAll('.modal.show');
+  openModals.forEach(m => {
+      const modalInstance = bootstrap.Modal.getInstance(m);
+      if (modalInstance) modalInstance.hide();
+  });
+  
+  // ลบฉากหลังดำๆ (Backdrop) และปลดล็อกการเลื่อนหน้าจอ
+  document.querySelectorAll('.modal-backdrop').forEach(b => b.remove());
+  document.body.classList.remove('modal-open');
+  document.body.style.overflow = '';
+  document.body.style.paddingRight = '';
+
+  // 🌟 3. บันทึกหน้าล่าสุดแล้วโหลดหน้าใหม่ตามปกติ
+  localStorage.setItem('pssms_last_page', pageName);
+  
+  if (pageCache[pageName]) { 
+      setupPageContent(pageName, pageCache[pageName]); 
+      return; 
+  }
+  
+  showLoader(true);
+  google.script.run
+    .withFailureHandler(err => { 
+        showLoader(false); 
+        alert("โหลดหน้าเว็บไม่สำเร็จ: " + err.message); 
+    })
+    .withSuccessHandler(function(html) {
+        pageCache[pageName] = html; 
+        setupPageContent(pageName, html);
+    })
+    .getPage(pageName);
+}
+
+function setupPageContent(pageName, html) {
+  document.getElementById('page-content').innerHTML = html;
+  showLoader(false); 
+  if (window.innerWidth <= 768) { const sidebar = document.getElementById('sidebar'); if(sidebar) sidebar.classList.remove('active'); }
+  setTimeout(applyThaiDatePickers, 100);
+  if(pageName === 'Page_Dashboard_Admin') loadStudentSummary();
+  if(pageName === 'Page_Dashboard_Teacher') initTeacherDashboard();
+  if(pageName === 'Page_Dashboard_Student') initStudentDashboard();
+  if(pageName === 'Page_Admin_Users') loadUserData();
+  if(pageName === 'Page_Admin_Settings') loadCurrentConfig();
+  if(pageName === 'Page_Academic') initAcademicPage();
+  if(pageName === 'Page_Admin_Timetable') initTimetablePage();
+  if(pageName === 'Page_Academic_Report') initAcademicReportPage();
+  if(pageName === 'Page_Lesson_History') initLessonHistoryPage();
+  if(pageName === 'Page_Subject_Config') initSubjectConfigPage();
+  if(pageName === 'Page_Score_Entry') initScoreEntryPage();
+  if(pageName === 'Page_Grade_Summary') initGradeSummaryPage();
+}
+
+// ==========================================
+// 4. SYSTEM THEME (DARK MODE)
+// ==========================================
+
+function toggleDarkMode() {
+  const body = document.body;
+  if (body.classList.contains('dark-mode')) {
+    body.classList.remove('dark-mode');
+    localStorage.setItem('pssms_theme', 'light');
+    document.getElementById('darkModeIcon').className = 'fas fa-moon text-secondary fa-lg';
+  } else {
+    body.classList.add('dark-mode');
+    localStorage.setItem('pssms_theme', 'dark');
+    document.getElementById('darkModeIcon').className = 'fas fa-sun text-warning fa-lg';
+  }
+}
+
+function applySavedTheme() {
+  if (localStorage.getItem('pssms_theme') === 'dark') document.body.classList.add('dark-mode');
+}
+
+// ==========================================
+// 5. THAI DATEPICKER SYSTEM
+// ==========================================
+function applyThaiDatePickers() {
+  const dateInputs = document.querySelectorAll('input[type="date"]');
+  dateInputs.forEach(input => {
+    input.type = 'text'; input.classList.add('bg-white'); 
+    flatpickr(input, {
+      locale: "th", dateFormat: "Y-m-d", altInput: true, altFormat: "d M Y", 
+      formatDate: (date, format, locale) => { if (format === "d M Y") { const d = date.getDate(); const m = flatpickr.l10ns.th.months.longhand[date.getMonth()]; const y = date.getFullYear() + 543; return `${d} ${m} ${y}`; } return flatpickr.formatDate(date, format, locale); },
+      onReady: function(selectedDates, dateStr, instance) { if(instance.currentYearElement) instance.currentYearElement.value = instance.currentYear + 543; },
+      onYearChange: function(selectedDates, dateStr, instance) { if(instance.currentYearElement) instance.currentYearElement.value = instance.currentYear + 543; },
+      onMonthChange: function(selectedDates, dateStr, instance) { if(instance.currentYearElement) instance.currentYearElement.value = instance.currentYear + 543; },
+      onChange: function(selectedDates, dateStr, instance) { input.value = dateStr; if (input.id === 'teachingDate') { if (typeof updateThaiDateDisplay === 'function') updateThaiDateDisplay(); if (typeof reloadTimetableByDate === 'function') reloadTimetableByDate(); } }
+    });
+  });
+}
+
+// ==========================================
+// 6. Toast & Shortcut
+// ==========================================
+
+function showToast(msg, type="success") {
+  let container = document.getElementById('toastContainer');
+  if (!container) {
+      container = document.createElement('div');
+      container.id = 'toastContainer';
+      container.style.cssText = 'position: fixed; bottom: 20px; right: 20px; z-index: 1050;';
+      document.body.appendChild(container);
+  }
+  const bgClass = type === 'success' ? 'bg-success' : (type === 'info' ? 'bg-primary' : 'bg-warning text-dark');
+  const icon = type === 'success' ? 'fa-check-circle' : (type === 'info' ? 'fa-cloud-upload-alt' : 'fa-exclamation-triangle');
+  const toast = document.createElement('div');
+  toast.className = `toast align-items-center text-white ${bgClass} border-0 mb-2 show animate__animated animate__fadeInUp shadow-lg`;
+  toast.style.minWidth = "250px";
+  toast.style.borderRadius = "8px";
+  toast.innerHTML = `<div class="d-flex p-2"><div class="toast-body fw-bold" style="font-size: 0.9rem;"><i class="fas ${icon} me-2 fa-lg"></i>${msg}</div><button type="button" class="btn-close btn-close-white me-2 m-auto shadow-none" onclick="this.parentElement.parentElement.remove()"></button></div>`;
+  container.appendChild(toast);
+  setTimeout(() => { toast.classList.replace('animate__fadeInUp', 'animate__fadeOutDown'); setTimeout(() => toast.remove(), 500); }, 2500);
+}
+
+document.addEventListener('keydown', function(e) {
+  if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) {
+      const saveBtn = document.getElementById('btnSaveScores');
+      const gridCard = document.getElementById('scoreGridCard');
+      if (saveBtn && !saveBtn.disabled && gridCard && !gridCard.classList.contains('d-none')) {
+          e.preventDefault(); 
+          saveAllInOneScores(false); 
+      }
+  }
+});
+
+// ==========================================
+// 7. BACKGROUND PRELOADER
+// ==========================================
+function preloadTeacherDataBackground() {
+  const user = getSessionUser();
+  if(!user || user.role.toUpperCase() === 'STUDENT') return; 
+  const subjectCacheKey = `report_subjects_${user.id}_${user.currentTerm}_${user.currentYear}`;
+  if (!sessionStorage.getItem(subjectCacheKey)) {
+    google.script.run.withSuccessHandler(function(subjects) { sessionStorage.setItem(subjectCacheKey, JSON.stringify(subjects)); }).getTeacherSubjects(user.id, user.role, user.currentTerm, user.currentYear);
+  }
+}
+
+// ==========================================
+// 8. ระบบ Auto-Retry ป้องกันเน็ตหลุด/เซิร์ฟเวอร์ค้าง
+// ==========================================
+window.safeRun = function(maxRetries = 3) {
+  let _onSuccess = null;
+  let _onFailure = null;
+
+  // 1. สร้างตัวรับคำสั่ง Success/Failure
+  const chainObj = {
+    withSuccessHandler: function(func) { _onSuccess = func; return this; },
+    withFailureHandler: function(func) { _onFailure = func; return this; }
+  };
+
+  // 2. ใช้ Proxy เพื่อดักจับทุกคำสั่งที่ส่งไป Google Apps Script
+  return new Proxy(chainObj, {
+    get: function(target, propName) {
+      if (propName in target) return target[propName];
+
+      // 3. เมื่อเจอชื่อฟังก์ชันฝั่ง Server (เช่น saveAttendanceBatch) ให้ทำ Auto-Retry
+      return function(...args) {
+        const attemptCall = (retriesLeft) => {
+          google.script.run
+            .withSuccessHandler((res) => {
+              if (_onSuccess) _onSuccess(res);
+            })
+            .withFailureHandler((err) => {
+              if (retriesLeft > 0) {
+                console.warn(`⚠️ [Auto-Retry] เชื่อมต่อขัดข้อง กำลังลองใหม่... (เหลืออีก ${retriesLeft} ครั้ง)`);
+                
+                // แจ้งเตือนแบบเนียนๆ ไม่ให้ครูตกใจ
+                if (typeof showToast === "function") {
+                   showToast(`สัญญาณขัดข้อง กำลังส่งข้อมูลใหม่... (${retriesLeft})`, 'info');
+                }
+                
+                // สุ่มเวลาดีเลย์ 1.5 - 2 วินาที แล้วลองส่งใหม่ (กันเซิร์ฟเวอร์โดนยิงซ้ำรัวๆ)
+                setTimeout(() => attemptCall(retriesLeft - 1), 1500); 
+              } else {
+                // ถ้าลองจนครบโควตาแล้วยังพัง ค่อยโยน Error ออกมาให้ครูเห็น
+                if (_onFailure) _onFailure(err);
+                else alert("❌ ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้ กรุณาลองใหม่อีกครั้ง");
+              }
+            })
+            [propName](...args); // เรียกใช้ฟังก์ชันเดิม
+        };
+        
+        attemptCall(maxRetries); // เริ่มยิงครั้งแรก
+      };
+    }
+  });
+};
+</script>

@@ -29,6 +29,53 @@ function getPage(pageName) {
   }
 }
 
+// 🛡️ ระบบรักษาความปลอดภัย: ตรวจสอบสิทธิ์ครูผู้สอน
+function verifyTeacherPermission(teacherId, subjectCode, className, term, year) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  
+  // 1. สิทธิพิเศษ: ถ้าเป็น Admin ให้ผ่านได้เลยทุกกรณี
+  const userSheet = ss.getSheetByName("User_Database");
+  if (userSheet) {
+    const users = userSheet.getDataRange().getValues();
+    const userRow = users.find(r => String(r[0]).trim() === String(teacherId).trim());
+    if (userRow && String(userRow[3]).toUpperCase() === 'ADMIN') return true;
+  }
+
+  // 2. เช็คจากตารางสอน (Timetable)
+  const timeSheet = ss.getSheetByName("Timetable_Database");
+  if (!timeSheet) return false;
+
+  const timeData = timeSheet.getDataRange().getDisplayValues();
+  const sSub = String(subjectCode).trim().toLowerCase();
+  const sClass = String(className).trim().replace(/\s/g, '').toLowerCase();
+  const sTeacher = String(teacherId).trim().toLowerCase();
+  const sTerm = String(term).trim();
+  const sYear = String(year).trim();
+
+  for (let i = 1; i < timeData.length; i++) {
+    const row = timeData[i];
+    const tCode = String(row[0]).trim().toLowerCase();
+    const tName = String(row[1]).trim().toLowerCase();
+    const tClassID = String(`${row[2]}/${row[3]}`).trim().replace(/\s/g, '').toLowerCase();
+    const tTeacher = String(row[5]).trim().toLowerCase();
+    
+    // อนุโลมให้วิชาโฮมรูม (HR)
+    const isHR = (tCode === 'hr' || tName.includes('โฮมรูม'));
+    const isTargetSub = (tCode === sSub) || (sSub === 'hr' && isHR);
+
+    // ถ้าวิชาตรง ห้องตรง เทอมตรง ปีตรง
+    if (isTargetSub && tClassID === sClass && String(row[8]).trim() === sTerm && String(row[9]).trim() === sYear) {
+      // เช็คว่ารหัสครูตรงกันไหม
+      if (tTeacher === sTeacher || tTeacher.includes(sTeacher) || sTeacher.includes(tTeacher)) {
+        return true; 
+      }
+    }
+  }
+  
+  // ถ้าหาจนจบแล้วไม่เจอชื่อครูคนนี้สอนวิชานี้ = แอบอ้าง!
+  return false; 
+}
+
 // ==========================================
 // 2. AUTHENTICATION & CONFIG (ยืนยันตัวตน + ตั้งค่าระบบ)
 // ==========================================
@@ -693,7 +740,18 @@ function getStudentAttendanceHistory(studentId, subjectCode, className) {
 }
 
 function saveAttendanceBatch(list) {
+  if (!list || list.length === 0) return { status: "error", message: "ไม่มีข้อมูล" };
+  const first = list[0];
+
+  // 🚨 ด่านตรวจ: เช็คสิทธิ์ผู้สอนรายวิชา
+  if (!verifyTeacherPermission(first.teacherId, first.subjectCode, first.className, first.term, first.year)) {
+     return { status: "error", message: "❌ ความปลอดภัย: คุณไม่มีสิทธิ์เช็คชื่อในวิชาและห้องนี้!" };
+  }
+
+  const lock = LockService.getScriptLock();
   try {
+    lock.waitLock(15000); // เข้าคิว
+    
     const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Attendance_Database");
     const ts = new Date();
     const rows = list.map(item => [
@@ -702,8 +760,15 @@ function saveAttendanceBatch(list) {
       item.teacherId, `${item.date}|${item.subjectCode}|${item.className}|${item.period}`
     ]);
     sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, rows[0].length).setValues(rows);
+    
+    SpreadsheetApp.flush(); // ดันข้อมูลลงชีต
     return { status: "success", message: "✅ เช็คชื่อเรียบร้อย" };
-  } catch (e) { return { status: "error", message: e.message }; }
+    
+  } catch (e) { 
+    return { status: "error", message: "คิวบันทึกเต็ม กรุณากดบันทึกอีกครั้งครับ" }; 
+  } finally {
+    lock.releaseLock(); // คืนคิว
+  }
 }
 
 /**
@@ -1000,15 +1065,32 @@ function getTeacherSubjects(userId, userRole, targetTerm, targetYear) {
 
 
 function saveLessonRecord(record) {
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Academic_Records");
-  const config = getSystemConfig();
-  sheet.appendRow([
-    new Date(), record.date, config.term, config.year, record.subjectCode, record.subjectName, 
-    record.className, record.period, record.topic, record.totalPresent, record.totalAbsent, 
-    record.totalLeave, record.teacherId, record.signature, 
-    `${record.date}|${record.subjectCode}|${record.className}|${record.period}`
-  ]);
-  return { status: "success", message: "✅ บันทึกข้อมูลการสอนเรียบร้อยแล้ว" };
+  // 🚨 ด่านตรวจ: เช็คสิทธิ์ผู้สอน
+  if (!verifyTeacherPermission(record.teacherId, record.subjectCode, record.className, record.term, record.year)) {
+     return { status: "error", message: "❌ ความปลอดภัย: คุณไม่มีสิทธิ์บันทึกข้อมูลวิชานี้!" };
+  }
+
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(15000); // เข้าคิว
+    
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Academic_Records");
+    const config = getSystemConfig();
+    sheet.appendRow([
+      new Date(), record.date, config.term, config.year, record.subjectCode, record.subjectName, 
+      record.className, record.period, record.topic, record.totalPresent, record.totalAbsent, 
+      record.totalLeave, record.teacherId, record.signature, 
+      `${record.date}|${record.subjectCode}|${record.className}|${record.period}`
+    ]);
+    
+    SpreadsheetApp.flush(); // ดันข้อมูลลงชีต
+    return { status: "success", message: "✅ บันทึกข้อมูลการสอนเรียบร้อยแล้ว" };
+    
+  } catch (e) {
+    return { status: "error", message: "คิวบันทึกเต็ม กรุณากดบันทึกอีกครั้งครับ" };
+  } finally {
+    lock.releaseLock(); // คืนคิว
+  }
 }
 
 function getTodayAttendanceHistory(targetDateStr, subjectCode, className) {
@@ -1017,13 +1099,13 @@ function getTodayAttendanceHistory(targetDateStr, subjectCode, className) {
   if (!sheet) return [];
 
   const data = sheet.getDataRange().getValues();
-  
   const cleanTargetDate = String(targetDateStr).trim(); 
   const cleanSub = String(subjectCode).trim().replace(/\s/g, ''); 
   const cleanClass = String(className).trim().replace(/\s/g, '');
   
   const uniqueHistory = {}; 
 
+  // 🌟 เริ่มหาจากแถวล่างสุด (ล่าสุด) ถอยหลังขึ้นไป
   for (let i = data.length - 1; i >= 1; i--) {
     const row = data[i];
     if (!row[1]) continue; 
@@ -1035,13 +1117,17 @@ function getTodayAttendanceHistory(targetDateStr, subjectCode, className) {
       rowDateStr = String(row[1]).substring(0, 10);
     }
 
+    // 🚀 ท่าไม้ตาย: ถ้าวันที่ในชีต "เก่ากว่า" วันที่เราค้นหา แปลว่าทะลุไปวันอื่นแล้ว ให้หยุดหาทันที!
+    if (rowDateStr < cleanTargetDate) {
+       break;
+    }
+
     const rowSub = String(row[4]).trim().replace(/\s/g, '');
     const rowClass = String(row[6]).trim().replace(/\s/g, '');
 
     if (rowDateStr === cleanTargetDate && rowSub === cleanSub && rowClass === cleanClass) {
-      
       const rawID = String(row[8]).trim();
-      const idNoZero = String(parseInt(rawID)); 
+      const idNoZero = String(parseInt(rawID, 10)); 
       
       if (!uniqueHistory[idNoZero]) {
         uniqueHistory[idNoZero] = {
@@ -1714,9 +1800,15 @@ function saveAllInOneWithConfig(payload) {
 
 // 🌟 ฟังก์ชันบันทึกขั้นสูง (ความเร็วแสง - Batch Array Update)
 function saveAllInOneScores(payload) {
-  const { subjectCode, term, year, scoreRecords, qualRecords, gradeRecords } = payload;
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  // 🌟 ดึง className และ teacherId ออกมาเช็คด้วย
+  const { subjectCode, className, teacherId, term, year, scoreRecords, qualRecords, gradeRecords } = payload;
   
+  // 🚨 ด่านตรวจ: แกะโค้ดมาแก้คะแนนใช่ไหม? โดนเตะกลับ!
+  if (!verifyTeacherPermission(teacherId, subjectCode, className, term, year)) {
+     return { status: 'error', message: '❌ ความปลอดภัย: คุณไม่มีสิทธิ์บันทึกคะแนนในรายวิชาและห้องนี้!' };
+  }
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
   const normID = (id) => { let clean = String(id).replace(/[^a-zA-Z0-9]/g, '').replace(/^0+/, ''); return clean || '0'; };
   const normStr = (str) => String(str).replace(/\s+/g, '').toLowerCase();
 
@@ -1724,7 +1816,7 @@ function saveAllInOneScores(payload) {
   // 1. บันทึกคะแนน (Score_Database)
   // ==============================
   const sheetScore = ss.getSheetByName("Score_Database");
-  let scoreData = sheetScore.getDataRange().getValues(); // ดึงมาเป็น Array ทั้งตาราง
+  let scoreData = sheetScore.getDataRange().getValues(); 
   
   const scoreMap = {};
   scoreRecords.forEach(r => {
@@ -1733,22 +1825,19 @@ function saveAllInOneScores(payload) {
   });
 
   let scoreUpdated = false;
-  // ⚡ อัปเดตในความจำให้เสร็จก่อน
   for(let i = 1; i < scoreData.length; i++) {
     const row = scoreData[i];
     const uid = `${normID(row[1])}_${normStr(row[2])}_${normStr(row[3])}_${normStr(row[5])}_${normStr(row[6])}`;
     if(scoreMap[uid]) {
        if (String(scoreData[i][4]) !== String(scoreMap[uid].score)) {
-           scoreData[i][4] = scoreMap[uid].score; // เขียนทับค่าใน Array
+           scoreData[i][4] = scoreMap[uid].score; 
            scoreUpdated = true;
        }
        scoreMap[uid].processed = true; 
     }
   }
-  // ⚡ สาดข้อมูลทั้งหมดกลับลง Sheet รวดเดียว
   if(scoreUpdated) sheetScore.getRange(1, 1, scoreData.length, scoreData[0].length).setValues(scoreData);
 
-  // ⚡ แถวไหนเป็นข้อมูลใหม่ เอาไปต่อท้าย
   const newScores = [];
   for (let uid in scoreMap) {
      if (!scoreMap[uid].processed) {
@@ -1847,64 +1936,89 @@ function getMorningActivityData(dateStr, className) {
   const targetSession = `${dateStr}_${className}`;
   const results = {};
 
-  for (let i = 1; i < data.length; i++) {
+  // 🌟 เริ่มหาจากแถวล่างสุด ถอยหลังขึ้นไป
+  for (let i = data.length - 1; i >= 1; i--) {
+    
+    // ดึงวันที่จากคอลัมน์ B (Index 1) มาเช็ค
+    const rowDateStr = String(data[i][1]).substring(0, 10);
+    
+    // 🚀 หยุดลูปทันทีถ้าเจอข้อมูลที่เก่ากว่าวันที่ค้นหา ประหยัดเวลาไปได้เยอะมาก
+    if (rowDateStr < dateStr) break;
+
     // คอลัมน์ L (Index 11) คือ SessionID
     if (String(data[i][11]) === targetSession) {
-      const stdId = String(data[i][5]); // คอลัมน์ F คือ รหัสนักเรียน
-      results[stdId] = {
-        area: data[i][7], // คอลัมน์ H
-        duty: data[i][8], // คอลัมน์ I
-        flag: data[i][9]  // คอลัมน์ J
-      };
+      const stdId = String(data[i][5]); 
+      
+      // เก็บเฉพาะค่าแรกที่เจอ (ซึ่งก็คือค่าล่าสุดเพราะเราวนลูปจากล่างขึ้นบน)
+      if (!results[stdId]) {
+         results[stdId] = {
+           area: data[i][7], 
+           duty: data[i][8], 
+           flag: data[i][9]  
+         };
+      }
     }
   }
-  return results; // ส่งกลับเป็น Object เพื่อให้หน้าบ้านจับคู่รหัสนักเรียนได้ง่ายๆ
+  return results; 
 }
 
 // 2. ฟังก์ชันบันทึกข้อมูล (รองรับการบันทึกใหม่และการอัปเดตข้อมูลเดิม)
 function saveMorningActivityBatch(payload) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  let sheet = ss.getSheetByName("Morning_Activity");
-  
-  if (!sheet) return { status: "error", message: "ไม่พบชีต Morning_Activity กรุณารัน setupDatabase ก่อนครับ" };
-
   const { date, term, year, className, teacherId, records } = payload;
-  const sessionID = `${date}_${className}`;
-  const timestamp = new Date();
   
-  const data = sheet.getDataRange().getValues();
-  let rowMap = {};
-  
-  // หาแถวเดิมที่เคยบันทึกไว้ของวันนี้และห้องนี้
-  for (let i = 1; i < data.length; i++) {
-    if (String(data[i][11]) === sessionID) {
-      rowMap[String(data[i][5])] = i + 1; // จำหมายเลขแถวของนักเรียนคนนั้นไว้
-    }
+  // 🚨 ด่านตรวจ: เช็คสิทธิ์ครูที่ปรึกษา (รหัส HR)
+  if (!verifyTeacherPermission(teacherId, 'HR', className, term, year)) {
+     return { status: "error", message: "❌ ความปลอดภัย: คุณไม่ใช่ครูที่ปรึกษาของห้องนี้!" };
   }
 
-  const newRows = [];
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(15000); 
+    
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    let sheet = ss.getSheetByName("Morning_Activity");
+    
+    if (!sheet) return { status: "error", message: "ไม่พบชีต Morning_Activity กรุณารัน setupDatabase ก่อนครับ" };
 
-  // วนลูปแยกข้อมูลว่าอันไหนอัปเดต อันไหนเพิ่มใหม่
-  records.forEach(r => {
-    const stdId = String(r.studentId);
-    if (rowMap[stdId]) {
-      // ถ้ามีข้อมูลอยู่แล้ว ให้อัปเดตแค่ 3 คอลัมน์ (Area, Duty, Flag) ซึ่งคือคอลัมน์ที่ 8, 9, 10
-      sheet.getRange(rowMap[stdId], 8, 1, 3).setValues([[r.area, r.duty, r.flag]]);
-    } else {
-      // ถ้ายังไม่เคยเช็คชื่อ ให้เตรียมข้อมูลเพื่อเพิ่มแถวใหม่
-      newRows.push([
-        timestamp, date, term, year, className, stdId, r.studentName,
-        r.area, r.duty, r.flag, teacherId, sessionID
-      ]);
+    const sessionID = `${date}_${className}`;
+    const timestamp = new Date();
+    
+    const data = sheet.getDataRange().getValues();
+    let rowMap = {};
+    
+    // หาแถวเดิมที่เคยบันทึกไว้
+    for (let i = 1; i < data.length; i++) {
+      if (String(data[i][11]) === sessionID) {
+        rowMap[String(data[i][5])] = i + 1;
+      }
     }
-  });
 
-  // สาดข้อมูลใหม่ลงชีตทีเดียวรวดเดียว (Batch Insert - ไวมาก)
-  if (newRows.length > 0) {
-    sheet.getRange(sheet.getLastRow() + 1, 1, newRows.length, 12).setValues(newRows);
+    const newRows = [];
+
+    records.forEach(r => {
+      const stdId = String(r.studentId);
+      if (rowMap[stdId]) {
+        sheet.getRange(rowMap[stdId], 8, 1, 3).setValues([[r.area, r.duty, r.flag]]);
+      } else {
+        newRows.push([
+          timestamp, date, term, year, className, stdId, r.studentName,
+          r.area, r.duty, r.flag, teacherId, sessionID
+        ]);
+      }
+    });
+
+    if (newRows.length > 0) {
+      sheet.getRange(sheet.getLastRow() + 1, 1, newRows.length, 12).setValues(newRows);
+    }
+    
+    SpreadsheetApp.flush(); 
+    return { status: "success", message: "✅ บันทึกข้อมูลกิจกรรมโฮมรูมเรียบร้อยแล้ว!" };
+    
+  } catch (e) {
+    return { status: "error", message: "ระบบกำลังมีผู้ใช้งานพร้อมกันจำนวนมาก กรุณากดบันทึกอีกครั้ง" };
+  } finally {
+    lock.releaseLock();
   }
-
-  return { status: "success", message: "✅ บันทึกข้อมูลกิจกรรมโฮมรูมเรียบร้อยแล้ว!" };
 }
 
 // ==========================================
@@ -1920,11 +2034,9 @@ function getTodayMorningSummary(teacherId, term, year) {
   const timeData = timeSheet.getDataRange().getDisplayValues();
   const mornData = mornSheet.getDataRange().getDisplayValues();
 
-  // ดึงวันที่ปัจจุบันแบบเวลาไทย
   const now = new Date();
   const todayStr = new Date(now.getTime() - (now.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
 
-  // 1. ค้นหาว่าครูคนนี้สอนวิชา HR ห้องไหน
   let hrClass = "";
   for (let i = 1; i < timeData.length; i++) {
     const tTeacherID = String(timeData[i][5]).trim().toLowerCase();
@@ -1943,23 +2055,31 @@ function getTodayMorningSummary(teacherId, term, year) {
   if (!hrClass) return { hasHR: false };
 
   const targetSession = `${todayStr}_${hrClass}`;
-  
-  // 🌟 2. ใช้ Object ดักชื่อซ้ำ! 
-  // ถ้านักเรียนคนเดิมถูกเซฟหลายรอบในวันเดียวกัน มันจะเอาข้อมูลรอบล่าสุดมาเขียนทับเสมอ
   const latestData = {};
 
-  for (let i = 1; i < mornData.length; i++) {
+  // 🌟 เริ่มหาจากแถวล่างสุด ถอยหลังขึ้นไป
+  for (let i = mornData.length - 1; i >= 1; i--) {
+    
+    // ดึงวันที่จากคอลัมน์ B (Index 1) มาเช็ค
+    const rowDateStr = String(mornData[i][1]).substring(0, 10);
+    
+    // 🚀 หยุดลูปทันทีถ้าเจอข้อมูลของเมื่อวาน
+    if (rowDateStr < todayStr) break;
+
     if (String(mornData[i][11]) === targetSession) {
       const stdName = String(mornData[i][6]).trim(); 
-      latestData[stdName] = {
-        area: String(mornData[i][7]).trim(),
-        duty: String(mornData[i][8]).trim(),
-        flag: String(mornData[i][9]).trim()
-      };
+      
+      // เก็บเฉพาะข้อมูลล่าสุดเท่านั้น
+      if (!latestData[stdName]) {
+         latestData[stdName] = {
+           area: String(mornData[i][7]).trim(),
+           duty: String(mornData[i][8]).trim(),
+           flag: String(mornData[i][9]).trim()
+         };
+      }
     }
   }
 
-  // 3. กวาดข้อมูลที่ผ่านการกรอง (ไร้ชื่อซ้ำ) ลง Array
   const summary = {
     className: hrClass,
     absent: [], late: [], leave: [], notArea: [], notDuty: [],
