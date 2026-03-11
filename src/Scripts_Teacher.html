@@ -132,7 +132,7 @@ function initTeacherDashboard() {
        renderTeacherTodaySchedule(data);
      }).getTeacherTimetable(user.id);
   }
-  
+  loadTeacherRiskDashboard();
   loadTeacherAtRiskDashboard(user.id, user.currentTerm, user.currentYear);
   loadMorningSummaryDashboard(user.id, user.currentTerm, user.currentYear);
   setTimeout(loadTodoList, 300);
@@ -256,6 +256,109 @@ function renderTeacherAtRiskDashboard(data, container) {
   };
   const html = `<h6 class="fw-bold text-danger mb-3 border-bottom pb-2 border-danger border-2 d-inline-block mt-2"><i class="fas fa-exclamation-triangle me-2"></i>กระดานแจ้งเตือนกลุ่มเสี่ยง (รวมทุกวิชาที่สอน)</h6><div class="row g-3"><div class="col-md-4"><div class="card border-danger shadow-sm h-100"><div class="card-header bg-danger text-white fw-bold small d-flex justify-content-between align-items-center"><span><i class="fas fa-ban me-1"></i> หมดสิทธิ์ (< 60%)</span><span class="badge bg-white text-danger">${critical.length}</span></div><div class="card-body p-2" style="max-height: 300px; overflow-y: auto;">${renderList(critical, 'danger')}</div></div></div><div class="col-md-4"><div class="card border-warning shadow-sm h-100"><div class="card-header bg-warning text-dark fw-bold small d-flex justify-content-between align-items-center"><span><i class="fas fa-exclamation-circle me-1"></i> ติด มส. (60-79%)</span><span class="badge bg-white text-dark">${ms.length}</span></div><div class="card-body p-2" style="max-height: 300px; overflow-y: auto;">${renderList(ms, 'warning text-dark')}</div></div></div><div class="col-md-4"><div class="card border-info shadow-sm h-100"><div class="card-header bg-info text-dark fw-bold small d-flex justify-content-between align-items-center"><span><i class="fas fa-search me-1"></i> กลุ่มเสี่ยง (80-85%)</span><span class="badge bg-white text-dark">${risk.length}</span></div><div class="card-body p-2" style="max-height: 300px; overflow-y: auto;">${renderList(risk, 'info text-dark')}</div></div></div></div>`;
   container.innerHTML = html;
+}
+
+// ==========================================
+// 🚨 ดึงข้อมูลกลุ่มเสี่ยงมาแสดงที่ Dashboard (จัดกลุ่มตามห้อง + รวบรายชื่อเด็ก)
+// ==========================================
+function loadTeacherRiskDashboard() {
+  const user = getSessionUser();
+  if (!user || user.role !== 'Teacher') return;
+
+  const el0 = document.getElementById('riskCount0');
+  const elR = document.getElementById('riskCountR');
+  const elMS = document.getElementById('riskCountMS');
+  const tbody = document.getElementById('riskTableBody');
+  
+  if(!el0 || !elR || !elMS || !tbody) return;
+
+  el0.innerHTML = '<span class="spinner-grow spinner-border-sm"></span>';
+  elR.innerHTML = '<span class="spinner-grow spinner-border-sm"></span>';
+  elMS.innerHTML = '<span class="spinner-grow spinner-border-sm"></span>';
+  tbody.innerHTML = '<tr><td colspan="5" class="text-muted py-5 text-center"><div class="spinner-border text-primary mb-3" role="status"></div><br>กำลังประมวลผลข้อมูลกลุ่มเสี่ยง...</td></tr>';
+
+  safeRun(3).withSuccessHandler(function(res) {
+    if (res.status === 'success') {
+      
+      el0.innerHTML = `<span class="fs-1">${res.summary.zero}</span> <span class="fs-6 fw-normal">รายการ</span>`;
+      elR.innerHTML = `<span class="fs-1">${res.summary.r}</span> <span class="fs-6 fw-normal">รายการ</span>`;
+      elMS.innerHTML = `<span class="fs-1">${res.summary.ms}</span> <span class="fs-6 fw-normal">รายการ</span>`;
+
+      let html = '';
+      if (res.details.length === 0) {
+        html = '<tr><td colspan="5" class="text-success py-5 text-center"><i class="fas fa-check-circle fa-3x mb-3 opacity-50"></i><h5 class="fw-bold">ยอดเยี่ยมมาก!</h5><p class="mb-0">ไม่มีนักเรียนกลุ่มเสี่ยงในรายวิชาของคุณเลยครับ 🎉</p></td></tr>';
+      } else {
+        
+        const groupedData = {};
+        res.details.forEach(item => {
+           if (!groupedData[item.className]) groupedData[item.className] = {};
+           if (!groupedData[item.className][item.stdId]) {
+              groupedData[item.className][item.stdId] = { name: item.stdName, risks: [] };
+           }
+           groupedData[item.className][item.stdId].risks.push({
+              code: item.subjectCode, name: item.subjectName, type: item.type
+           });
+        });
+
+        const classes = Object.keys(groupedData).sort(); 
+        
+        classes.forEach(cls => {
+           // 🌟 แถบแบ่งห้องเรียนให้เล็กลง
+           html += `<tr style="background-color: #f8f9fa;">
+                      <td colspan="5" class="text-start fw-bold text-primary py-2 px-3 border-bottom" style="font-size: 0.9rem;">
+                         <i class="fas fa-users me-2"></i>ชั้นเรียน: ${cls}
+                      </td>
+                    </tr>`;
+           
+           const stdIds = Object.keys(groupedData[cls]).sort();
+           stdIds.forEach((stdId, index) => {
+              const std = groupedData[cls][stdId];
+              
+              // 🌟 บีบอัดป้ายชื่อวิชาให้เล็กลง (ลด Padding ลด Font)
+              const riskBadges = std.risks.map(r => {
+                 let badgeStyle = r.type === '0' ? 'background: linear-gradient(135deg, #dc3545, #b02a37); color: white;' : 
+                                  (r.type === 'ร' ? 'background: linear-gradient(135deg, #ffc107, #d39e00); color: #212529;' : 
+                                  'background: linear-gradient(135deg, #6c757d, #545b62); color: white;');
+                 
+                 return `
+                 <div class="d-inline-flex align-items-stretch border rounded-2 shadow-sm me-1 mb-1 bg-white" style="overflow: hidden;">
+                    <div class="px-2 py-1 border-end d-flex flex-column justify-content-center bg-light">
+                       <span class="text-primary fw-bold" style="font-size: 0.75rem; line-height: 1;">${r.code}</span>
+                       <span class="text-muted text-truncate mt-1" style="font-size: 0.7rem; line-height: 1; max-width: 120px;" title="${r.name}">${r.name}</span>
+                    </div>
+                    <div class="px-2 py-1 d-flex align-items-center justify-content-center fw-bold" style="${badgeStyle} min-width: 35px; font-size: 0.85rem;">
+                       ${r.type}
+                    </div>
+                 </div>`;
+              }).join('');
+
+              // 🌟 บีบความกว้างชื่อนักเรียน และลดความสูงของแถว
+              html += `<tr class="bg-white align-middle">
+                <td class="text-muted py-2" style="font-size: 0.85rem;">${index + 1}</td>
+                <td class="py-2">
+                   <span class="text-secondary font-monospace" style="font-size: 0.85rem;">${stdId}</span>
+                </td>
+                <td class="text-start py-2">
+                   <div class="fw-bold text-dark text-truncate" style="font-size: 0.85rem; max-width: 160px;" title="${std.name}">${std.name}</div>
+                </td>
+                <td class="text-start py-2">
+                   <div class="d-flex flex-wrap align-items-center mt-1">${riskBadges}</div>
+                </td>
+                <td class="py-2">
+                   <button class="btn btn-sm btn-outline-primary rounded-pill px-2 py-0 shadow-sm fw-bold" style="font-size: 0.75rem;" title="ติดตามนักเรียน" onclick="alert('ฟีเจอร์พิมพ์ใบติดตามนักเรียน (กำลังพัฒนาครับ 🚀)')">
+                      <i class="fas fa-bullhorn me-1"></i> ติดตาม
+                   </button>
+                </td>
+              </tr>`;
+           });
+        });
+      }
+      tbody.innerHTML = html;
+      
+    } else {
+      tbody.innerHTML = `<tr><td colspan="5" class="text-danger py-4">❌ เกิดข้อผิดพลาด: ${res.message}</td></tr>`;
+    }
+  }).getTeacherRiskDashboard(user.id, user.currentTerm, user.currentYear);
 }
 
 </script>

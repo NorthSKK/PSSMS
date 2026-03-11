@@ -18,18 +18,26 @@
             <option value="">⏳ กำลังโหลดวิชา...</option>
           </select>
         </div>
-        <div class="col-md-7 text-end">
-          <button class="btn btn-outline-info shadow-sm px-3 fw-bold me-2" id="btnToggleQual" onclick="toggleQualColumns()">
-            <i class="fas fa-eye me-2"></i>ประเมินคุณลักษณะ
-          </button>
-          <button class="btn btn-outline-primary shadow-sm px-3 fw-bold me-2" id="btnEditHeader" onclick="toggleHeaderEditMode()">
-            <i class="fas fa-th me-2"></i>แก้ไขหัวตาราง
-          </button>
-          <button class="btn btn-outline-dark shadow-sm px-3 fw-bold me-2" onclick="window.print()">
-            <i class="fas fa-print me-2"></i>พิมพ์ ปพ.5
-          </button>
-          <button class="btn btn-success shadow-sm px-4 fw-bold" id="btnSaveScores" onclick="saveAllInOneScores()" disabled>
-            <i class="fas fa-save me-2"></i>บันทึกข้อมูลทั้งหมด
+        <div class="col-md-7 d-flex justify-content-md-end justify-content-center align-items-center flex-wrap gap-2 mt-3 mt-md-0">
+          <div class="bg-light border rounded-pill p-1 shadow-sm d-flex align-items-center">
+            <button class="btn btn-sm btn-light rounded-pill px-3 text-secondary fw-bold d-flex align-items-center" id="btnToggleQual" onclick="toggleQualColumns()" style="transition: 0.2s;" title="ประเมินคุณลักษณะ">
+              <i class="fas fa-eye me-1"></i> <span class="d-none d-xl-inline">ประเมิน</span>
+            </button>
+            <div class="vr mx-1 text-secondary" style="opacity: 0.2;"></div>
+            <button class="btn btn-sm btn-light rounded-pill px-3 text-secondary fw-bold d-flex align-items-center" id="btnEditHeader" onclick="toggleHeaderEditMode()" style="transition: 0.2s;" title="แก้ไขหัวตาราง">
+              <i class="fas fa-th me-1"></i> <span class="d-none d-xl-inline">หัวตาราง</span>
+            </button>
+            <div class="vr mx-1 text-secondary" style="opacity: 0.2;"></div>
+            <button class="btn btn-sm btn-light rounded-pill px-3 text-success fw-bold d-flex align-items-center" id="btnExportSGS" onclick="openSGSExportModal()" style="transition: 0.2s;" title="ส่งออกคะแนนไป SGS">
+              <i class="fas fa-file-export me-1"></i> <span class="d-none d-xl-inline">SGS</span>
+            </button>
+            <div class="vr mx-1 text-secondary" style="opacity: 0.2;"></div>
+            <button class="btn btn-sm btn-light rounded-pill px-3 text-secondary fw-bold d-flex align-items-center" onclick="window.print()" style="transition: 0.2s;" title="พิมพ์ ปพ.5">
+              <i class="fas fa-print"></i>
+            </button>
+          </div>
+          <button class="btn btn-primary rounded-pill shadow-sm px-4 fw-bold" id="btnSaveScores" onclick="saveAllInOneScores()" disabled style="transition: 0.3s;">
+            <i class="fas fa-save me-2"></i>บันทึก
           </button>
         </div>
       </div>
@@ -102,6 +110,46 @@
             <i class="fas fa-save me-2"></i>บันทึกข้อมูล
           </button>
         </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="sgsExportModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-centered">
+    <div class="modal-content border-0 shadow-lg" style="border-radius: 12px; overflow: hidden;">
+      <div class="modal-header bg-success text-white border-0 p-3">
+        <h6 class="modal-title fw-bold">
+          <i class="fas fa-file-export me-2"></i>เตรียมข้อมูลส่งออก SGS (จัดเรียงตามรหัสนักเรียน)
+        </h6>
+        <button type="button" class="btn-close btn-close-white shadow-none" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body bg-light p-4">
+         <div class="alert alert-success border-0 shadow-sm small">
+           <i class="fas fa-lightbulb me-1"></i> <b>ทริคการใช้งาน:</b> ข้อมูลด้านล่างถูกเรียงตาม "รหัสนักเรียน" แล้ว <br>
+           คลิกปุ่ม <b>"คัดลอก <i class="fas fa-copy"></i>"</b> บนหัวคอลัมน์ที่ต้องการ แล้วนำไปกด <b>Ctrl+V</b> ที่ช่องคะแนนของคนแรกในโปรแกรม SGS ได้เลยครับ!
+         </div>
+         <div id="sgsActionButtons" class="d-flex flex-wrap gap-2 mb-3"></div>
+         <div class="table-responsive bg-white border rounded shadow-sm" style="max-height: 50vh;">
+           <table class="table table-hover table-bordered align-middle mb-0 text-center text-nowrap" style="font-size: 0.85rem;" id="sgsPreviewTable">
+             <thead class="table-light sticky-top" id="sgsPreviewHead" style="z-index: 5;"></thead>
+             <tbody id="sgsPreviewBody"></tbody>
+           </table>
+         </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="scoreHistoryModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-sm modal-dialog-centered">
+    <div class="modal-content border-0 shadow-lg" style="border-radius: 12px; overflow: hidden;">
+      <div class="modal-header bg-dark text-white border-0 p-3">
+        <h6 class="modal-title fw-bold" id="historyModalTitle"><i class="fas fa-history me-2 text-warning"></i>ประวัติการแก้ไข</h6>
+        <button type="button" class="btn-close btn-close-white shadow-none" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body bg-light p-0">
+         <div id="historyModalBody" class="p-3"></div>
       </div>
     </div>
   </div>

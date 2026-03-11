@@ -102,7 +102,8 @@ let currentScoreStudents = [];
 let currentAttStats = {};
 let isHeaderEditMode = false;
 let isQualVisible = false;
-let isSavingScores = false; 
+let isSavingScores = false;
+let sgsColumnStates = {};
 
 // 🌟 กุญแจมาตรฐาน (เกราะป้องกันรหัสเด็ก)
 const normID = (id) => { let clean = String(id).replace(/[^a-zA-Z0-9]/g, '').replace(/^0+/, ''); return clean || '0'; };
@@ -139,16 +140,16 @@ function toggleHeaderEditMode() {
   const btnEdit = document.getElementById('btnEditHeader');
   if (!isHeaderEditMode) {
     isHeaderEditMode = true;
-    btnEdit.className = "btn btn-danger shadow-sm px-3 fw-bold me-2";
-    btnEdit.innerHTML = '<i class="fas fa-check me-2"></i>เสร็จสิ้นการแก้หัวตาราง';
+    btnEdit.className = "btn btn-sm btn-danger text-white rounded-pill px-3 fw-bold d-flex align-items-center shadow-sm";
+    btnEdit.innerHTML = '<i class="fas fa-check me-1"></i> <span class="d-none d-xl-inline">เสร็จสิ้น</span>';
     refreshTableOnly();
   } else {
     if(confirm("💡 คุณอาจมีการปรับเปลี่ยนโครงสร้างหรือตัวชี้วัด\nต้องการบันทึกข้อมูลลงระบบตอนนี้เลยหรือไม่?")) {
        saveAllInOneScores(); 
     } else {
        isHeaderEditMode = false;
-       btnEdit.className = "btn btn-outline-primary shadow-sm px-3 fw-bold me-2";
-       btnEdit.innerHTML = '<i class="fas fa-th me-2"></i>แก้ไขหัวตาราง';
+       btnEdit.className = "btn btn-sm btn-light rounded-pill px-3 text-secondary fw-bold d-flex align-items-center";
+       btnEdit.innerHTML = '<i class="fas fa-th me-1"></i> <span class="d-none d-xl-inline">หัวตาราง</span>';
        refreshTableOnly();
     }
   }
@@ -158,11 +159,11 @@ function toggleQualColumns() {
   isQualVisible = !isQualVisible;
   const btn = document.getElementById('btnToggleQual');
   if (isQualVisible) {
-    btn.className = "btn btn-info shadow-sm px-3 fw-bold me-2 text-white";
-    btn.innerHTML = '<i class="fas fa-eye-slash me-2"></i>ซ่อนคุณลักษณะ';
+    btn.className = "btn btn-sm btn-info text-white rounded-pill px-3 fw-bold d-flex align-items-center shadow-sm";
+    btn.innerHTML = '<i class="fas fa-eye-slash me-1"></i> <span class="d-none d-xl-inline">ซ่อน</span>';
   } else {
-    btn.className = "btn btn-outline-info shadow-sm px-3 fw-bold me-2";
-    btn.innerHTML = '<i class="fas fa-eye me-2"></i>ประเมินคุณลักษณะ';
+    btn.className = "btn btn-sm btn-light rounded-pill px-3 text-secondary fw-bold d-flex align-items-center";
+    btn.innerHTML = '<i class="fas fa-eye me-1"></i> <span class="d-none d-xl-inline">ประเมิน</span>';
   }
   syncHeaderState(); 
   refreshTableOnly(); 
@@ -254,10 +255,14 @@ function syncHeaderState() {
   const names = document.querySelectorAll('.ind-name-edit');
   const scores = document.querySelectorAll('.ind-score-edit');
   names.forEach((el, i) => {
-    newIndicators.push({ name: el.innerText.trim(), score: parseFloat(scores[i].innerText) || 0 });
+    let oldDesc = (currentScoreConfig.indicators[i] && currentScoreConfig.indicators[i].description) ? currentScoreConfig.indicators[i].description : '';
+    newIndicators.push({ 
+       name: el.innerText.trim(), 
+       score: parseFloat(scores[i].innerText) || 0,
+       description: oldDesc
+    });
   });
   currentScoreConfig.indicators = newIndicators;
-  
   const f = parseFloat(document.getElementById('edit-ratio-f').innerText) || 0;
   const m = parseFloat(document.getElementById('edit-ratio-m').innerText) || 0;
   const e = parseFloat(document.getElementById('edit-ratio-e').innerText) || 0;
@@ -302,7 +307,7 @@ function refreshTableOnly() {
   renderAllInOneTable(currentScoreStudents, currentScoreConfig, tempScores, tempQuals); 
 }
 
-// 🌟 2. ฟังก์ชันวาดตาราง (ฉบับอัปเกรดความกระชับ & นำ % ไปต่อท้ายรหัส)
+// 🌟 2. ฟังก์ชันวาดตาราง (แก้บัคการชนกันของระบบเวลาเรียน vs ระบบหมายเหตุ)
 function renderAllInOneTable(students, config, existingScores, existingQuals) {
   const thead = document.getElementById('scoreTableHeader');
   const tbody = document.getElementById('scoreTableBody');
@@ -312,30 +317,35 @@ function renderAllInOneTable(students, config, existingScores, existingQuals) {
   document.getElementById('scoreGridTitle').innerHTML = `ปพ.5: วิชา ${item[0]} ${item[1]} ห้อง ${item[2]}`;
   document.getElementById('scoreRatioBadge').innerText = `สัดส่วนปัจจุบัน ${config.ratio}`;
 
-  // 🌟 ปรับขนาดและลด Padding ของคอลัมน์แรกๆ
-  let headHtml = `<tr><th rowspan="2" class="align-middle text-center sticky-head-1 text-muted px-1" style="width:40px;">ที่</th><th rowspan="2" class="align-middle text-start sticky-head-2 text-muted px-2" style="min-width: 170px;">ชื่อ-สกุล</th>`;
+  let headHtml = `<tr>
+    <th rowspan="2" class="align-middle text-center sticky-head-1 text-secondary border-end py-2" style="width:45px; font-size: 0.85rem; background-color: #f1f3f5;">ที่</th>
+    <th rowspan="2" class="align-middle text-start sticky-head-2 text-secondary border-end px-3 py-2" style="min-width: 180px; font-size: 0.85rem; background-color: #f1f3f5;">รหัส / ชื่อ-สกุล</th>`;
+  
   let subHeadHtml = `<tr>`;
   
   config.indicators.forEach((ind, idx) => {
-    let deleteBtn = isHeaderEditMode ? `<div class="mt-1"><button class="btn btn-xs btn-outline-danger p-0 px-1 border-0" onclick="removeIndicator(${idx})"><i class="fas fa-times"></i></button></div>` : '';
-    
+    let deleteBtn = isHeaderEditMode ? `<button class="btn btn-xs btn-outline-danger p-0 px-1 border-0 ms-1" onclick="removeIndicator(${idx})"><i class="fas fa-times"></i></button>` : '';
     let iconColor = ind.description ? 'text-info' : 'text-secondary';
     
-    let infoBtn = `<i class="fas fa-info-circle ${iconColor} ms-1" 
-                      style="cursor: pointer; transition: transform 0.2s;" 
-                      onmouseover="this.style.transform='scale(1.2)'" 
-                      onmouseout="this.style.transform='scale(1)'"
-                      onclick="showIndicatorEdit(${idx})" 
-                      title="คลิกเพื่อดู/แก้ไขรายละเอียด"></i>`;
+    let infoBtn = `<i class="fas fa-info-circle ${iconColor}" style="cursor: pointer; font-size: 0.85rem; transition: 0.2s;" onmouseover="this.style.transform='scale(1.2)'" onmouseout="this.style.transform='scale(1)'" onclick="showIndicatorEdit(${idx})" title="คลิกดู/แก้ไขรายละเอียด"></i>`;
 
-    headHtml += `<th class="text-success border-bottom-0">
-                   <div contenteditable="${isHeaderEditMode}" class="ind-name-edit" data-idx="${idx}">${ind.name}</div>
-                   ${deleteBtn}
+    let colKey = `formative-${idx}`;
+    let isChecked = sgsColumnStates[colKey] ? 'checked' : '';
+    let cbHtml = `<input type="checkbox" class="form-check-input border-secondary shadow-sm m-0 sgs-col-toggle" style="cursor: pointer; width: 1.1em; height: 1.1em;" onchange="toggleScoreColumn('${colKey}', this.checked)" ${isChecked} title="ติ๊กเพื่อเปิดกรอกคะแนน">`;
+
+    headHtml += `<th class="text-success border-bottom-0 align-middle py-2" style="font-size: 0.9rem;">
+                   <div class="d-flex justify-content-center align-items-center">
+                     <span contenteditable="${isHeaderEditMode}" class="ind-name-edit fw-bold text-truncate" data-idx="${idx}">${ind.name}</span>
+                     ${deleteBtn}
+                   </div>
                  </th>`;
                  
-    subHeadHtml += `<th class="text-success small fw-normal">
-                      (<span contenteditable="${isHeaderEditMode}" class="ind-score-edit" onblur="reCalcAllRows()">${ind.score}</span>) 
-                      ${infoBtn}
+    subHeadHtml += `<th class="text-success small fw-normal align-middle border-bottom pb-2" style="background-color: #f8f9fa;">
+                      <div class="d-flex justify-content-center align-items-center gap-1">
+                        <span class="text-muted">(<span contenteditable="${isHeaderEditMode}" class="ind-score-edit fw-bold text-success" onblur="reCalcAllRows()">${ind.score}</span>)</span>
+                        ${infoBtn}
+                        <div class="ms-1 d-flex align-items-center">${cbHtml}</div>
+                      </div>
                     </th>`;
   });
   
@@ -343,9 +353,48 @@ function renderAllInOneTable(students, config, existingScores, existingQuals) {
 
   const ratios = config.ratio.split(':');
   
-  headHtml += `<th class="text-primary border-bottom-0 border-start col-highlight-f">รวมเก็บ</th><th class="text-warning text-dark border-bottom-0 col-highlight-m">กลางภาค</th><th class="text-danger border-bottom-0 border-start border-white col-highlight-mr" style="opacity: 0.8;">ซ่อม</th><th class="text-danger border-bottom-0 border-start col-highlight-e">ปลายภาค</th><th class="text-dark border-bottom-0 border-start col-highlight-total">รวม</th><th class="text-success border-bottom-0 border-start col-highlight-grade">เกรด</th><th class="text-danger border-bottom-0 border-start col-highlight-mr">หมายเหตุ</th><th colspan="3" class="text-info text-dark border-start ${isQualVisible ? '' : 'd-none'}">ประเมิน (0-3)</th></tr>`;
+  let mChecked = sgsColumnStates['midterm'] ? 'checked' : '';
+  let mrChecked = sgsColumnStates['midterm-re'] ? 'checked' : '';
+  let eChecked = sgsColumnStates['final'] ? 'checked' : '';
+
+  let cbM = `<input type="checkbox" class="form-check-input border-secondary shadow-sm m-0 sgs-col-toggle" style="cursor: pointer; width: 1.1em; height: 1.1em;" onchange="toggleScoreColumn('midterm', this.checked)" ${mChecked} title="เปิดกรอกกลางภาค">`;
+  let cbMR = `<input type="checkbox" class="form-check-input border-secondary shadow-sm m-0 sgs-col-toggle" style="cursor: pointer; width: 1.1em; height: 1.1em;" onchange="toggleScoreColumn('midterm-re', this.checked)" ${mrChecked} title="เปิดกรอกซ่อม">`;
+  let cbE = `<input type="checkbox" class="form-check-input border-secondary shadow-sm m-0 sgs-col-toggle" style="cursor: pointer; width: 1.1em; height: 1.1em;" onchange="toggleScoreColumn('final', this.checked)" ${eChecked} title="เปิดกรอกปลายภาค">`;
+
+  headHtml += `<th class="text-primary border-bottom-0 border-start col-highlight-f align-middle py-2" style="font-size: 0.9rem;">รวมเก็บ</th>
+    <th class="text-warning text-dark border-bottom-0 col-highlight-m align-middle py-2" style="font-size: 0.9rem;">กลางภาค</th>
+    <th class="text-danger border-bottom-0 border-start border-white col-highlight-mr align-middle py-2" style="opacity: 0.9; font-size: 0.9rem;">ซ่อม</th>
+    <th class="text-danger border-bottom-0 border-start col-highlight-e align-middle py-2" style="font-size: 0.9rem;">ปลายภาค</th>
+    <th class="text-dark border-bottom-0 border-start col-highlight-total align-middle py-2" style="font-size: 0.9rem;">รวม</th>
+    <th class="text-success border-bottom-0 border-start col-highlight-grade align-middle py-2" style="font-size: 0.9rem;">เกรด</th>
+    <th class="text-danger border-bottom-0 border-start col-highlight-mr align-middle py-2" style="font-size: 0.9rem;">หมายเหตุ</th>
+    <th colspan="3" class="text-info text-dark border-start ${isQualVisible ? '' : 'd-none'} align-middle py-2" style="font-size: 0.9rem;">ประเมิน (0-3)</th></tr>`;
   
-  subHeadHtml += `<th class="text-primary small fw-normal border-start col-highlight-f">(<span id="edit-ratio-f">${ratios[0] || 0}</span>)</th><th class="text-warning text-dark small fw-normal col-highlight-m">(<span id="edit-ratio-m" contenteditable="${isHeaderEditMode}" onblur="reCalcAllRows()">${ratios[1] || 0}</span>)</th><th class="text-danger small fw-normal border-start border-white col-highlight-mr" style="opacity: 0.8;">-</th><th class="text-danger small fw-normal border-start col-highlight-e">(<span id="edit-ratio-e" contenteditable="${isHeaderEditMode}" onblur="reCalcAllRows()">${ratios[2] || 0}</span>)</th><th class="text-dark small fw-normal border-start col-highlight-total">(<span id="edit-ratio-total">100</span>)</th><th class="text-success small fw-normal border-start col-highlight-grade">0-4</th><th class="text-danger small fw-normal border-start col-highlight-mr">(ร, มส)</th><th class="text-info small fw-normal border-start ${isQualVisible ? '' : 'd-none'}">อ่าน</th><th class="text-info small fw-normal ${isQualVisible ? '' : 'd-none'}">คุณฯ</th><th class="text-info small fw-normal ${isQualVisible ? '' : 'd-none'}">สมรรถนะ</th></tr>`;
+  subHeadHtml += `<th class="text-primary small fw-normal border-start col-highlight-f align-middle border-bottom pb-2" style="background-color: #f8f9fa;">(<span id="edit-ratio-f" class="fw-bold">${ratios[0] || 0}</span>)</th>
+    <th class="text-warning text-dark small fw-normal col-highlight-m align-middle border-bottom pb-2" style="background-color: #f8f9fa;">
+      <div class="d-flex justify-content-center align-items-center gap-1">
+        <span class="text-muted">(<span id="edit-ratio-m" class="fw-bold text-warning text-dark" contenteditable="${isHeaderEditMode}" onblur="reCalcAllRows()">${ratios[1] || 0}</span>)</span>
+        <div class="ms-1 d-flex align-items-center">${cbM}</div>
+      </div>
+    </th>
+    <th class="text-danger small fw-normal border-start border-white col-highlight-mr align-middle border-bottom pb-2" style="opacity: 0.9; background-color: #f8f9fa;">
+      <div class="d-flex justify-content-center align-items-center gap-1">
+        <span class="text-muted">-</span>
+        <div class="ms-1 d-flex align-items-center">${cbMR}</div>
+      </div>
+    </th>
+    <th class="text-danger small fw-normal border-start col-highlight-e align-middle border-bottom pb-2" style="background-color: #f8f9fa;">
+      <div class="d-flex justify-content-center align-items-center gap-1">
+        <span class="text-muted">(<span id="edit-ratio-e" class="fw-bold text-danger" contenteditable="${isHeaderEditMode}" onblur="reCalcAllRows()">${ratios[2] || 0}</span>)</span>
+        <div class="ms-1 d-flex align-items-center">${cbE}</div>
+      </div>
+    </th>
+    <th class="text-dark small fw-normal border-start col-highlight-total align-middle border-bottom pb-2" style="background-color: #f8f9fa;">(<span id="edit-ratio-total" class="fw-bold">100</span>)</th>
+    <th class="text-success small fw-normal border-start col-highlight-grade align-middle border-bottom pb-2 fw-bold" style="background-color: #f8f9fa;">0-4</th>
+    <th class="text-danger small fw-normal border-start col-highlight-mr align-middle border-bottom pb-2" style="background-color: #f8f9fa;">(ร, มส)</th>
+    <th class="text-info small fw-normal border-start ${isQualVisible ? '' : 'd-none'} align-middle border-bottom pb-2" style="background-color: #f8f9fa;">อ่าน</th>
+    <th class="text-info small fw-normal ${isQualVisible ? '' : 'd-none'} align-middle border-bottom pb-2" style="background-color: #f8f9fa;">คุณฯ</th>
+    <th class="text-info small fw-normal ${isQualVisible ? '' : 'd-none'} align-middle border-bottom pb-2" style="background-color: #f8f9fa;">สมรรถนะ</th></tr>`;
   
   thead.innerHTML = headHtml + subHeadHtml;
 
@@ -360,33 +409,45 @@ function renderAllInOneTable(students, config, existingScores, existingQuals) {
     let pct = currentAttStats[safeStdId];
     let attText = '';
     let autoMS = false;
-    let remarkVal = (existingScores[`${safeStdId}_remark`] !== undefined) ? existingScores[`${safeStdId}_remark`] : '';
+
+    // 🌟 ดึงข้อมูลจากฐานข้อมูล ถ้าฐานข้อมูลเป็นเครื่องหมาย - (แปลว่าครูจงใจลบ) ให้เก็บสถานะไว้
+    let rawRemark = (existingScores[`${safeStdId}_remark`] !== undefined) ? existingScores[`${safeStdId}_remark`] : '';
+    let remarkVal = rawRemark;
     
     if (pct !== undefined) {
-        // 🌟 ย้าย % มาอยู่ในบรรทัดเดียวกับรหัส และทำป้ายให้สวยงาม
         attText = `<span class="ms-2 fw-bold ${pct < 80 ? 'text-danger' : 'text-success'}" style="font-size: 0.72rem; letter-spacing:-0.3px;"><i class="fas fa-user-clock me-1"></i>${pct}%</span>`;
-        if (pct < 80 && remarkVal === '') {
-            remarkVal = 'มส';
-            autoMS = true;
+        // 🚨 ป้องกันระบบชนกัน: ให้ มส. อัตโนมัติ เฉพาะคนที่ "ยังไม่เคยถูกครูกดบันทึกช่องหมายเหตุเลย" เท่านั้น (rawRemark ต้องว่างจริงๆ ไม่ใช่เครื่องหมายขีด)
+        if (pct < 80 && rawRemark === '') { 
+            remarkVal = 'มส'; 
+            autoMS = true; 
         }
     }
     
-    // 🌟 จัดโครงสร้าง HTML ของเซลล์ชื่อนักเรียนใหม่ให้ชิดและสวยงาม
+    // ถ้าครูเคยจงใจลบออกจนเหลือ - ให้แสดงผลหน้าเว็บเป็นช่องว่าง (ครูจะได้มองสบายตา)
+    if (remarkVal === '-') remarkVal = '';
+    
     bodyHtml += `<tr>
-      <td class="text-center text-muted fw-bold sticky-col-1 align-middle" style="font-size:0.85rem;">${rowIndex + 1}</td>
-      <td class="text-start sticky-col-2 align-middle px-2">
-         <div class="fw-bold text-dark text-truncate" style="max-width: 170px; font-size: 0.88rem; line-height:1.2;">${std[2]}</div>
+      <td class="text-center text-muted fw-bold sticky-col-1 align-middle border-end" style="font-size:0.85rem; background-color: #fff;">${rowIndex + 1}</td>
+      <td class="text-start sticky-col-2 align-middle px-3 border-end" style="background-color: #fff;">
+         <div class="fw-bold text-dark text-truncate" style="max-width: 170px; font-size: 0.9rem; line-height:1.2;">${std[2]}</div>
          <div class="d-flex align-items-center mt-1">
-            <span class="text-muted font-monospace" style="font-size: 0.75rem;">${stdId}</span>
+            <span class="text-muted font-monospace" style="font-size: 0.78rem;">${stdId}</span>
             ${attText}
          </div>
       </td>`;
     
-    config.indicators.forEach((ind) => {
+    config.indicators.forEach((ind, idx) => {
       const indName = normStr(`ind_${ind.name}`);
       const scoreKey = `${safeStdId}_${indName}`; 
       const val = (existingScores[scoreKey] !== undefined && existingScores[scoreKey] !== "") ? existingScores[scoreKey] : '';
-      bodyHtml += `<td class="p-0 align-middle text-center"><input type="number" class="score-cell-input nav-input formative-std-${safeStdId}" style="background:transparent;" value="${val}" data-row="${rowIndex}" data-col="${colIndex++}" onkeydown="handleCellNav(event)" onkeyup="calcRow('${stdId}', '${safeStdId}')"></td>`;
+      
+      let colKey = `formative-${idx}`;
+      let lockState = sgsColumnStates[colKey] ? '' : 'readonly tabindex="-1"';
+      let bgStyle = sgsColumnStates[colKey] ? 'background:transparent;' : 'background:#e9ecef; opacity:0.6;';
+
+      bodyHtml += `<td class="p-0 align-middle text-center" title="คลิกขวาเพื่อดูประวัติ">
+                     <input type="number" class="score-cell-input nav-input formative-std-${safeStdId} sgs-col-${colKey}" style="${bgStyle}" value="${val}" data-row="${rowIndex}" data-col="${colIndex++}" onkeydown="handleCellNav(event)" onkeyup="calcRow('${stdId}', '${safeStdId}')" oncontextmenu="viewScoreHistory(event, '${stdId}', '${std[2]}', '${indName}', '${ind.name}'); return false;" ${lockState}>
+                   </td>`;
     });
 
     if(isHeaderEditMode) bodyHtml += `<td class="bg-light"></td>`;
@@ -394,19 +455,36 @@ function renderAllInOneTable(students, config, existingScores, existingQuals) {
     const midVal = (existingScores[`${safeStdId}_midterm`] !== undefined && existingScores[`${safeStdId}_midterm`] !== "") ? existingScores[`${safeStdId}_midterm`] : '';
     const midReVal = (existingScores[`${safeStdId}_midterm_re`] !== undefined && existingScores[`${safeStdId}_midterm_re`] !== "") ? existingScores[`${safeStdId}_midterm_re`] : ''; 
     const finVal = (existingScores[`${safeStdId}_final`] !== undefined && existingScores[`${safeStdId}_final`] !== "") ? existingScores[`${safeStdId}_final`] : '';
+    
+    let mLock = sgsColumnStates['midterm'] ? '' : 'readonly tabindex="-1"';
+    let mBg = sgsColumnStates['midterm'] ? 'background:transparent;' : 'background:#e9ecef; opacity:0.6;';
+    let mrLock = sgsColumnStates['midterm-re'] ? '' : 'readonly tabindex="-1"';
+    let mrBg = sgsColumnStates['midterm-re'] ? 'background:transparent;' : 'background:#e9ecef; opacity:0.6;';
+    let eLock = sgsColumnStates['final'] ? '' : 'readonly tabindex="-1"';
+    let eBg = sgsColumnStates['final'] ? 'background:transparent;' : 'background:#e9ecef; opacity:0.6;';
+
     const q = existingQuals[safeStdId] || { read: "3", char: "3", comp: "3" };
     const opt = `<option value="3">3</option><option value="2">2</option><option value="1">1</option><option value="0">0</option>`;
 
     bodyHtml += `<td class="p-0 align-middle text-center border-start col-highlight-f"><input type="text" class="score-cell-input fw-bold text-primary" style="background:transparent;" id="sum_f_std_${safeStdId}" value="0" readonly tabindex="-1"></td>
-      <td class="p-0 align-middle text-center col-highlight-m"><input type="number" class="score-cell-input nav-input midterm-std-${safeStdId}" style="background:transparent;" value="${midVal}" data-row="${rowIndex}" data-col="${colIndex++}" onkeydown="handleCellNav(event)" onkeyup="calcRow('${stdId}', '${safeStdId}')"></td>
-      <td class="p-0 align-middle text-center border-start border-white col-highlight-mr"><input type="number" class="score-cell-input nav-input midterm-re-std-${safeStdId} text-danger fw-bold" style="background:transparent;" value="${midReVal}" placeholder="-" data-row="${rowIndex}" data-col="${colIndex++}" onkeydown="handleCellNav(event)" onkeyup="calcRow('${stdId}', '${safeStdId}')"></td>
-      <td class="p-0 align-middle text-center border-start col-highlight-e"><input type="number" class="score-cell-input nav-input final-std-${safeStdId}" style="background:transparent;" value="${finVal}" data-row="${rowIndex}" data-col="${colIndex++}" onkeydown="handleCellNav(event)" onkeyup="calcRow('${stdId}', '${safeStdId}')"></td>
+      
+      <td class="p-0 align-middle text-center col-highlight-m" title="คลิกขวาเพื่อดูประวัติ">
+        <input type="number" class="score-cell-input nav-input midterm-std-${safeStdId} sgs-col-midterm" style="${mBg}" value="${midVal}" data-row="${rowIndex}" data-col="${colIndex++}" onkeydown="handleCellNav(event)" onkeyup="calcRow('${stdId}', '${safeStdId}')" oncontextmenu="viewScoreHistory(event, '${stdId}', '${std[2]}', 'midterm', 'กลางภาค'); return false;" ${mLock}>
+      </td>
+      
+      <td class="p-0 align-middle text-center border-start border-white col-highlight-mr" title="คลิกขวาเพื่อดูประวัติ">
+        <input type="number" class="score-cell-input nav-input midterm-re-std-${safeStdId} text-danger fw-bold sgs-col-midterm-re" style="${mrBg}" value="${midReVal}" placeholder="-" data-row="${rowIndex}" data-col="${colIndex++}" onkeydown="handleCellNav(event)" onkeyup="calcRow('${stdId}', '${safeStdId}')" oncontextmenu="viewScoreHistory(event, '${stdId}', '${std[2]}', 'midterm_re', 'สอบซ่อม'); return false;" ${mrLock}>
+      </td>
+      
+      <td class="p-0 align-middle text-center border-start col-highlight-e" title="คลิกขวาเพื่อดูประวัติ">
+        <input type="number" class="score-cell-input nav-input final-std-${safeStdId} sgs-col-final" style="${eBg}" value="${finVal}" data-row="${rowIndex}" data-col="${colIndex++}" onkeydown="handleCellNav(event)" onkeyup="calcRow('${stdId}', '${safeStdId}')" oncontextmenu="viewScoreHistory(event, '${stdId}', '${std[2]}', 'final', 'ปลายภาค'); return false;" ${eLock}>
+      </td>
       
       <td class="text-center align-middle text-dark fw-bold border-start col-highlight-total" id="sum_total_std_${safeStdId}" style="font-size: 0.95rem;">0</td>
       <td class="text-center align-middle text-success fw-bold border-start col-highlight-grade" id="grade_std_${safeStdId}" style="font-size: 1rem;">0</td>
       
       <td class="p-0 align-middle text-center border-start col-highlight-mr position-relative">
-        <select class="qual-select remark-select nav-input" data-row="${rowIndex}" data-col="${colIndex++}" data-safeid="${safeStdId}" onkeydown="handleCellNav(event)" onchange="calcRow('${stdId}', '${safeStdId}')" style="width: 100%; height:100%; background: transparent; padding:4px; font-size: 0.85rem; border:none; outline:none; text-align:center;">
+        <select class="qual-select remark-select nav-input" data-row="${rowIndex}" data-col="${colIndex++}" data-safeid="${safeStdId}" onkeydown="handleCellNav(event)" onchange="calcRow('${stdId}', '${safeStdId}'); updateRemarkInstant('${stdId}', this);" style="width: 100%; height:100%; background: transparent; padding:4px; font-size: 0.85rem; border:none; outline:none; text-align:center;">
           <option value="" ${remarkVal === '' ? 'selected' : ''}>-</option>
           <option value="ร" ${remarkVal === 'ร' ? 'selected' : ''}>ร</option>
           <option value="มส" ${remarkVal === 'มส' ? 'selected' : ''}>มส</option>
@@ -421,6 +499,31 @@ function renderAllInOneTable(students, config, existingScores, existingQuals) {
   });
   tbody.innerHTML = bodyHtml;
   reCalcAllRows();
+}
+
+// 🌟 5. ฟังก์ชันเปิด/ปิด ล็อกเมื่อครูติ๊กบนหัวตาราง (อัปเดตให้ใช้ readOnly)
+window.toggleScoreColumn = function(colKey, isChecked) {
+    sgsColumnStates[colKey] = isChecked; 
+    
+    const inputs = document.querySelectorAll(`.sgs-col-${colKey}`);
+    inputs.forEach(input => {
+        // 🚨 สลับใช้ readOnly แทน disabled 
+        input.readOnly = !isChecked;
+        if (!isChecked) {
+            input.setAttribute('tabindex', '-1'); // ข้ามเมื่อกดปุ่ม Tab
+            input.style.backgroundColor = '#e9ecef';
+            input.style.opacity = '0.6';
+        } else {
+            input.removeAttribute('tabindex');
+            input.style.backgroundColor = 'transparent';
+            input.style.opacity = '1';
+        }
+    });
+    
+    // เด้งโฟกัสไปที่นักเรียนคนแรกทันที เพื่อให้พิมพ์ต่อได้เลย
+    if (isChecked && inputs.length > 0) {
+        setTimeout(() => inputs[0].focus(), 50);
+    }
 }
 
 function calculateGrade(score) {
@@ -459,6 +562,9 @@ function reCalcAllRows() {
 let autoSaveTimer = null; 
 let retrySaveTimer = null;
 
+// ==========================================
+// 🧮 ฟังก์ชันคำนวณคะแนนและตัดเกรด (ฉบับจัดเต็มของคุณครู)
+// ==========================================
 function calcRow(stdId, safeStdId) {
   if (!safeStdId) safeStdId = normID(stdId);
 
@@ -504,21 +610,24 @@ function calcRow(stdId, safeStdId) {
   const gradeCell = document.getElementById(`grade_std_${safeStdId}`);
   if(totalCell) totalCell.innerText = total;
 
+  // 🚨 ดึงค่าจาก Dropdown หมายเหตุ (ร/มส) แบบแข็งแกร่ง
   const remarkSelect = document.querySelector(`.remark-select[data-safeid="${safeStdId}"]`);
-  const remark = remarkSelect ? remarkSelect.value : '';
+  const remark = remarkSelect ? remarkSelect.value.trim() : '';
 
   if (remarkSelect) {
-      if(remark !== '') remarkSelect.classList.add('text-danger', 'fw-bold');
+      if(remark === 'ร' || remark === 'มส') remarkSelect.classList.add('text-danger', 'fw-bold');
       else remarkSelect.classList.remove('text-danger', 'fw-bold');
   }
 
   if(gradeCell && totalCell) {
-      if (remark !== '') {
+      // 🌟 บังคับเด็ดขาด: ถ้าหมายเหตุเป็น ร หรือ มส ให้ทับเกรดทันที!
+      if (remark === 'ร' || remark === 'มส') {
          gradeCell.innerText = remark;
          totalCell.className = "text-center align-middle text-white fw-bold fs-6 border-start bg-danger";
          gradeCell.className = "text-center align-middle text-white fw-bold fs-5 border-start bg-danger";
       } else {
-         gradeCell.innerText = calculateGrade(total);
+         // ตัดเกรดปกติตามคะแนน
+         gradeCell.innerText = typeof calculateGrade === 'function' ? calculateGrade(total) : "0";
          if(total < 50) { 
            totalCell.className = "text-center align-middle text-white fw-bold fs-6 border-start bg-danger";
            gradeCell.className = "text-center align-middle text-white fw-bold fs-5 border-start bg-danger"; 
@@ -529,15 +638,19 @@ function calcRow(stdId, safeStdId) {
       }
   }
 
+  // ระบบ Auto-save 3 วิ
   const btn = document.getElementById('btnSaveScores');
-  if (!isHeaderEditMode && btn) {
-      clearTimeout(autoSaveTimer);
+  if (typeof isHeaderEditMode !== 'undefined' && !isHeaderEditMode && btn) {
+      if (typeof autoSaveTimer !== 'undefined') clearTimeout(autoSaveTimer);
       btn.innerHTML = '<i class="fas fa-hourglass-half fa-spin me-2"></i>รอเซฟ (3 วิ)...';
       btn.className = "btn btn-outline-warning text-dark shadow-sm px-4 fw-bold"; 
-      autoSaveTimer = setTimeout(() => { saveAllInOneScores(true); }, 3000); 
+      autoSaveTimer = setTimeout(() => { 
+          if (typeof saveAllInOneScores === 'function') saveAllInOneScores(true); 
+      }, 3000); 
   }
 }
 
+// 🌟 1. ฟังก์ชันบันทึกคะแนนทั้งหมด (แก้ไขให้ส่ง ร/มส ไปพร้อมกับเกรด)
 function saveAllInOneScores(isSilent = false) {
   if(isSavingScores) {
       if(isSilent) {
@@ -550,7 +663,7 @@ function saveAllInOneScores(isSilent = false) {
 
   const val = document.getElementById('scoreClassSelect').value;
   const btn = document.getElementById('btnSaveScores');
-  const originalBtnClass = "btn btn-success shadow-sm px-4 fw-bold";
+  const originalBtnClass = "btn btn-primary rounded-pill shadow-sm px-4 fw-bold";
   const originalText = '<i class="fas fa-save me-2"></i>บันทึกข้อมูลทั้งหมด';
 
   if(!val) { isSavingScores = false; return; }
@@ -600,6 +713,7 @@ function saveAllInOneScores(isSilent = false) {
         const stdId = String(std[0]).trim();
         const safeStdId = normID(stdId); 
         
+        // เก็บข้อมูลคะแนนดิบ
         document.querySelectorAll(`.formative-std-${safeStdId}`).forEach((input, i) => {
           const indName = normStr(`ind_${newIndicators[i].name}`);
           const val = input.value !== '' ? parseFloat(input.value) : ''; 
@@ -615,14 +729,24 @@ function saveAllInOneScores(isSilent = false) {
         const finInput = document.querySelector(`.final-std-${safeStdId}`);
         if (finInput) payload.scoreRecords.push({ studentId: stdId, subjectCode: item[0], term: user.currentTerm, year: user.currentYear, indicatorId: 'final', score: finInput.value !== '' ? parseFloat(finInput.value) : '' });
 
+        // 🚨 ดึงค่า ร/มส 
         const remarkInput = document.querySelector(`.remark-select[data-safeid="${safeStdId}"]`);
-        if (remarkInput && remarkInput.value !== '') {
-           payload.scoreRecords.push({ studentId: stdId, subjectCode: item[0], term: user.currentTerm, year: user.currentYear, indicatorId: 'remark', score: remarkInput.value });
-        }
+        const remarkVal = remarkInput ? remarkInput.value.trim() : '';
+        const finalRemark = remarkVal === '' ? '-' : remarkVal; // แปลงค่าว่างให้เป็น - เพื่อให้ระบบจำ
 
+        // 🌟 1. ยัดลง Score_Database (เพื่อให้เก็บเป็นประวัติรายตัวชี้วัดด้วย)
+        payload.scoreRecords.push({ studentId: stdId, subjectCode: item[0], term: user.currentTerm, year: user.currentYear, indicatorId: 'remark', score: finalRemark });
+
+        // 🌟 2. ยัดลง Grade_Summary 
         const tCell = document.getElementById(`sum_total_std_${safeStdId}`);
         const gCell = document.getElementById(`grade_std_${safeStdId}`);
-        payload.gradeRecords.push({ studentId: stdId, subjectCode: item[0], totalScore: tCell ? tCell.innerText : '0', grade: gCell ? gCell.innerText : '0' });
+        payload.gradeRecords.push({ 
+            studentId: stdId, 
+            subjectCode: item[0], 
+            totalScore: tCell ? tCell.innerText : '0', 
+            grade: gCell ? gCell.innerText : '0',
+            remark: finalRemark // ยัด ร/มส มาตรงนี้
+        });
         
         const qRead = document.querySelector(`.qual-read[data-safeid="${safeStdId}"]`);
         const qChar = document.querySelector(`.qual-char[data-safeid="${safeStdId}"]`);
@@ -667,7 +791,8 @@ function saveAllInOneScores(isSilent = false) {
 }
 
 function addIndicator() {
-  currentScoreConfig.indicators.push({ name: "งานใหม่", score: 10 });
+  syncHeaderState();
+  currentScoreConfig.indicators.push({ name: "งานใหม่", score: 10, description: "" });
   refreshTableOnly();
 }
 
@@ -687,6 +812,7 @@ function addIndicatorRow(name = '', score = 0, description = '') {
 
 function removeIndicator(idx) {
   if(confirm("ยืนยันลบคอลัมน์คะแนนนี้?")) {
+    syncHeaderState();
     currentScoreConfig.indicators.splice(idx, 1);
     refreshTableOnly();
   }
@@ -791,6 +917,614 @@ function saveIndicatorDetail() {
       showToast('❌ ผิดพลาด: ' + res.message, 'danger');
     }
   }).saveSubjectConfig(payload);
+}
+
+// ==========================================
+// 🚀 SMART COPY-PASTE (ส่งออก SGS)
+// ==========================================
+function openSGSExportModal() {
+  if (!currentScoreStudents || currentScoreStudents.length === 0) {
+     return alert("⚠️ ไม่พบข้อมูลนักเรียน กรุณาโหลดรายวิชาก่อนครับ");
+  }
+  
+  // 1. โคลนและเรียงข้อมูลนักเรียนตาม "รหัสนักเรียน" (จากน้อยไปมาก)
+  let sortedStudents = [...currentScoreStudents].sort((a, b) => {
+      let idA = parseInt(String(a[0]).replace(/[^0-9]/g, '')) || 0;
+      let idB = parseInt(String(b[0]).replace(/[^0-9]/g, '')) || 0;
+      return idA - idB;
+  });
+
+  // 2. เตรียมหัวตารางและปุ่มกด
+  let theadHtml = `<tr>
+    <th class="align-middle" style="width: 50px;">ที่</th>
+    <th class="align-middle text-primary">รหัสนักเรียน</th>
+    <th class="align-middle text-start">ชื่อ-สกุล</th>`;
+  
+  let buttonsHtml = '';
+  let colsData = []; 
+
+  // กวาดตัวชี้วัดทั้งหมด
+  currentScoreConfig.indicators.forEach((ind, idx) => {
+     theadHtml += `<th>${ind.name} <br><span class="badge bg-light text-dark border mt-1 mb-1">เต็ม ${ind.score}</span><br><button class="btn btn-sm btn-primary py-0 px-3 shadow-sm rounded-pill" onclick="copySGSColumn('ind_${idx}')"><i class="fas fa-copy me-1"></i> คัดลอก</button></th>`;
+     colsData.push({ id: `ind_${idx}`, name: ind.name, values: [] });
+  });
+
+  // กลางภาค และ ปลายภาค
+  theadHtml += `<th class="table-warning">กลางภาค<br><button class="btn btn-sm btn-dark mt-2 py-0 px-3 shadow-sm rounded-pill" onclick="copySGSColumn('midterm')"><i class="fas fa-copy me-1"></i> คัดลอก</button></th>`;
+  colsData.push({ id: `midterm`, name: 'กลางภาค', values: [] });
+
+  theadHtml += `<th class="table-danger">ปลายภาค<br><button class="btn btn-sm btn-dark mt-2 py-0 px-3 shadow-sm rounded-pill" onclick="copySGSColumn('final')"><i class="fas fa-copy me-1"></i> คัดลอก</button></th>`;
+  colsData.push({ id: `final`, name: 'ปลายภาค', values: [] });
+
+  theadHtml += `</tr>`;
+  document.getElementById('sgsPreviewHead').innerHTML = theadHtml;
+  
+  buttonsHtml += `
+    <button class="btn btn-sm btn-outline-secondary fw-bold" onclick="copySGSAll()">
+      <i class="fas fa-copy me-2"></i>คัดลอกตามตารางเดิม
+    </button>
+    <button class="btn btn-sm btn-success fw-bold ms-auto shadow-sm" onclick="copySGSAutoFormat()">
+      <i class="fas fa-magic me-2"></i>แปลงอัตโนมัติ (10 10 20 10 10 10 30)
+    </button>
+  `;
+  document.getElementById('sgsActionButtons').innerHTML = buttonsHtml;
+
+  // 3. วนลูปดึงคะแนนจากช่องกรอกข้อมูลในหน้าเว็บ (ดึงค่าล่าสุดแบบ Real-time)
+  let tbodyHtml = '';
+  window.sgsExportData = {}; 
+  colsData.forEach(c => window.sgsExportData[c.id] = []);
+  window.sgsExportData['all'] = []; 
+
+  sortedStudents.forEach((std, index) => {
+      const stdId = String(std[0]).trim();
+      const safeStdId = normID(stdId); // ดึง ID มาตรฐานจากระบบ ปพ.5
+      
+      let rowHtml = `<tr>
+        <td class="text-muted">${index + 1}</td>
+        <td class="fw-bold text-primary font-monospace">${stdId}</td>
+        <td class="text-start">${std[2]}</td>`;
+        
+      let rowAllData = [];
+
+      // ดึงคะแนนเก็บ
+      currentScoreConfig.indicators.forEach((ind, idx) => {
+         let inputs = document.querySelectorAll(`.formative-std-${safeStdId}`);
+         let val = inputs[idx] ? inputs[idx].value : '';
+         rowHtml += `<td><span class="badge bg-light text-dark px-3 py-1 border">${val || '-'}</span></td>`;
+         window.sgsExportData[`ind_${idx}`].push(val);
+         rowAllData.push(val);
+      });
+
+      // ดึงกลางภาค (เช็คช่องซ่อมด้วย ถ้าซ่อมแล้วให้เอาคะแนนซ่อมมา)
+      let midInput = document.querySelector(`.midterm-std-${safeStdId}`);
+      let midReInput = document.querySelector(`.midterm-re-std-${safeStdId}`);
+      let midVal = (midReInput && midReInput.value !== '') ? midReInput.value : (midInput ? midInput.value : '');
+      rowHtml += `<td class="table-warning fw-bold text-dark">${midVal || '-'}</td>`;
+      window.sgsExportData[`midterm`].push(midVal);
+      rowAllData.push(midVal);
+
+      // ดึงปลายภาค
+      let finInput = document.querySelector(`.final-std-${safeStdId}`);
+      let finVal = finInput ? finInput.value : '';
+      rowHtml += `<td class="table-danger fw-bold text-dark">${finVal || '-'}</td>`;
+      window.sgsExportData[`final`].push(finVal);
+      rowAllData.push(finVal);
+
+      rowHtml += `</tr>`;
+      tbodyHtml += rowHtml;
+      
+      // เก็บข้อมูลทั้งแถวแบบ Tab-separated ไว้เผื่อก๊อปลง Excel ทีเดียว
+      window.sgsExportData['all'].push(rowAllData.join('\t'));
+  });
+
+  document.getElementById('sgsPreviewBody').innerHTML = tbodyHtml;
+
+  // 4. แสดงผล Modal
+  const modal = new bootstrap.Modal(document.getElementById('sgsExportModal'));
+  modal.show();
+}
+
+// 🌟 ฟังก์ชันคัดลอกลง Clipboard แบบแยกลงบรรทัดใหม่
+function copySGSColumn(colId) {
+   if (!window.sgsExportData || !window.sgsExportData[colId]) return;
+   
+   const textToCopy = window.sgsExportData[colId].join('\n');
+   
+   navigator.clipboard.writeText(textToCopy).then(() => {
+       if (typeof showToast === 'function') {
+          showToast('คัดลอกคะแนนคอลัมน์นี้เรียบร้อยแล้ว!', 'success');
+       } else {
+          alert('คัดลอกคะแนนเรียบร้อย นำไปวางในโปรแกรมของคุณได้เลยครับ');
+       }
+   }).catch(err => {
+       alert('เบราว์เซอร์ไม่อนุญาตให้คัดลอก: ' + err);
+   });
+}
+
+// 🌟 ฟังก์ชันคัดลอกทั้งตาราง
+function copySGSAll() {
+   if (!window.sgsExportData || !window.sgsExportData['all']) return;
+   
+   const textToCopy = window.sgsExportData['all'].join('\n');
+   
+   navigator.clipboard.writeText(textToCopy).then(() => {
+       if (typeof showToast === 'function') showToast('คัดลอกคะแนนทั้งหมดแล้ว!', 'success');
+       else alert('คัดลอกคะแนนทั้งหมดเรียบร้อยแล้ว');
+   });
+}
+
+// 🌟 ฟังก์ชันเวทมนตร์: แปลงและกระจายคะแนนเป็นฟอร์แมต SGS (10 10 20 10 10 10 30) อัตโนมัติ
+function copySGSAutoFormat() {
+  if (!currentScoreStudents || currentScoreStudents.length === 0) return;
+
+  // 1. เรียงข้อมูลตามรหัสนักเรียน
+  let sortedStudents = [...currentScoreStudents].sort((a, b) => {
+      let idA = parseInt(String(a[0]).replace(/[^0-9]/g, '')) || 0;
+      let idB = parseInt(String(b[0]).replace(/[^0-9]/g, '')) || 0;
+      return idA - idB;
+  });
+
+  // 2. ดึงค่าคะแนนเต็มของวิชานี้ที่ครูตั้งไว้
+  let maxMid = parseFloat(currentScoreConfig.midtermScore) || 20;
+  let maxFin = parseFloat(currentScoreConfig.finalScore) || 30;
+  let maxForm = 0;
+  currentScoreConfig.indicators.forEach(ind => maxForm += parseFloat(ind.score) || 0);
+  if (maxForm === 0) maxForm = 50; // กัน Error หาร 0
+
+  let exportRows = [];
+
+  // 3. คำนวณคะแนนนักเรียนทีละคน
+  sortedStudents.forEach(std => {
+      const safeStdId = normID(std[0]);
+      let hasData = false; // เอาไว้เช็คว่าเด็กคนนี้มีกรอกคะแนนบ้างไหม ถ้าไม่มีจะปล่อยช่องว่าง
+      
+      // ดึงคะแนนกลางภาค (เช็คคะแนนซ่อมด้วย)
+      let rawMidStr = document.querySelector(`.midterm-std-${safeStdId}`)?.value || '';
+      let rawMidReStr = document.querySelector(`.midterm-re-std-${safeStdId}`)?.value || '';
+      if (rawMidStr !== '' || rawMidReStr !== '') hasData = true;
+      
+      let rawMid = parseFloat(rawMidStr) || 0;
+      let rawMidRe = parseFloat(rawMidReStr) || 0;
+      let finalMid = rawMidRe > 0 ? rawMidRe : rawMid; 
+      
+      // ดึงคะแนนปลายภาค
+      let rawFinStr = document.querySelector(`.final-std-${safeStdId}`)?.value || '';
+      if (rawFinStr !== '') hasData = true;
+      let finalFin = parseFloat(rawFinStr) || 0;
+      
+      // ดึงคะแนนเก็บทั้งหมดมารวมกัน
+      let rawForm = 0;
+      currentScoreConfig.indicators.forEach((ind, idx) => {
+          let formStr = document.querySelectorAll(`.formative-std-${safeStdId}`)[idx]?.value || '';
+          if (formStr !== '') hasData = true;
+          rawForm += parseFloat(formStr) || 0;
+      });
+
+      // ถ้าไม่มีข้อมูลเลย ให้ส่งช่องว่าง 7 ช่องไป เพื่อให้ SGS ไม่ใส่คะแนนมั่วให้เด็กที่ไม่ได้สอบ
+      if (!hasData) {
+          exportRows.push(['', '', '', '', '', '', ''].join('\t'));
+          return;
+      }
+
+      // 4. แปลงเป็นสัดส่วน SGS 
+      // เทียบบัญญัติไตรยางศ์: (คะแนนที่ได้ / คะแนนเต็ม) * สัดส่วน SGS
+      let sgsMid = Math.min(20, Math.round((finalMid / maxMid) * 20)) || 0;
+      let sgsFin = Math.min(30, Math.round((finalFin / maxFin) * 30)) || 0;
+      let sgsFormTotal = Math.min(50, Math.round((rawForm / maxForm) * 50)) || 0;
+      
+      // 5. กระจายคะแนนเก็บ 50 คะแนน ลงใน 5 ตะกร้า (ตะกร้าละ 10) ให้ใกล้เคียงกันที่สุด
+      let base = Math.floor(sgsFormTotal / 5); // ฐานคะแนนแต่ละช่อง
+      let rem = sgsFormTotal % 5;              // เศษที่เหลือ
+      let forms = [base, base, base, base, base];
+      
+      // เอาเศษที่เหลือมาหยอดเพิ่มช่องละ 1 คะแนน
+      for(let i=0; i<rem; i++) forms[i]++;
+
+      // 6. จัดเรียงฟอร์แมต: 10, 10, 20(กลางภาค), 10, 10, 10, 30(ปลายภาค)
+      let sgsRow = [forms[0], forms[1], sgsMid, forms[2], forms[3], forms[4], sgsFin];
+      
+      exportRows.push(sgsRow.join('\t'));
+  });
+
+  // 7. สั่งคัดลอกลง Clipboard แบบกั้นด้วย Tab
+  const textToCopy = exportRows.join('\n');
+  navigator.clipboard.writeText(textToCopy).then(() => {
+      if (typeof showToast === 'function') showToast('คัดลอกฟอร์แมต SGS 10-10-20-10-10-10-30 สำเร็จ!', 'success');
+      else alert('✨ คัดลอกสำเร็จ! นำไปคลิกวางที่ช่อง 10 คะแนนช่องแรกใน SGS ได้เลยครับ');
+  }).catch(err => alert('เบราว์เซอร์ไม่รองรับการคัดลอก: ' + err));
+}
+
+// ==========================================
+// 🔒 โหมดกรอกคะแนนแบบ SGS (ล็อกตาราง + ติ๊กเพื่อเปิด)
+// ==========================================
+
+// 1. เวทมนตร์ดักจับ: ทุกครั้งที่ตารางถูกสร้างเสร็จ ให้ฝังระบบติ๊กช่องแบบ SGS ทันที
+const originalRenderAllInOne = renderAllInOneTable;
+window.renderAllInOneTable = function(...args) {
+    originalRenderAllInOne.apply(this, args);
+    setTimeout(applySGSToggleMode, 200); // รอให้หน้าเว็บวาดตารางเสร็จ 0.2 วิ แล้วค่อยฝัง Checkbox
+};
+
+// 2. ฟังก์ชันวาด Checkbox และล็อกช่องคะแนน
+function applySGSToggleMode() {
+    const thead = document.querySelector('#scoreTableHeader tr');
+    const tbody = document.getElementById('scoreTableBody');
+    if (!thead || !tbody) return;
+    
+    const rows = tbody.querySelectorAll('tr');
+    if (rows.length === 0) return;
+
+    const ths = thead.querySelectorAll('th');
+    const firstRowCells = rows[0].querySelectorAll('td');
+
+    firstRowCells.forEach((td, colIdx) => {
+        // หาเฉพาะคอลัมน์ที่มี "ช่องกรอกตัวเลขคะแนน" (.score-input)
+        const input = td.querySelector('input.score-input'); 
+        if (input && !input.readOnly) {
+            const th = ths[colIdx];
+            
+            // ถ้าบนหัวตารางยังไม่มี Checkbox ให้สร้างใส่ลงไป
+            if (th && !th.querySelector('.sgs-col-toggle')) {
+                const cbWrapper = document.createElement('div');
+                cbWrapper.className = 'form-check d-flex justify-content-center mb-2';
+                cbWrapper.innerHTML = `
+                  <input class="form-check-input border-dark shadow-sm sgs-col-toggle" 
+                         type="checkbox" 
+                         style="transform: scale(1.3); cursor: pointer;" 
+                         title="ติ๊กเพื่อเปิดกรอกคะแนนช่องนี้" 
+                         onchange="toggleSGSColumn(${colIdx}, this.checked)">
+                `;
+                th.prepend(cbWrapper); // แปะไว้บนสุดของหัวตาราง
+            }
+
+            // ทำการ "ล็อก" ช่องกรอกคะแนนทั้งหมดในคอลัมน์นี้เป็นค่าเริ่มต้น
+            rows.forEach(r => {
+                const cellInput = r.querySelectorAll('td')[colIdx]?.querySelector('input.score-input');
+                if (cellInput) {
+                    cellInput.disabled = true; // ล็อกไม่ให้พิมพ์
+                    cellInput.style.backgroundColor = '#e9ecef'; // พื้นหลังสีเทา
+                    cellInput.style.opacity = '0.6';
+                }
+            });
+        }
+    });
+}
+
+// 3. ฟังก์ชันสลับสถานะ (เปิด/ปิด) เมื่อครูติ๊ก Checkbox
+window.toggleSGSColumn = function(colIdx, isEnabled) {
+    const tbody = document.getElementById('scoreTableBody');
+    const rows = tbody.querySelectorAll('tr');
+    
+    rows.forEach(r => {
+        const td = r.querySelectorAll('td')[colIdx];
+        if (td) {
+            const input = td.querySelector('input.score-input');
+            if (input) {
+                input.disabled = !isEnabled;
+                if (!isEnabled) {
+                    input.style.backgroundColor = '#e9ecef';
+                    input.style.opacity = '0.6';
+                } else {
+                    input.style.backgroundColor = '#ffffff';
+                    input.style.opacity = '1';
+                }
+            }
+        }
+    });
+    
+    // UX เกรดพรีเมียม: พอติ๊กเปิดปุ๊บ ให้โฟกัส (เมาส์กะพริบ) ที่เด็กคนแรกทันที ครูจะได้พิมพ์ต่อได้เลย!
+    if (isEnabled && rows.length > 0) {
+        const firstInput = rows[0].querySelectorAll('td')[colIdx]?.querySelector('input.score-input');
+        if (firstInput) setTimeout(() => firstInput.focus(), 50);
+    }
+};
+
+// ==========================================
+// 🚀 SMART COPY-PASTE (ส่งออก SGS + ลากคลุมดำแบบ Excel)
+// ==========================================
+
+// 🌟 1. ฝัง CSS สำหรับระบบลากคลุมดำอัตโนมัติ
+if(!document.getElementById('sgsSelectionStyles')) {
+    const style = document.createElement('style');
+    style.id = 'sgsSelectionStyles';
+    style.innerHTML = `
+        .sgs-cell { cursor: crosshair; user-select: none; border: 1px solid #dee2e6; transition: background 0.1s; }
+        .sgs-selected { background-color: #0d6efd !important; color: white !important; font-weight: bold; outline: 2px solid #0a58ca; position: relative; z-index: 5; }
+    `;
+    document.head.appendChild(style);
+}
+
+// ตัวแปรจำสถานะการลากเมาส์
+let isDraggingSGS = false;
+let startSGS = { r: -1, c: -1 };
+let endSGS = { r: -1, c: -1 };
+window.sgsCurrentMode = 'normal'; 
+
+function openSGSExportModal() {
+  if (!currentScoreStudents || currentScoreStudents.length === 0) {
+     return alert("⚠️ ไม่พบข้อมูลนักเรียน กรุณาโหลดรายวิชาก่อนครับ");
+  }
+  renderSGSGrid('normal'); // โหลดตารางปกติเป็นค่าเริ่มต้น
+  const modal = new bootstrap.Modal(document.getElementById('sgsExportModal'));
+  modal.show();
+}
+
+// 🌟 2. วาดตาราง SGS (อัปเดตตำแหน่งเป็น: 10 10 10 20 10 10 30)
+function renderSGSGrid(mode) {
+  window.sgsCurrentMode = mode;
+  let sortedStudents = [...currentScoreStudents].sort((a, b) => {
+      let idA = parseInt(String(a[0]).replace(/[^0-9]/g, '')) || 0;
+      let idB = parseInt(String(b[0]).replace(/[^0-9]/g, '')) || 0;
+      return idA - idB;
+  });
+
+  // วาดปุ่มสลับโหมดด้านบน
+  let buttonsHtml = `
+     <div class="d-flex w-100 justify-content-between mb-3 align-items-center">
+         <div class="btn-group shadow-sm">
+             <button class="btn btn-sm ${mode === 'normal' ? 'btn-secondary' : 'btn-outline-secondary'} fw-bold px-3" onclick="renderSGSGrid('normal')"><i class="fas fa-table me-2"></i>ตาราง ปพ.5 เดิม</button>
+             <button class="btn btn-sm ${mode === 'magic' ? 'btn-success' : 'btn-outline-success'} fw-bold px-3" onclick="renderSGSGrid('magic')"><i class="fas fa-magic me-2"></i>แปลงเป็น SGS (10 10 10 20 10 10 30)</button>
+         </div>
+         <button class="btn btn-primary fw-bold shadow-sm px-4 rounded-pill" onclick="copySGSSelected()"><i class="fas fa-copy me-2"></i>คัดลอกส่วนที่เลือก (Ctrl+C)</button>
+     </div>
+     <div class="alert alert-info border-0 shadow-sm small py-2 mb-3">
+       <i class="fas fa-mouse-pointer me-1"></i> <b>ฟีเจอร์ใหม่:</b> ใช้เมาส์ <b>"คลิกค้างแล้วลากคลุม"</b> ช่องคะแนนที่ต้องการ (เหมือน Excel) แล้วกด <b>Ctrl+C</b> หรือปุ่มคัดลอกด้านขวาบน เพื่อนำไปวางใน SGS ได้เลยครับ!
+     </div>
+  `;
+  document.getElementById('sgsActionButtons').innerHTML = buttonsHtml;
+
+  // วาดหัวตาราง
+  let theadHtml = `<tr>
+    <th class="align-middle bg-light text-muted" style="width: 50px;">ที่</th>
+    <th class="align-middle text-primary bg-light" style="width: 100px;">รหัสนักเรียน</th>
+    <th class="align-middle text-start bg-light" style="min-width: 150px;">ชื่อ-สกุล</th>`;
+
+  let maxForm = 0;
+  currentScoreConfig.indicators.forEach(ind => maxForm += parseFloat(ind.score) || 0);
+  if (maxForm === 0) maxForm = 50;
+
+  if (mode === 'normal') {
+      currentScoreConfig.indicators.forEach((ind) => {
+         theadHtml += `<th class="bg-light">${ind.name}<br><small class="text-muted">(${ind.score})</small></th>`;
+      });
+      let maxMid = parseFloat(currentScoreConfig.midtermScore) || 20;
+      let maxFin = parseFloat(currentScoreConfig.finalScore) || 30;
+      theadHtml += `<th class="table-warning">กลางภาค<br><small class="text-muted">(${maxMid})</small></th>`;
+      theadHtml += `<th class="table-danger">ปลายภาค<br><small class="text-muted">(${maxFin})</small></th>`;
+  } else {
+      // 🌟 อัปเดตหัวตาราง: ย้ายกลางภาค (20) ไปไว้ตำแหน่งที่ 4
+      let magicHeaders = ["ย่อย 1 (10)", "ย่อย 2 (10)", "ย่อย 3 (10)", "กลางภาค (20)", "ย่อย 4 (10)", "ย่อย 5 (10)", "ปลายภาค (30)"];
+      magicHeaders.forEach(h => {
+          if (h.includes("กลางภาค")) theadHtml += `<th class="table-warning">${h}</th>`;
+          else if (h.includes("ปลายภาค")) theadHtml += `<th class="table-danger">${h}</th>`;
+          else theadHtml += `<th class="bg-light">${h}</th>`;
+      });
+      // เพิ่มคอลัมน์ รวม และ เกรด ให้ครูตรวจสอบ
+      theadHtml += `<th class="bg-secondary text-white border-start" style="width:60px;">รวม</th><th class="bg-success text-white" style="width:60px;">เกรด</th>`;
+  }
+  theadHtml += `</tr>`;
+  document.getElementById('sgsPreviewHead').innerHTML = theadHtml;
+
+  // วาดข้อมูลนักเรียน
+  let tbodyHtml = '';
+  sortedStudents.forEach((std, rIdx) => {
+      const safeStdId = normID(std[0]);
+      let rowHtml = `<tr>
+        <td class="text-muted text-center">${rIdx + 1}</td>
+        <td class="fw-bold text-primary font-monospace text-center">${std[0]}</td>
+        <td class="text-start text-truncate" style="max-width: 150px;">${std[2]}</td>`;
+
+      let cIdx = 0;
+      let hasData = false;
+      
+      // ดึงกลางภาคและซ่อม
+      let rawMidStr = document.querySelector(`.midterm-std-${safeStdId}`)?.value || '';
+      let rawMidReStr = document.querySelector(`.midterm-re-std-${safeStdId}`)?.value || '';
+      if (rawMidStr !== '' || rawMidReStr !== '') hasData = true;
+      let finalMid = (parseFloat(rawMidReStr) || 0) > 0 ? (parseFloat(rawMidReStr) || 0) : (parseFloat(rawMidStr) || 0);
+
+      // ดึงปลายภาค
+      let rawFinStr = document.querySelector(`.final-std-${safeStdId}`)?.value || '';
+      if (rawFinStr !== '') hasData = true;
+      let finalFin = parseFloat(rawFinStr) || 0;
+
+      // ดึงคะแนนเก็บรวม
+      let rawForms = [];
+      let rawFormSum = 0;
+      currentScoreConfig.indicators.forEach((ind, idx) => {
+          let formStr = document.querySelectorAll(`.formative-std-${safeStdId}`)[idx]?.value || '';
+          if (formStr !== '') hasData = true;
+          rawForms.push(formStr);
+          rawFormSum += parseFloat(formStr) || 0;
+      });
+
+      if (mode === 'normal') {
+          rawForms.forEach(val => {
+              rowHtml += `<td class="sgs-cell align-middle fs-6" data-r="${rIdx}" data-c="${cIdx++}">${val}</td>`;
+          });
+          rowHtml += `<td class="sgs-cell align-middle fs-6 table-warning fw-bold text-dark" data-r="${rIdx}" data-c="${cIdx++}">${hasData ? (rawMidReStr !== '' ? rawMidReStr : rawMidStr) : ''}</td>`;
+          rowHtml += `<td class="sgs-cell align-middle fs-6 table-danger fw-bold text-dark" data-r="${rIdx}" data-c="${cIdx++}">${hasData ? rawFinStr : ''}</td>`;
+      } else {
+          // โหมดเวทมนตร์ 10-10-10-20-10-10-30
+          if (!hasData) {
+              for(let i=0; i<7; i++) rowHtml += `<td class="sgs-cell align-middle" data-r="${rIdx}" data-c="${cIdx++}"></td>`;
+              rowHtml += `<td class="align-middle fw-bold text-muted bg-light border-start">-</td><td class="align-middle fw-bold text-muted bg-light">-</td>`;
+          } else {
+              // 1. ห้ามยุ่งกับกลางภาคและปลายภาค
+              let sgsMid = finalMid; 
+              let sgsFin = finalFin;
+
+              // 2. สเกลเฉพาะคะแนนเก็บเป็น 50 (คงทศนิยมไว้ 2 ตำแหน่ง)
+              let sgsFormTotal = Math.round((rawFormSum / maxForm) * 50 * 100) / 100;
+              
+              // 3. ซอยคะแนนเก็บลง 5 ตะกร้า (ไม่ปัดทศนิยมทิ้ง)
+              let forms = [0, 0, 0, 0, 0];
+              let base = Math.floor(sgsFormTotal / 5);
+              let rem = Math.round((sgsFormTotal - (base * 5)) * 100) / 100; // หาเศษที่เหลือ
+
+              for(let i=0; i<5; i++) forms[i] = base;
+              
+              let i = 0;
+              while (rem >= 1 && i < 5) {
+                  forms[i] += 1;
+                  rem -= 1;
+                  i++;
+              }
+              if (rem > 0 && i < 5) {
+                  forms[i] += parseFloat(rem.toFixed(2));
+              }
+
+              // 🌟 อัปเดตตำแหน่งข้อมูล: ย้ายกลางภาคไปไว้ช่องที่ 4 (index 3)
+              let sgsRow = [forms[0], forms[1], forms[2], sgsMid, forms[3], forms[4], sgsFin];
+
+              sgsRow.forEach((val, idx) => {
+                  let bgClass = '';
+                  // 🌟 เปลี่ยนสีไฮไลท์กลางภาคจาก index 2 เป็น index 3 ให้ตรงตำแหน่ง
+                  if (idx === 3) bgClass = 'table-warning fw-bold text-dark';
+                  else if (idx === 6) bgClass = 'table-danger fw-bold text-dark';
+                  rowHtml += `<td class="sgs-cell align-middle fs-6 ${bgClass}" data-r="${rIdx}" data-c="${cIdx++}">${val}</td>`;
+              });
+
+              // 4. เพิ่มช่องรวมและเกรด
+              let totalSgs = Math.round((sgsFormTotal + sgsMid + sgsFin) * 100) / 100;
+              let gradeSgs = calculateGrade(totalSgs);
+              let gradeClass = totalSgs < 50 ? 'text-danger' : 'text-success';
+              
+              rowHtml += `<td class="align-middle fw-bold bg-light border-start text-dark">${totalSgs}</td>`;
+              rowHtml += `<td class="align-middle fw-bold bg-light ${gradeClass} fs-5">${gradeSgs}</td>`;
+          }
+      }
+
+      rowHtml += `</tr>`;
+      tbodyHtml += rowHtml;
+  });
+
+  document.getElementById('sgsPreviewBody').innerHTML = tbodyHtml;
+  initSGSDragSelection(); // เปิดระบบลากคลุมดำ
+}
+
+// 🌟 3. ระบบจับเมาส์ลากคลุมดำ
+function initSGSDragSelection() {
+    const tbody = document.getElementById('sgsPreviewBody');
+    if(!tbody) return;
+
+    // เคลียร์ Event เดิมก่อน
+    const newTbody = tbody.cloneNode(true);
+    tbody.parentNode.replaceChild(newTbody, tbody);
+
+    newTbody.addEventListener('mousedown', function(e) {
+        const td = e.target.closest('.sgs-cell');
+        if(!td) return;
+        isDraggingSGS = true;
+        startSGS = { r: parseInt(td.dataset.r), c: parseInt(td.dataset.c) };
+        endSGS = { r: parseInt(td.dataset.r), c: parseInt(td.dataset.c) };
+        drawSGSSelection(newTbody);
+        e.preventDefault(); // กันไม่ให้เบราว์เซอร์ลากคลุมตัวหนังสือสีฟ้าปกติ
+    });
+
+    newTbody.addEventListener('mouseover', function(e) {
+        if(!isDraggingSGS) return;
+        const td = e.target.closest('.sgs-cell');
+        if(!td) return;
+        endSGS = { r: parseInt(td.dataset.r), c: parseInt(td.dataset.c) };
+        drawSGSSelection(newTbody);
+    });
+
+    document.addEventListener('mouseup', function() {
+        isDraggingSGS = false;
+    });
+}
+
+// วาดสีน้ำเงินทับช่องที่ถูกคลุม
+function drawSGSSelection(tbody) {
+    const minR = Math.min(startSGS.r, endSGS.r);
+    const maxR = Math.max(startSGS.r, endSGS.r);
+    const minC = Math.min(startSGS.c, endSGS.c);
+    const maxC = Math.max(startSGS.c, endSGS.c);
+
+    tbody.querySelectorAll('.sgs-cell').forEach(td => {
+        const r = parseInt(td.dataset.r);
+        const c = parseInt(td.dataset.c);
+        if (r >= minR && r <= maxR && c >= minC && c <= maxC) {
+            td.classList.add('sgs-selected');
+        } else {
+            td.classList.remove('sgs-selected');
+        }
+    });
+}
+
+// 🌟 4. ดักจับปุ่ม Ctrl+C เพื่อคัดลอก (เฉพาะหน้าต่างนี้)
+document.addEventListener('keydown', function(e) {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
+        const sgsModal = document.getElementById('sgsExportModal');
+        if (sgsModal && sgsModal.classList.contains('show')) {
+            const selectedCells = document.querySelectorAll('.sgs-selected');
+            if (selectedCells.length > 0) {
+                e.preventDefault();
+                copySGSSelected();
+            }
+        }
+    }
+});
+
+// ฟังก์ชันดูดข้อมูลช่องสีน้ำเงินลง Clipboard
+window.copySGSSelected = function() {
+    const tbody = document.getElementById('sgsPreviewBody');
+    if(!tbody) return;
+
+    const selectedCells = tbody.querySelectorAll('.sgs-selected');
+    if(selectedCells.length === 0) return alert('⚠️ กรุณาคลิกค้างแล้วลากคลุมช่องคะแนนที่ต้องการก่อนคัดลอกครับ');
+
+    const minR = Math.min(startSGS.r, endSGS.r);
+    const maxR = Math.max(startSGS.r, endSGS.r);
+    const minC = Math.min(startSGS.c, endSGS.c);
+    const maxC = Math.max(startSGS.c, endSGS.c);
+
+    let copyString = "";
+    for(let r = minR; r <= maxR; r++) {
+        let rowVals = [];
+        for(let c = minC; c <= maxC; c++) {
+            const td = tbody.querySelector(`.sgs-cell[data-r="${r}"][data-c="${c}"]`);
+            if (td && td.classList.contains('sgs-selected')) {
+                rowVals.push(td.innerText.trim());
+            } else {
+                rowVals.push(""); // ข้ามช่องที่ไม่ได้เลือก
+            }
+        }
+        copyString += rowVals.join('\t') + '\n';
+    }
+
+    navigator.clipboard.writeText(copyString.trimEnd()).then(() => {
+        if (typeof showToast === 'function') showToast('✅ คัดลอกตารางลง Clipboard เรียบร้อย! (พร้อมวาง)', 'success');
+        else alert('คัดลอกสำเร็จ! นำไปคลิกขวาวางใน SGS ได้เลยครับ');
+    }).catch(err => alert('เบราว์เซอร์ไม่อนุญาตให้คัดลอก: ' + err));
+}
+
+// ==========================================
+// ⚡ ฟังก์ชันยิง Auto-Save เมื่อครูเปลี่ยน Dropdown ร/มส
+// ==========================================
+function updateRemarkInstant(stdId, selectElement) {
+   const user = getSessionUser();
+   const val = document.getElementById('scoreClassSelect').value;
+   if(!val) return;
+   
+   const item = JSON.parse(val);
+   const subjectCode = item[0];
+   const remarkVal = selectElement.value;
+
+   // ทำให้ช่องดูจางลงนิดนึง เพื่อบอกว่า "กำลังบันทึกอยู่นะ"
+   selectElement.style.opacity = '0.5';
+
+   // ยิงข้อมูลตรงไปหาหลังบ้าน
+   safeRun(3).withSuccessHandler(res => {
+      selectElement.style.opacity = '1';
+      if(res.success) {
+         let msg = res.val === '' ? 'ล้างค่าหมายเหตุสำเร็จ' : `บันทึก "${res.val}" สำเร็จ!`;
+         showToast(msg, "success"); // โชว์เด้งเตือนสีเขียว
+      } else {
+         showToast("❌ ขัดข้อง: " + res.error, "danger");
+      }
+   }).saveStudentRemarkDirectly(stdId, subjectCode, user.currentTerm, user.currentYear, remarkVal);
 }
 
 </script>

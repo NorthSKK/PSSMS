@@ -33,9 +33,42 @@ function showLoader(status) {
 function checkAutoLogin() {
   const savedUser = localStorage.getItem('pssms_user');
   const sessionUser = sessionStorage.getItem('pssms_user');
-  if (savedUser) { renderApp(JSON.parse(savedUser)); } 
-  else if (sessionUser) { renderApp(JSON.parse(sessionUser)); } 
-  else { showLoader(false); document.getElementById('login-section').classList.remove('d-none'); }
+  if (savedUser) { 
+      renderApp(JSON.parse(savedUser)); 
+      syncSystemTerm(); // 🌟 แอบเช็คเทอมล่าสุดหลังบ้าน
+  } 
+  else if (sessionUser) { 
+      renderApp(JSON.parse(sessionUser)); 
+      syncSystemTerm(); // 🌟 แอบเช็คเทอมล่าสุดหลังบ้าน
+  } 
+  else { 
+      showLoader(false); 
+      document.getElementById('login-section').classList.remove('d-none'); 
+  }
+}
+
+// 🌟 ฟังก์ชันใหม่: ซิงค์เทอมและปีการศึกษาล่าสุดแบบเงียบๆ
+function syncSystemTerm() {
+  const userStr = localStorage.getItem('pssms_user') || sessionStorage.getItem('pssms_user');
+  if (!userStr) return;
+  
+  safeRun(3).withSuccessHandler(function(config) {
+      let user = JSON.parse(userStr);
+      // ถ้าเทอมในฐานข้อมูล ไม่ตรงกับเทอมที่โชว์อยู่ ให้อัปเดตทันที
+      if (config.term && config.year && (user.currentTerm !== config.term || user.currentYear !== config.year)) {
+          user.currentTerm = config.term;
+          user.currentYear = config.year;
+          
+          // อัปเดต Cache ใหม่
+          if (localStorage.getItem('pssms_user')) localStorage.setItem('pssms_user', JSON.stringify(user));
+          if (sessionStorage.getItem('pssms_user')) sessionStorage.setItem('pssms_user', JSON.stringify(user));
+          window.currentUser = user;
+          
+          // อัปเดตข้อความมุมขวาบนแบบ Real-time
+          const badge = document.getElementById('user-term-badge');
+          if (badge) badge.innerText = `เทอม ${config.term}/${config.year}`;
+      }
+  }).getSystemConfig();
 }
 
 function processLogin() {
@@ -77,7 +110,7 @@ function renderApp(user) {
   
   let termText = "";
   if(user.currentTerm && user.currentYear) {
-    termText = `<span class="badge bg-info text-dark shadow-sm" style="font-size: 0.7rem; border-radius: 6px;">เทอม ${user.currentTerm}/${user.currentYear}</span>`;
+    termText = `<span id="user-term-badge" class="badge bg-info text-dark shadow-sm" style="font-size: 0.7rem; border-radius: 6px;">เทอม ${user.currentTerm}/${user.currentYear}</span>`;
   }
 
   const currentTheme = localStorage.getItem('pssms_theme') || 'light';
