@@ -1,0 +1,315 @@
+<script>
+  // ==========================================
+  // 📚 สมองกลระบบงานสารบรรณ (ฝ่ายทั่วไป)
+  // ==========================================
+
+  window.sarabunGlobalData = [];
+
+  function initSarabunPage() {
+      const now = new Date();
+      const today = now.toISOString().split('T')[0];
+      const timeStr = now.toTimeString().substring(0, 5); 
+      
+      if(document.getElementById('docTargetDate')) document.getElementById('docTargetDate').value = today;
+      if(document.getElementById('docActionDate')) document.getElementById('docActionDate').value = today;
+      if(document.getElementById('refDocDate')) document.getElementById('refDocDate').value = today;
+      if(document.getElementById('docTime')) document.getElementById('docTime').value = timeStr; 
+      
+      loadSarabunHistory();
+  }
+
+  // 🌟 ฟังก์ชันอัจฉริยะ: ดึงคำซ้ำๆ จากประวัติมาเป็นตัวเลือก (Auto-Suggest)
+  function buildAutoSuggestLists(data) {
+      let fromSet = new Set();
+      let toSet = new Set();
+      let assigneeSet = new Set();
+
+      // 1. เพิ่มค่าเริ่มต้นยอดฮิต (พิมพ์นิดเดียว เด้งเลย)
+      toSet.add("สำนักงานเขตพื้นที่การศึกษามัธยมศึกษาอุดรธานี");
+      toSet.add("สำนักงานเขตพื้นที่การศึกษามัธยมศึกษาเลย หนองบัวลำภู");
+      fromSet.add("ผู้อำนวยการโรงเรียนภูพระบาทวิทยา");
+
+      // 2. ดึงชื่อครูที่ล็อกอินอยู่ใส่ไปด้วย
+      try {
+          const user = window.currentUser || JSON.parse(localStorage.getItem('pssms_user'));
+          if(user && user.name) assigneeSet.add(user.name);
+      } catch(e) {}
+
+      // 3. กวาดข้อมูลจากประวัติเก่าๆ (ใครเคยพิมพ์อะไรไว้ มันจะจำมาแนะนำต่อให้หมด!)
+      data.forEach(r => {
+          if(r.docFrom && r.docFrom !== '-' && r.docFrom !== '') fromSet.add(r.docFrom.trim());
+          if(r.docTo && r.docTo !== '-' && r.docTo !== '') toSet.add(r.docTo.trim());
+          if(r.assignee && r.assignee !== '-' && r.assignee !== '') assigneeSet.add(r.assignee.trim());
+      });
+
+      // 4. เอาข้อมูลไปยัดใส่ Datalist หน้าเว็บ
+      const populate = (id, set) => {
+          const el = document.getElementById(id);
+          if(el) {
+              el.innerHTML = Array.from(set).map(val => `<option value="${val}">`).join('');
+          }
+      };
+
+      populate('dl-docFrom', fromSet);
+      populate('dl-docTo', toSet);
+      populate('dl-assignee', assigneeSet);
+  }
+
+  function toggleSarabunFields() {
+      try {
+          const type = document.getElementById('docType').value;
+          let userName = "";
+          try {
+              const user = window.currentUser || JSON.parse(localStorage.getItem('pssms_user')) || JSON.parse(sessionStorage.getItem('pssms_user'));
+              if (user && user.name) userName = user.name;
+          } catch(e) {}
+          
+          ['divSubject', 'divAmount', 'divReference', 'divDocRefNo', 'divRefDocDate', 'divFromTo', 'divDocFrom', 'divDocTo', 'divDates', 'divTargetDate', 'divDocTime', 'divActionDate', 'divAssignee', 'btnRequestNumber'].forEach(id => {
+              const el = document.getElementById(id);
+              if(el) el.style.display = 'none';
+          });
+
+          document.getElementById('docTo').required = false;
+          document.getElementById('docAssignee').required = false;
+          document.getElementById('docTime').required = false;
+          document.getElementById('docSubject').placeholder = "ระบุข้อมูล...";
+          document.getElementById('docFrom').value = ""; 
+          document.getElementById('lblDocFromReq').innerText = "(ไม่บังคับ)";
+          document.getElementById('docAmount').value = 1; 
+          
+          let btnText = "กดขอเลขที่เอกสาร";
+          let btnIcon = "fa-paper-plane";
+          let btnClass = "btn-primary";
+
+          if (type === 'ทะเบียนคำสั่ง') {
+              document.getElementById('lblSubject').innerHTML = 'ชื่อเรื่อง <span class="text-danger">*</span>';
+              document.getElementById('lblTargetDate').innerHTML = 'ลงวันที่ <span class="text-danger">*</span>';
+              document.getElementById('divSubject').style.display = 'block';
+              document.getElementById('divDates').style.display = 'flex';
+              document.getElementById('divTargetDate').style.display = 'block';
+              document.getElementById('divActionDate').style.display = 'block';
+              document.getElementById('divAssignee').style.display = 'block';
+              document.getElementById('docAssignee').required = true;
+              document.getElementById('docAssignee').value = userName;
+
+          } else if (type === 'ทะเบียนหนังสือรับ') {
+              document.getElementById('lblSubject').innerHTML = 'เรื่อง <span class="text-danger">*</span>';
+              document.getElementById('lblTargetDate').innerHTML = 'วันที่รับ <span class="text-danger">*</span>';
+              document.getElementById('lblRefDocDate').innerHTML = 'ลงวันที่ (ในหนังสือ) <span class="text-secondary fw-normal">(ไม่บังคับ)</span>';
+              document.getElementById('divSubject').style.display = 'block';
+              document.getElementById('divReference').style.display = 'flex';
+              document.getElementById('divDocRefNo').style.display = 'block';
+              document.getElementById('divRefDocDate').style.display = 'block';
+              document.getElementById('divFromTo').style.display = 'flex';
+              document.getElementById('divDocFrom').style.display = 'block';
+              document.getElementById('divDocTo').style.display = 'block';
+              document.getElementById('docTo').required = true;
+              
+              document.getElementById('divDates').style.display = 'flex';
+              document.getElementById('divTargetDate').style.display = 'block'; 
+              document.getElementById('divDocTime').style.display = 'block'; 
+              document.getElementById('docTime').required = true;
+              
+              document.getElementById('divAssignee').style.display = 'block';
+              document.getElementById('docAssignee').required = true;
+              document.getElementById('docAssignee').value = userName;
+              
+              btnText = "ลงทะเบียนรับหนังสือ"; 
+              btnIcon = "fa-inbox";
+              btnClass = "btn-success";
+
+          } else if (type === 'ทะเบียนหนังสือส่ง') {
+              document.getElementById('lblSubject').innerHTML = 'เรื่อง <span class="text-danger">*</span>';
+              document.getElementById('lblTargetDate').innerHTML = 'ลงวันที่ <span class="text-danger">*</span>';
+              document.getElementById('divSubject').style.display = 'block';
+              document.getElementById('divReference').style.display = 'flex';
+              document.getElementById('divDocRefNo').style.display = 'block';
+              document.getElementById('divFromTo').style.display = 'flex';
+              document.getElementById('divDocFrom').style.display = 'block';
+              document.getElementById('docFrom').value = "ผู้อำนวยการโรงเรียน"; 
+              document.getElementById('divDocTo').style.display = 'block';
+              document.getElementById('docTo').required = true;
+              
+              document.getElementById('divDates').style.display = 'flex';
+              document.getElementById('divTargetDate').style.display = 'block';
+              document.getElementById('divDocTime').style.display = 'block'; 
+              document.getElementById('docTime').required = true;
+
+              document.getElementById('divAssignee').style.display = 'block';
+              document.getElementById('docAssignee').required = true;
+              document.getElementById('docAssignee').value = userName;
+              
+              btnText = "ลงทะเบียนหนังสือส่ง";
+              btnIcon = "fa-paper-plane";
+              btnClass = "btn-info";
+
+          } else if (type === 'ทะเบียนเกียรติบัตร') {
+              document.getElementById('lblSubject').innerHTML = 'ชื่องาน <span class="text-danger">*</span>';
+              document.getElementById('lblTargetDate').innerHTML = 'วันที่ในเกียรติบัตร <span class="text-danger">*</span>';
+              document.getElementById('docSubject').placeholder = "เช่น การแข่งขันตอบปัญหาวิชาการ...";
+              document.getElementById('divSubject').style.display = 'block';
+              document.getElementById('divAmount').style.display = 'block';
+              document.getElementById('divDates').style.display = 'flex';
+              document.getElementById('divTargetDate').style.display = 'block';
+          }
+
+          const btn = document.getElementById('btnRequestNumber');
+          btn.style.display = 'block';
+          btn.className = `btn ${btnClass} text-white w-100 rounded-pill fw-bold py-2 shadow-sm`;
+          document.getElementById('btnRequestText').innerText = btnText;
+          document.getElementById('btnRequestIcon').className = `fas ${btnIcon} me-2`;
+
+      } catch(e) { console.error("Error in toggle:", e); }
+  }
+
+  function requestNewDocNumber() {
+      const user = window.currentUser || JSON.parse(localStorage.getItem('pssms_user')) || JSON.parse(sessionStorage.getItem('pssms_user'));
+      if (!user) return showToast("กรุณาเข้าสู่ระบบก่อน", "danger");
+
+      const type = document.getElementById('docType').value;
+      const payload = {
+          docType: type,
+          subject: document.getElementById('docSubject').value || "-",
+          targetDate: document.getElementById('docTargetDate').value || "-",
+          docTime: document.getElementById('docTime').value || "-", 
+          actionDate: document.getElementById('docActionDate').value || "-",
+          docRefNo: document.getElementById('docRefNo').value || "-",
+          refDocDate: document.getElementById('refDocDate').value || "-",
+          docFrom: document.getElementById('docFrom').value || "-",
+          docTo: document.getElementById('docTo').value || "-",
+          assignee: document.getElementById('docAssignee').value || "-",
+          amount: document.getElementById('docAmount').value || 1, 
+          requester: user.name 
+      };
+
+      const btn = document.getElementById('btnRequestNumber');
+      const originalText = document.getElementById('btnRequestText').innerText;
+      const originalIcon = document.getElementById('btnRequestIcon').className;
+      
+      btn.disabled = true;
+      document.getElementById('btnRequestIcon').className = 'spinner-border spinner-border-sm me-2';
+      document.getElementById('btnRequestText').innerText = 'กำลังประมวลผล...';
+
+      safeRun(3).withSuccessHandler(res => {
+          btn.disabled = false;
+          document.getElementById('btnRequestIcon').className = originalIcon;
+          document.getElementById('btnRequestText').innerText = originalText;
+          
+          if (res.status === 'success') {
+              showToast(res.message, 'success');
+              alert(`🎉 เลขทะเบียนของคุณคือ:\n\n${res.docNumber}`);
+              
+              document.getElementById('docSubject').value = ''; 
+              document.getElementById('docAmount').value = 1; 
+              if(type !== 'ทะเบียนหนังสือส่ง') document.getElementById('docFrom').value = '';
+              document.getElementById('docTo').value = '';
+              document.getElementById('docRefNo').value = '';
+              
+              loadSarabunHistory(); 
+          } else {
+              showToast(res.message, 'danger');
+          }
+      }).requestSarabunNumber(payload);
+  }
+
+  function loadSarabunHistory() {
+      let userName = "", userRole = "";
+      try {
+          const user = getSessionUser();
+          if (user) { userName = user.name; userRole = user.role; }
+      } catch(e) {}
+
+      const tbody = document.getElementById('sarabunTableBody');
+      if(!tbody) return;
+      tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-5"><div class="spinner-border text-primary mb-3"></div><br>กำลังดึงข้อมูล...</td></tr>';
+
+      safeRun(3).withSuccessHandler(res => {
+          window.sarabunGlobalData = res; 
+          filterSarabunData(); 
+          buildAutoSuggestLists(res); // 🌟 สั่งอัปเดตคำแนะนำทันทีที่ดึงข้อมูลเสร็จ
+      }).getSarabunHistory(userName, userRole);
+  }
+
+  function filterSarabunData() {
+      const typeFilter = document.getElementById('filterSarabunType').value;
+      const searchText = document.getElementById('searchSarabunText').value.toLowerCase().trim();
+      const startDate = document.getElementById('searchStartDate').value;
+      const endDate = document.getElementById('searchEndDate').value;
+      const tbody = document.getElementById('sarabunTableBody');
+      
+      let filtered = window.sarabunGlobalData;
+
+      if (typeFilter !== 'ALL') filtered = filtered.filter(r => r.docType === typeFilter);
+
+      if (searchText !== '') {
+          filtered = filtered.filter(r => {
+              return r.subject.toLowerCase().includes(searchText) ||
+                     r.docNumber.toLowerCase().includes(searchText) ||
+                     r.requester.toLowerCase().includes(searchText) ||
+                     r.assignee.toLowerCase().includes(searchText) ||
+                     (r.docFrom && r.docFrom.toLowerCase().includes(searchText)) ||
+                     (r.docTo && r.docTo.toLowerCase().includes(searchText));
+          });
+      }
+
+      if (startDate || endDate) {
+          filtered = filtered.filter(r => {
+              if (!r.targetDate || r.targetDate === '-') return false;
+              const rDate = r.targetDate; 
+              if (startDate && endDate) return rDate >= startDate && rDate <= endDate;
+              else if (startDate) return rDate >= startDate;
+              else if (endDate) return rDate <= endDate;
+              return true;
+          });
+      }
+
+      if (filtered.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="4" class="text-center text-muted py-5"><i class="fas fa-search fa-2x mb-2 opacity-25"></i><br>ไม่พบข้อมูลที่ตรงกับเงื่อนไข</td></tr>`;
+          return;
+      }
+
+      let html = '';
+      filtered.forEach(r => {
+          const formatD = (d) => {
+             if(!d || d === '-') return '-';
+             let obj = new Date(d);
+             return isNaN(obj.getTime()) ? d : obj.toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric' });
+          };
+
+          let typeBadge = `<div class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 px-2 py-1 mb-2"><i class="fas fa-tag me-1"></i>${r.docType}</div>`;
+          if (r.docType === 'ทะเบียนหนังสือรับ') typeBadge = `<div class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 px-2 py-1 mb-2"><i class="fas fa-inbox me-1"></i>${r.docType}</div>`;
+          if (r.docType === 'ทะเบียนหนังสือส่ง') typeBadge = `<div class="badge bg-info bg-opacity-10 text-info border border-info border-opacity-25 px-2 py-1 mb-2"><i class="fas fa-paper-plane me-1"></i>${r.docType}</div>`;
+          
+          let detailsHTML = `<div class="fw-bold text-dark mb-1 text-wrap" style="font-size: 0.95rem; max-width: 350px;">${r.subject}</div>`;
+          if(r.docType === 'ทะเบียนหนังสือรับ') {
+              detailsHTML += `<div class="text-muted small" style="font-size: 0.8rem;">`;
+              if(r.docRefNo !== '-') detailsHTML += `<span class="me-2"><b>ที่:</b> ${r.docRefNo}</span>`;
+              if(r.refDocDate !== '-') detailsHTML += `<span><b>ลว.</b> ${formatD(r.refDocDate)}</span>`;
+              detailsHTML += `<div class="mt-1 text-truncate" style="max-width:350px;"><i class="fas fa-arrow-right text-success me-1"></i> <b>รับจาก:</b> ${r.docFrom} <i class="fas fa-caret-right mx-1 text-muted"></i> <b>ถึง:</b> ${r.docTo}</div></div>`;
+          } else if(r.docType === 'ทะเบียนหนังสือส่ง') {
+              detailsHTML += `<div class="text-muted small" style="font-size: 0.8rem;">`;
+              if(r.docRefNo !== '-') detailsHTML += `<span class="me-2"><b>ที่:</b> ${r.docRefNo}</span>`;
+              detailsHTML += `<div class="mt-1 text-truncate" style="max-width:350px;"><i class="fas fa-paper-plane text-info me-1"></i> <b>จาก:</b> ${r.docFrom} <i class="fas fa-caret-right mx-1 text-muted"></i> <b>ส่งถึง:</b> ${r.docTo}</div></div>`;
+          } else if(r.docType === 'ทะเบียนคำสั่ง') {
+              detailsHTML += `<div class="text-muted small mt-1"><i class="fas fa-calendar-check text-primary me-1"></i> <b>วันปฏิบัติ:</b> ${formatD(r.actionDate)}</div>`;
+          }
+
+          let actionHTML = `<div class="small">`;
+          
+          let timeShow = (r.docTime && r.docTime !== '-' && r.docTime !== '') ? ` เวลา ${r.docTime} น.` : '';
+          actionHTML += `<div class="mb-1"><i class="fas fa-calendar-alt text-secondary me-1"></i>ลงวันที่: <span class="fw-bold text-dark">${formatD(r.targetDate)}${timeShow}</span></div>`;
+          
+          if(r.docType !== 'ทะเบียนเกียรติบัตร' && r.assignee !== '-') {
+              actionHTML += `<div class="text-success text-truncate" style="max-width: 200px;"><i class="fas fa-user-check me-1"></i>รับผิดชอบ: ${r.assignee}</div>`;
+          }
+          actionHTML += `<div class="text-muted mt-2 text-truncate" style="max-width: 200px; font-size:0.75rem;"><i class="fas fa-edit me-1"></i>ผู้ขอ: ${r.requester}</div></div>`;
+
+          let fileBtn = r.fileUrl && r.fileUrl !== '-' ? 
+              `<a href="${r.fileUrl}" target="_blank" class="btn btn-sm btn-success rounded-pill px-3 shadow-sm"><i class="fas fa-file-pdf me-1"></i>ดูไฟล์</a>` : 
+              `<button class="btn btn-sm btn-outline-secondary rounded-pill px-3" onclick="alert('ระบบแนบไฟล์ PDF เตรียมพบกันใน Step 4 ครับ! 🚀')"><i class="fas fa-upload me-1"></i>แนบไฟล์</button>`;
+
+          html += `<tr class="bg-white"><td class="ps-4 py-3 align-middle"><span class="badge bg-danger fs-6 px-3 py-2 shadow-sm rounded-pill">${r.docNumber}</span></td><td class="py-3 align-middle">${typeBadge}${detailsHTML}</td><td class="py-3 align-middle">${actionHTML}</td><td class="text-center py-3 align-middle">${fileBtn}</td></tr>`;
+      });
+      tbody.innerHTML = html;
+  }
+</script>

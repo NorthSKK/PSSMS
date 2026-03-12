@@ -232,6 +232,7 @@ function setupPageContent(pageName, html) {
   showLoader(false); 
   if (window.innerWidth <= 768) { const sidebar = document.getElementById('sidebar'); if(sidebar) sidebar.classList.remove('active'); }
   setTimeout(applyThaiDatePickers, 100);
+  
   if(pageName === 'Page_Dashboard_Admin') loadStudentSummary();
   if(pageName === 'Page_Dashboard_Teacher') initTeacherDashboard();
   if(pageName === 'Page_Dashboard_Student') initStudentDashboard();
@@ -244,6 +245,7 @@ function setupPageContent(pageName, html) {
   if(pageName === 'Page_Subject_Config') initSubjectConfigPage();
   if(pageName === 'Page_Score_Entry') initScoreEntryPage();
   if(pageName === 'Page_Grade_Summary') initGradeSummaryPage();
+  if(pageName === 'Page_General') initSarabunPage();
 }
 
 // ==========================================

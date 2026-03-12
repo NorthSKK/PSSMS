@@ -1,7 +1,194 @@
-<div class="container-fluid">
-  <h4 class="mb-4"><i class="fas fa-building text-danger"></i> ระบบบริหารทั่วไป</h4>
-  <div class="card p-3">
-    <h5>แจ้งซ่อมอาคารสถานที่</h5>
-    <button class="btn btn-danger w-25">แจ้งซ่อมด่วน</button>
+<div class="container-fluid py-4" id="generalPageContainer">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="mb-0 fw-bold"><i class="fas fa-building text-danger me-2"></i> ระบบบริหารทั่วไป (General Admin)</h4>
+  </div>
+
+  <ul class="nav nav-pills mb-4 bg-white p-2 rounded-pill shadow-sm d-inline-flex" id="generalTabs" role="tablist">
+    <li class="nav-item" role="presentation">
+      <button class="nav-link active rounded-pill px-4 fw-bold" id="sarabun-tab" data-bs-toggle="tab" data-bs-target="#sarabun" type="button" role="tab">
+        <i class="fas fa-folder-open me-2"></i> งานสารบรรณ (ขอเลขที่เอกสาร)
+      </button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link rounded-pill px-4 fw-bold text-danger" id="maintenance-tab" data-bs-toggle="tab" data-bs-target="#maintenance" type="button" role="tab">
+        <i class="fas fa-tools me-2"></i> แจ้งซ่อมอาคารสถานที่
+      </button>
+    </li>
+  </ul>
+
+  <div class="tab-content" id="generalTabsContent">
+    
+    <div class="tab-pane fade show active" id="sarabun" role="tabpanel">
+      <div class="row g-4">
+        
+        <div class="col-lg-4">
+          <div class="card border-0 shadow-sm rounded-4 h-100">
+            <div class="card-header bg-white border-bottom-0 pt-4 pb-2 px-4">
+              <h5 class="fw-bold text-primary mb-0"><i class="fas fa-plus-circle me-2"></i>ขอเลขที่เอกสารใหม่</h5>
+            </div>
+            <div class="card-body p-4">
+              <form id="sarabunForm" onsubmit="event.preventDefault(); requestNewDocNumber();">
+                
+                <div class="mb-3">
+                  <label class="form-label fw-bold text-muted small">ประเภทเอกสาร <span class="text-danger">*</span></label>
+                  <select class="form-select border-primary fw-bold text-primary" id="docType" onchange="toggleSarabunFields()" required>
+                    <option value="" selected disabled>-- เลือกประเภทเอกสาร --</option>
+                    <option value="ทะเบียนคำสั่ง">ทะเบียนคำสั่ง</option>
+                    <option value="ทะเบียนหนังสือรับ">ทะเบียนหนังสือรับ</option>
+                    <option value="ทะเบียนหนังสือส่ง">ทะเบียนหนังสือส่ง</option>
+                    <option value="ทะเบียนเกียรติบัตร">ทะเบียนเกียรติบัตร</option>
+                  </select>
+                </div>
+
+                <div class="mb-3" id="divSubject" style="display:none;">
+                  <label class="form-label fw-bold text-muted small" id="lblSubject">เรื่อง <span class="text-danger">*</span></label>
+                  <textarea class="form-control bg-light" id="docSubject" rows="2" required></textarea>
+                </div>
+
+                <div class="mb-3" id="divAmount" style="display:none;">
+                  <label class="form-label fw-bold text-warning small"><i class="fas fa-copy me-1"></i>จำนวนที่ต้องการขอ (ฉบับ) <span class="text-danger">*</span></label>
+                  <input type="number" class="form-control border-warning bg-light" id="docAmount" value="1" min="1" max="500">
+                </div>
+
+                <div class="row mb-3" id="divReference" style="display:none;">
+                  <div class="col-6" id="divDocRefNo">
+                    <label class="form-label fw-bold text-muted small">ที่ (เลขหนังสือ) <span class="text-secondary fw-normal">(ไม่บังคับ)</span></label>
+                    <input type="text" class="form-control bg-light" id="docRefNo">
+                  </div>
+                  <div class="col-6" id="divRefDocDate">
+                    <label class="form-label fw-bold text-muted small" id="lblRefDocDate">ลงวันที่ในหนังสือ <span class="text-secondary fw-normal">(ไม่บังคับ)</span></label>
+                    <input type="date" class="form-control bg-light" id="refDocDate">
+                  </div>
+                </div>
+
+                <div class="row mb-3" id="divFromTo" style="display:none;">
+                  <div class="col-6" id="divDocFrom">
+                    <label class="form-label fw-bold text-muted small">จาก (ผู้ส่ง) <span class="text-secondary fw-normal" id="lblDocFromReq"></span></label>
+                    <input type="text" class="form-control bg-light" id="docFrom" list="dl-docFrom">
+                  </div>
+                  <div class="col-6" id="divDocTo">
+                    <label class="form-label fw-bold text-muted small">ถึง (ผู้รับ) <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control bg-light" id="docTo" list="dl-docTo">
+                  </div>
+                </div>
+
+                <div class="row mb-3" id="divDates" style="display:none;">
+                  <div class="col-12 col-xl-5 mb-2" id="divTargetDate">
+                    <label class="form-label fw-bold text-muted small" id="lblTargetDate">ลงวันที่ <span class="text-danger">*</span></label>
+                    <input type="date" class="form-control bg-light" id="docTargetDate">
+                  </div>
+                  <div class="col-12 col-xl-3 mb-2" id="divDocTime" style="display:none;">
+                    <label class="form-label fw-bold text-muted small">เวลา <span class="text-danger">*</span></label>
+                    <input type="time" class="form-control bg-light text-center px-1" id="docTime">
+                  </div>
+                  <div class="col-12 col-xl-4 mb-2" id="divActionDate">
+                    <label class="form-label fw-bold text-primary small">วันที่ปฏิบัติ <span class="text-danger">*</span></label>
+                    <input type="date" class="form-control border-primary text-primary px-1" style="background-color: #f0f7ff;" id="docActionDate">
+                  </div>
+                </div>
+
+                <div class="mb-4" id="divAssignee" style="display:none;">
+                  <label class="form-label fw-bold text-muted small">การปฏิบัติ (ชื่อครู) <span class="text-danger">*</span></label>
+                  <input type="text" class="form-control bg-light" id="docAssignee" placeholder="ชื่อครู/แผนกที่รับผิดชอบ" list="dl-assignee">
+                </div>
+
+                <datalist id="dl-docFrom"></datalist>
+                <datalist id="dl-docTo"></datalist>
+                <datalist id="dl-assignee"></datalist>
+
+                <button type="submit" class="btn btn-primary w-100 rounded-pill fw-bold py-2 shadow-sm" id="btnRequestNumber" style="display:none;">
+                  <i class="fas fa-paper-plane me-2" id="btnRequestIcon"></i> <span id="btnRequestText">กดขอเลขที่เอกสาร</span>
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-lg-8">
+          <div class="card border-0 shadow-sm rounded-4 h-100">
+            <div class="card-header bg-white border-bottom-0 pt-3 pb-2 px-4">
+              
+              <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <h5 class="fw-bold text-dark mb-0 d-flex align-items-center"><i class="fas fa-list-alt mx-2 text-warning"></i>ประวัติสารบรรณ</h5>
+                
+                <div class="d-flex gap-2 flex-grow-1 justify-content-end" style="max-width: 350px;">
+                    <div class="input-group shadow-sm" style="border-radius: 20px; overflow: hidden;">
+                        <span class="input-group-text bg-light border-0 text-muted px-3"><i class="fas fa-search"></i></span>
+                        <input type="text" class="form-control bg-light border-0 px-1" id="searchSarabunText" placeholder="ค้นหาเรื่อง, เลข, ผู้ส่ง..." onkeyup="filterSarabunData()" style="box-shadow: none;">
+                        <button class="btn btn-light border-0 text-primary px-3" type="button" data-bs-toggle="collapse" data-bs-target="#advancedSearchBox" aria-expanded="false" title="ค้นหาขั้นสูง">
+                            <i class="fas fa-sliders-h"></i>
+                        </button>
+                    </div>
+                    <button class="btn btn-light text-primary rounded-circle shadow-sm" onclick="loadSarabunHistory()" title="รีเฟรชข้อมูล" style="width: 38px; height: 38px;">
+                        <i class="fas fa-sync-alt"></i>
+                    </button>
+                </div>
+              </div>
+
+              <div class="collapse mt-3" id="advancedSearchBox">
+                 <div class="bg-light p-3 rounded-4 border border-secondary border-opacity-25 shadow-sm">
+                     <div class="row g-2">
+                         <div class="col-md-5">
+                            <label class="form-label small text-muted fw-bold mb-1">หมวดหมู่</label>
+                            <select class="form-select form-select-sm border-secondary" id="filterSarabunType" onchange="filterSarabunData()">
+                               <option value="ALL">📋 รวมทุกประเภทเอกสาร</option>
+                               <option value="ทะเบียนคำสั่ง">ทะเบียนคำสั่ง</option>
+                               <option value="ทะเบียนหนังสือรับ">ทะเบียนหนังสือรับ</option>
+                               <option value="ทะเบียนหนังสือส่ง">ทะเบียนหนังสือส่ง</option>
+                               <option value="ทะเบียนเกียรติบัตร">ทะเบียนเกียรติบัตร</option>
+                            </select>
+                         </div>
+                         <div class="col-md-7">
+                            <label class="form-label small text-muted fw-bold mb-1">ช่วงวันที่ลงเอกสาร</label>
+                            <div class="input-group input-group-sm">
+                               <span class="input-group-text bg-white border-secondary text-muted">จาก</span>
+                               <input type="date" class="form-control border-secondary text-center px-1" id="searchStartDate" onchange="filterSarabunData()">
+                               <span class="input-group-text bg-white border-secondary text-muted">ถึง</span>
+                               <input type="date" class="form-control border-secondary text-center px-1" id="searchEndDate" onchange="filterSarabunData()">
+                               <button class="btn btn-outline-danger" onclick="document.getElementById('searchStartDate').value=''; document.getElementById('searchEndDate').value=''; document.getElementById('filterSarabunType').value='ALL'; filterSarabunData();" title="ล้างตัวกรอง"><i class="fas fa-times"></i></button>
+                            </div>
+                         </div>
+                     </div>
+                 </div>
+              </div>
+
+            </div>
+            
+            <div class="card-body p-0">
+              <div class="table-responsive" style="max-height: 520px; overflow-y: auto;">
+                <table class="table table-hover align-middle mb-0">
+                  <thead class="table-light text-secondary sticky-top shadow-sm" style="font-size: 0.85rem; z-index: 10;">
+                    <tr>
+                      <th class="ps-4" style="width: 15%;">เลขทะเบียน</th>
+                      <th style="width: 38%;">รายละเอียดเอกสาร</th>
+                      <th style="width: 32%;">ข้อมูลการปฏิบัติ</th>
+                      <th class="text-center" style="width: 15%;">แนบไฟล์</th>
+                    </tr>
+                  </thead>
+                  <tbody id="sarabunTableBody">
+                    <tr><td colspan="4" class="text-center text-muted py-5"><div class="spinner-border text-primary mb-3"></div><br>กำลังโหลดข้อมูล...</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="tab-pane fade" id="maintenance" role="tabpanel">
+       <div class="card border-0 shadow-sm rounded-4">
+        <div class="card-body p-4 text-center py-5">
+          <i class="fas fa-tools fa-4x text-danger mb-4 opacity-50"></i>
+          <h4 class="fw-bold">ระบบแจ้งซ่อมอาคารสถานที่</h4>
+          <p class="text-muted mb-4">พื้นที่สำหรับแจ้งซ่อมไฟฟ้า ประปา แอร์ และอุปกรณ์ต่างๆ ภายในโรงเรียน</p>
+          <button class="btn btn-danger rounded-pill px-5 py-2 fw-bold shadow-sm" onclick="alert('ระบบกำลังพัฒนาครับคุณครู! 🚀')">
+            <i class="fas fa-exclamation-triangle me-2"></i> แจ้งซ่อมด่วน
+          </button>
+        </div>
+      </div>
+    </div>
+
   </div>
 </div>

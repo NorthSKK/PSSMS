@@ -1366,7 +1366,8 @@ function setupDatabase() {
     { name: "Maintenance", headers: ["ID", "Timestamp", "Location", "Issue", "Reporter", "Status", "Technician"] },
     { name: "System_Settings", headers: ["Key", "Value"] },
     { name: "Timetable_Database", headers: ["SubjectCode", "SubjectName", "Level", "Room", "Location", "TeacherID", "Day", "Period", "Term", "Year"] },
-    { name: "Morning_Activity", headers: ["Timestamp", "Date", "Term", "Year", "Class", "StudentID", "StudentName", "Area_Status", "Duty_Status", "Flag_Status", "TeacherID", "SessionID"] }
+    { name: "Morning_Activity", headers: ["Timestamp", "Date", "Term", "Year", "Class", "StudentID", "StudentName", "Area_Status", "Duty_Status", "Flag_Status", "TeacherID", "SessionID"] },
+    { name: "Sarabun_Database", headers: ["Timestamp", "DocType", "DocNumber", "Subject", "Requester", "TargetDate", "Status", "FileURL", "Year"] }
   ];
 
   sheets.forEach(sh => {
@@ -2583,4 +2584,145 @@ function saveStudentRemarkDirectly(studentId, subjectCode, term, year, remarkVal
   } catch (e) {
     return { success: false, error: e.message };
   }
+}
+
+// ==========================================
+// 📚 15. ระบบงานสารบรรณ (Sarabun System)
+// ==========================================
+
+/**
+ * ฟังก์ชันขอเลขที่เอกสารใหม่ (เพิ่มฟิลด์เวลา & รองรับกลุ่ม)
+ */
+function requestSarabunNumber(payload) {
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(15000); 
+    
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    let sheet = ss.getSheetByName("Sarabun_Database");
+
+    // 🌟 โครงสร้างใหม่แบบ 16 คอลัมน์ (แทรก DocTime)
+    if (!sheet) {
+        sheet = ss.insertSheet("Sarabun_Database");
+        const headers = [
+           "Timestamp", "DocType", "DocNumber", "Subject", "TargetDate", "DocTime", 
+           "ActionDate", "DocRefNo", "RefDocDate", "DocFrom", "DocTo", 
+           "Assignee", "Requester", "Status", "FileURL", "Year"
+        ];
+        sheet.appendRow(headers);
+        sheet.getRange("A1:P1").setFontWeight("bold").setBackground("#4A86E8").setFontColor("white");
+        sheet.setFrozenRows(1);
+    }
+
+    const config = getSystemConfig();
+    const currentYear = String(config.year).trim(); 
+    const docType = String(payload.docType).trim(); 
+    const amount = parseInt(payload.amount) || 1; 
+
+    const data = sheet.getDataRange().getDisplayValues();
+    let lastNumber = 0;
+
+    // สแกนหาเลขล่าสุด
+    for (let i = data.length - 1; i >= 1; i--) {
+        const rowType = String(data[i][1]).trim();
+        const rowYear = String(data[i][15]).trim(); // 🌟 Index เลื่อนไปที่ 15
+
+        if (rowType === docType && rowYear === currentYear) {
+            const docNumStr = String(data[i][2]); 
+            const numPart = docNumStr.split('/')[0]; 
+            lastNumber = parseInt(numPart) || 0;
+            break; 
+        }
+    }
+
+    const timestamp = new Date();
+    let startNumber = lastNumber + 1;
+    let endNumber = lastNumber + amount;
+    let rowsToAppend = [];
+
+    // วนลูปสร้างแถวข้อมูลตามจำนวน (Amount)
+    for(let i = 0; i < amount; i++) {
+        let currentNum = lastNumber + 1 + i;
+        let newDocNumber = `${currentNum}/${currentYear}`;
+        
+        rowsToAppend.push([
+          timestamp,                    // 0: Timestamp
+          docType,                      // 1: DocType
+          newDocNumber,                 // 2: DocNumber
+          payload.subject || "-",       // 3: Subject
+          payload.targetDate || "-",    // 4: TargetDate
+          payload.docTime || "-",       // 5: DocTime (🌟 เวลาที่เพิ่มมา)
+          payload.actionDate || "-",    // 6: ActionDate
+          payload.docRefNo || "-",      // 7: DocRefNo
+          payload.refDocDate || "-",    // 8: RefDocDate
+          payload.docFrom || "-",       // 9: DocFrom
+          payload.docTo || "-",         // 10: DocTo
+          payload.assignee || "-",      // 11: Assignee
+          payload.requester || "Unknown",// 12: Requester
+          "ใช้งาน",                      // 13: Status
+          "",                           // 14: FileURL
+          currentYear                   // 15: Year
+        ]);
+    }
+
+    if(rowsToAppend.length > 0) {
+        sheet.getRange(sheet.getLastRow() + 1, 1, rowsToAppend.length, 16).setValues(rowsToAppend);
+    }
+
+    SpreadsheetApp.flush(); 
+
+    let resultDocNum = amount > 1 ? `${startNumber}/${currentYear} ถึง ${endNumber}/${currentYear}` : `${startNumber}/${currentYear}`;
+
+    return { 
+      status: "success", 
+      message: `✅ สำเร็จ! ดำเนินการออกเลข ${amount} รายการ`, 
+      docNumber: resultDocNum 
+    };
+
+  } catch (e) {
+    return { status: "error", message: "คิวเต็ม กรุณากดขอเลขใหม่อีกครั้งครับ" };
+  } finally {
+    lock.releaseLock(); 
+  }
+}
+
+/**
+ * ฟังก์ชันดึงประวัติการขอเลข (16 คอลัมน์)
+ */
+function getSarabunHistory(requesterName, role) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName("Sarabun_Database");
+  if (!sheet) return [];
+
+  const config = getSystemConfig();
+  const data = sheet.getDataRange().getDisplayValues();
+  const results = [];
+
+  for (let i = data.length - 1; i >= 1; i--) {
+     const row = data[i];
+     const rowRequester = String(row[12]).trim(); 
+     const rowYear = String(row[15]).trim();      
+     
+     if ((role.toUpperCase() === 'ADMIN' || rowRequester === requesterName) && rowYear === String(config.year)) {
+        results.push({
+           id: i + 1, 
+           timestamp: row[0],
+           docType: row[1],
+           docNumber: row[2],
+           subject: row[3],
+           targetDate: row[4],
+           docTime: row[5],
+           actionDate: row[6],
+           docRefNo: row[7],
+           refDocDate: row[8],
+           docFrom: row[9],
+           docTo: row[10],
+           assignee: row[11],
+           requester: row[12],
+           status: row[13],
+           fileUrl: row[14]
+        });
+     }
+  }
+  return results;
 }
