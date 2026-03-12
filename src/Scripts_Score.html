@@ -920,306 +920,6 @@ function saveIndicatorDetail() {
 }
 
 // ==========================================
-// 🚀 SMART COPY-PASTE (ส่งออก SGS)
-// ==========================================
-function openSGSExportModal() {
-  if (!currentScoreStudents || currentScoreStudents.length === 0) {
-     return alert("⚠️ ไม่พบข้อมูลนักเรียน กรุณาโหลดรายวิชาก่อนครับ");
-  }
-  
-  // 1. โคลนและเรียงข้อมูลนักเรียนตาม "รหัสนักเรียน" (จากน้อยไปมาก)
-  let sortedStudents = [...currentScoreStudents].sort((a, b) => {
-      let idA = parseInt(String(a[0]).replace(/[^0-9]/g, '')) || 0;
-      let idB = parseInt(String(b[0]).replace(/[^0-9]/g, '')) || 0;
-      return idA - idB;
-  });
-
-  // 2. เตรียมหัวตารางและปุ่มกด
-  let theadHtml = `<tr>
-    <th class="align-middle" style="width: 50px;">ที่</th>
-    <th class="align-middle text-primary">รหัสนักเรียน</th>
-    <th class="align-middle text-start">ชื่อ-สกุล</th>`;
-  
-  let buttonsHtml = '';
-  let colsData = []; 
-
-  // กวาดตัวชี้วัดทั้งหมด
-  currentScoreConfig.indicators.forEach((ind, idx) => {
-     theadHtml += `<th>${ind.name} <br><span class="badge bg-light text-dark border mt-1 mb-1">เต็ม ${ind.score}</span><br><button class="btn btn-sm btn-primary py-0 px-3 shadow-sm rounded-pill" onclick="copySGSColumn('ind_${idx}')"><i class="fas fa-copy me-1"></i> คัดลอก</button></th>`;
-     colsData.push({ id: `ind_${idx}`, name: ind.name, values: [] });
-  });
-
-  // กลางภาค และ ปลายภาค
-  theadHtml += `<th class="table-warning">กลางภาค<br><button class="btn btn-sm btn-dark mt-2 py-0 px-3 shadow-sm rounded-pill" onclick="copySGSColumn('midterm')"><i class="fas fa-copy me-1"></i> คัดลอก</button></th>`;
-  colsData.push({ id: `midterm`, name: 'กลางภาค', values: [] });
-
-  theadHtml += `<th class="table-danger">ปลายภาค<br><button class="btn btn-sm btn-dark mt-2 py-0 px-3 shadow-sm rounded-pill" onclick="copySGSColumn('final')"><i class="fas fa-copy me-1"></i> คัดลอก</button></th>`;
-  colsData.push({ id: `final`, name: 'ปลายภาค', values: [] });
-
-  theadHtml += `</tr>`;
-  document.getElementById('sgsPreviewHead').innerHTML = theadHtml;
-  
-  buttonsHtml += `
-    <button class="btn btn-sm btn-outline-secondary fw-bold" onclick="copySGSAll()">
-      <i class="fas fa-copy me-2"></i>คัดลอกตามตารางเดิม
-    </button>
-    <button class="btn btn-sm btn-success fw-bold ms-auto shadow-sm" onclick="copySGSAutoFormat()">
-      <i class="fas fa-magic me-2"></i>แปลงอัตโนมัติ (10 10 20 10 10 10 30)
-    </button>
-  `;
-  document.getElementById('sgsActionButtons').innerHTML = buttonsHtml;
-
-  // 3. วนลูปดึงคะแนนจากช่องกรอกข้อมูลในหน้าเว็บ (ดึงค่าล่าสุดแบบ Real-time)
-  let tbodyHtml = '';
-  window.sgsExportData = {}; 
-  colsData.forEach(c => window.sgsExportData[c.id] = []);
-  window.sgsExportData['all'] = []; 
-
-  sortedStudents.forEach((std, index) => {
-      const stdId = String(std[0]).trim();
-      const safeStdId = normID(stdId); // ดึง ID มาตรฐานจากระบบ ปพ.5
-      
-      let rowHtml = `<tr>
-        <td class="text-muted">${index + 1}</td>
-        <td class="fw-bold text-primary font-monospace">${stdId}</td>
-        <td class="text-start">${std[2]}</td>`;
-        
-      let rowAllData = [];
-
-      // ดึงคะแนนเก็บ
-      currentScoreConfig.indicators.forEach((ind, idx) => {
-         let inputs = document.querySelectorAll(`.formative-std-${safeStdId}`);
-         let val = inputs[idx] ? inputs[idx].value : '';
-         rowHtml += `<td><span class="badge bg-light text-dark px-3 py-1 border">${val || '-'}</span></td>`;
-         window.sgsExportData[`ind_${idx}`].push(val);
-         rowAllData.push(val);
-      });
-
-      // ดึงกลางภาค (เช็คช่องซ่อมด้วย ถ้าซ่อมแล้วให้เอาคะแนนซ่อมมา)
-      let midInput = document.querySelector(`.midterm-std-${safeStdId}`);
-      let midReInput = document.querySelector(`.midterm-re-std-${safeStdId}`);
-      let midVal = (midReInput && midReInput.value !== '') ? midReInput.value : (midInput ? midInput.value : '');
-      rowHtml += `<td class="table-warning fw-bold text-dark">${midVal || '-'}</td>`;
-      window.sgsExportData[`midterm`].push(midVal);
-      rowAllData.push(midVal);
-
-      // ดึงปลายภาค
-      let finInput = document.querySelector(`.final-std-${safeStdId}`);
-      let finVal = finInput ? finInput.value : '';
-      rowHtml += `<td class="table-danger fw-bold text-dark">${finVal || '-'}</td>`;
-      window.sgsExportData[`final`].push(finVal);
-      rowAllData.push(finVal);
-
-      rowHtml += `</tr>`;
-      tbodyHtml += rowHtml;
-      
-      // เก็บข้อมูลทั้งแถวแบบ Tab-separated ไว้เผื่อก๊อปลง Excel ทีเดียว
-      window.sgsExportData['all'].push(rowAllData.join('\t'));
-  });
-
-  document.getElementById('sgsPreviewBody').innerHTML = tbodyHtml;
-
-  // 4. แสดงผล Modal
-  const modal = new bootstrap.Modal(document.getElementById('sgsExportModal'));
-  modal.show();
-}
-
-// 🌟 ฟังก์ชันคัดลอกลง Clipboard แบบแยกลงบรรทัดใหม่
-function copySGSColumn(colId) {
-   if (!window.sgsExportData || !window.sgsExportData[colId]) return;
-   
-   const textToCopy = window.sgsExportData[colId].join('\n');
-   
-   navigator.clipboard.writeText(textToCopy).then(() => {
-       if (typeof showToast === 'function') {
-          showToast('คัดลอกคะแนนคอลัมน์นี้เรียบร้อยแล้ว!', 'success');
-       } else {
-          alert('คัดลอกคะแนนเรียบร้อย นำไปวางในโปรแกรมของคุณได้เลยครับ');
-       }
-   }).catch(err => {
-       alert('เบราว์เซอร์ไม่อนุญาตให้คัดลอก: ' + err);
-   });
-}
-
-// 🌟 ฟังก์ชันคัดลอกทั้งตาราง
-function copySGSAll() {
-   if (!window.sgsExportData || !window.sgsExportData['all']) return;
-   
-   const textToCopy = window.sgsExportData['all'].join('\n');
-   
-   navigator.clipboard.writeText(textToCopy).then(() => {
-       if (typeof showToast === 'function') showToast('คัดลอกคะแนนทั้งหมดแล้ว!', 'success');
-       else alert('คัดลอกคะแนนทั้งหมดเรียบร้อยแล้ว');
-   });
-}
-
-// 🌟 ฟังก์ชันเวทมนตร์: แปลงและกระจายคะแนนเป็นฟอร์แมต SGS (10 10 20 10 10 10 30) อัตโนมัติ
-function copySGSAutoFormat() {
-  if (!currentScoreStudents || currentScoreStudents.length === 0) return;
-
-  // 1. เรียงข้อมูลตามรหัสนักเรียน
-  let sortedStudents = [...currentScoreStudents].sort((a, b) => {
-      let idA = parseInt(String(a[0]).replace(/[^0-9]/g, '')) || 0;
-      let idB = parseInt(String(b[0]).replace(/[^0-9]/g, '')) || 0;
-      return idA - idB;
-  });
-
-  // 2. ดึงค่าคะแนนเต็มของวิชานี้ที่ครูตั้งไว้
-  let maxMid = parseFloat(currentScoreConfig.midtermScore) || 20;
-  let maxFin = parseFloat(currentScoreConfig.finalScore) || 30;
-  let maxForm = 0;
-  currentScoreConfig.indicators.forEach(ind => maxForm += parseFloat(ind.score) || 0);
-  if (maxForm === 0) maxForm = 50; // กัน Error หาร 0
-
-  let exportRows = [];
-
-  // 3. คำนวณคะแนนนักเรียนทีละคน
-  sortedStudents.forEach(std => {
-      const safeStdId = normID(std[0]);
-      let hasData = false; // เอาไว้เช็คว่าเด็กคนนี้มีกรอกคะแนนบ้างไหม ถ้าไม่มีจะปล่อยช่องว่าง
-      
-      // ดึงคะแนนกลางภาค (เช็คคะแนนซ่อมด้วย)
-      let rawMidStr = document.querySelector(`.midterm-std-${safeStdId}`)?.value || '';
-      let rawMidReStr = document.querySelector(`.midterm-re-std-${safeStdId}`)?.value || '';
-      if (rawMidStr !== '' || rawMidReStr !== '') hasData = true;
-      
-      let rawMid = parseFloat(rawMidStr) || 0;
-      let rawMidRe = parseFloat(rawMidReStr) || 0;
-      let finalMid = rawMidRe > 0 ? rawMidRe : rawMid; 
-      
-      // ดึงคะแนนปลายภาค
-      let rawFinStr = document.querySelector(`.final-std-${safeStdId}`)?.value || '';
-      if (rawFinStr !== '') hasData = true;
-      let finalFin = parseFloat(rawFinStr) || 0;
-      
-      // ดึงคะแนนเก็บทั้งหมดมารวมกัน
-      let rawForm = 0;
-      currentScoreConfig.indicators.forEach((ind, idx) => {
-          let formStr = document.querySelectorAll(`.formative-std-${safeStdId}`)[idx]?.value || '';
-          if (formStr !== '') hasData = true;
-          rawForm += parseFloat(formStr) || 0;
-      });
-
-      // ถ้าไม่มีข้อมูลเลย ให้ส่งช่องว่าง 7 ช่องไป เพื่อให้ SGS ไม่ใส่คะแนนมั่วให้เด็กที่ไม่ได้สอบ
-      if (!hasData) {
-          exportRows.push(['', '', '', '', '', '', ''].join('\t'));
-          return;
-      }
-
-      // 4. แปลงเป็นสัดส่วน SGS 
-      // เทียบบัญญัติไตรยางศ์: (คะแนนที่ได้ / คะแนนเต็ม) * สัดส่วน SGS
-      let sgsMid = Math.min(20, Math.round((finalMid / maxMid) * 20)) || 0;
-      let sgsFin = Math.min(30, Math.round((finalFin / maxFin) * 30)) || 0;
-      let sgsFormTotal = Math.min(50, Math.round((rawForm / maxForm) * 50)) || 0;
-      
-      // 5. กระจายคะแนนเก็บ 50 คะแนน ลงใน 5 ตะกร้า (ตะกร้าละ 10) ให้ใกล้เคียงกันที่สุด
-      let base = Math.floor(sgsFormTotal / 5); // ฐานคะแนนแต่ละช่อง
-      let rem = sgsFormTotal % 5;              // เศษที่เหลือ
-      let forms = [base, base, base, base, base];
-      
-      // เอาเศษที่เหลือมาหยอดเพิ่มช่องละ 1 คะแนน
-      for(let i=0; i<rem; i++) forms[i]++;
-
-      // 6. จัดเรียงฟอร์แมต: 10, 10, 20(กลางภาค), 10, 10, 10, 30(ปลายภาค)
-      let sgsRow = [forms[0], forms[1], sgsMid, forms[2], forms[3], forms[4], sgsFin];
-      
-      exportRows.push(sgsRow.join('\t'));
-  });
-
-  // 7. สั่งคัดลอกลง Clipboard แบบกั้นด้วย Tab
-  const textToCopy = exportRows.join('\n');
-  navigator.clipboard.writeText(textToCopy).then(() => {
-      if (typeof showToast === 'function') showToast('คัดลอกฟอร์แมต SGS 10-10-20-10-10-10-30 สำเร็จ!', 'success');
-      else alert('✨ คัดลอกสำเร็จ! นำไปคลิกวางที่ช่อง 10 คะแนนช่องแรกใน SGS ได้เลยครับ');
-  }).catch(err => alert('เบราว์เซอร์ไม่รองรับการคัดลอก: ' + err));
-}
-
-// ==========================================
-// 🔒 โหมดกรอกคะแนนแบบ SGS (ล็อกตาราง + ติ๊กเพื่อเปิด)
-// ==========================================
-
-// 1. เวทมนตร์ดักจับ: ทุกครั้งที่ตารางถูกสร้างเสร็จ ให้ฝังระบบติ๊กช่องแบบ SGS ทันที
-const originalRenderAllInOne = renderAllInOneTable;
-window.renderAllInOneTable = function(...args) {
-    originalRenderAllInOne.apply(this, args);
-    setTimeout(applySGSToggleMode, 200); // รอให้หน้าเว็บวาดตารางเสร็จ 0.2 วิ แล้วค่อยฝัง Checkbox
-};
-
-// 2. ฟังก์ชันวาด Checkbox และล็อกช่องคะแนน
-function applySGSToggleMode() {
-    const thead = document.querySelector('#scoreTableHeader tr');
-    const tbody = document.getElementById('scoreTableBody');
-    if (!thead || !tbody) return;
-    
-    const rows = tbody.querySelectorAll('tr');
-    if (rows.length === 0) return;
-
-    const ths = thead.querySelectorAll('th');
-    const firstRowCells = rows[0].querySelectorAll('td');
-
-    firstRowCells.forEach((td, colIdx) => {
-        // หาเฉพาะคอลัมน์ที่มี "ช่องกรอกตัวเลขคะแนน" (.score-input)
-        const input = td.querySelector('input.score-input'); 
-        if (input && !input.readOnly) {
-            const th = ths[colIdx];
-            
-            // ถ้าบนหัวตารางยังไม่มี Checkbox ให้สร้างใส่ลงไป
-            if (th && !th.querySelector('.sgs-col-toggle')) {
-                const cbWrapper = document.createElement('div');
-                cbWrapper.className = 'form-check d-flex justify-content-center mb-2';
-                cbWrapper.innerHTML = `
-                  <input class="form-check-input border-dark shadow-sm sgs-col-toggle" 
-                         type="checkbox" 
-                         style="transform: scale(1.3); cursor: pointer;" 
-                         title="ติ๊กเพื่อเปิดกรอกคะแนนช่องนี้" 
-                         onchange="toggleSGSColumn(${colIdx}, this.checked)">
-                `;
-                th.prepend(cbWrapper); // แปะไว้บนสุดของหัวตาราง
-            }
-
-            // ทำการ "ล็อก" ช่องกรอกคะแนนทั้งหมดในคอลัมน์นี้เป็นค่าเริ่มต้น
-            rows.forEach(r => {
-                const cellInput = r.querySelectorAll('td')[colIdx]?.querySelector('input.score-input');
-                if (cellInput) {
-                    cellInput.disabled = true; // ล็อกไม่ให้พิมพ์
-                    cellInput.style.backgroundColor = '#e9ecef'; // พื้นหลังสีเทา
-                    cellInput.style.opacity = '0.6';
-                }
-            });
-        }
-    });
-}
-
-// 3. ฟังก์ชันสลับสถานะ (เปิด/ปิด) เมื่อครูติ๊ก Checkbox
-window.toggleSGSColumn = function(colIdx, isEnabled) {
-    const tbody = document.getElementById('scoreTableBody');
-    const rows = tbody.querySelectorAll('tr');
-    
-    rows.forEach(r => {
-        const td = r.querySelectorAll('td')[colIdx];
-        if (td) {
-            const input = td.querySelector('input.score-input');
-            if (input) {
-                input.disabled = !isEnabled;
-                if (!isEnabled) {
-                    input.style.backgroundColor = '#e9ecef';
-                    input.style.opacity = '0.6';
-                } else {
-                    input.style.backgroundColor = '#ffffff';
-                    input.style.opacity = '1';
-                }
-            }
-        }
-    });
-    
-    // UX เกรดพรีเมียม: พอติ๊กเปิดปุ๊บ ให้โฟกัส (เมาส์กะพริบ) ที่เด็กคนแรกทันที ครูจะได้พิมพ์ต่อได้เลย!
-    if (isEnabled && rows.length > 0) {
-        const firstInput = rows[0].querySelectorAll('td')[colIdx]?.querySelector('input.score-input');
-        if (firstInput) setTimeout(() => firstInput.focus(), 50);
-    }
-};
-
-// ==========================================
 // 🚀 SMART COPY-PASTE (ส่งออก SGS + ลากคลุมดำแบบ Excel)
 // ==========================================
 
@@ -1239,6 +939,8 @@ let isDraggingSGS = false;
 let startSGS = { r: -1, c: -1 };
 let endSGS = { r: -1, c: -1 };
 window.sgsCurrentMode = 'normal'; 
+window.sgsScrollInterval = null; 
+window.sgsGlobalListenersAdded = false; 
 
 function openSGSExportModal() {
   if (!currentScoreStudents || currentScoreStudents.length === 0) {
@@ -1249,7 +951,7 @@ function openSGSExportModal() {
   modal.show();
 }
 
-// 🌟 2. วาดตาราง SGS (อัปเดตตำแหน่งเป็น: 10 10 10 20 10 10 30)
+// 🌟 2. วาดตาราง SGS (มีปุ่มสลับโหมดให้เลือก)
 function renderSGSGrid(mode) {
   window.sgsCurrentMode = mode;
   let sortedStudents = [...currentScoreStudents].sort((a, b) => {
@@ -1263,12 +965,13 @@ function renderSGSGrid(mode) {
      <div class="d-flex w-100 justify-content-between mb-3 align-items-center">
          <div class="btn-group shadow-sm">
              <button class="btn btn-sm ${mode === 'normal' ? 'btn-secondary' : 'btn-outline-secondary'} fw-bold px-3" onclick="renderSGSGrid('normal')"><i class="fas fa-table me-2"></i>ตาราง ปพ.5 เดิม</button>
-             <button class="btn btn-sm ${mode === 'magic' ? 'btn-success' : 'btn-outline-success'} fw-bold px-3" onclick="renderSGSGrid('magic')"><i class="fas fa-magic me-2"></i>แปลงเป็น SGS (10 10 10 20 10 10 30)</button>
+             <button class="btn btn-sm ${mode === 'magic' ? 'btn-success' : 'btn-outline-success'} fw-bold px-3" onclick="renderSGSGrid('magic')"><i class="fas fa-magic me-2"></i>แปลงเป็น SGS (แยก 7 ช่อง)</button>
          </div>
          <button class="btn btn-primary fw-bold shadow-sm px-4 rounded-pill" onclick="copySGSSelected()"><i class="fas fa-copy me-2"></i>คัดลอกส่วนที่เลือก (Ctrl+C)</button>
      </div>
      <div class="alert alert-info border-0 shadow-sm small py-2 mb-3">
-       <i class="fas fa-mouse-pointer me-1"></i> <b>ฟีเจอร์ใหม่:</b> ใช้เมาส์ <b>"คลิกค้างแล้วลากคลุม"</b> ช่องคะแนนที่ต้องการ (เหมือน Excel) แล้วกด <b>Ctrl+C</b> หรือปุ่มคัดลอกด้านขวาบน เพื่อนำไปวางใน SGS ได้เลยครับ!
+       <i class="fas fa-info-circle me-1"></i> <b>อัปเดตใหม่:</b> ระบบจะดึง "คะแนนดิบ" ที่ครูกรอกมาซอยแบ่งลง 7 ช่องให้โดยไม่แปลงสัดส่วน <b>รับประกันคะแนนรวมและเกรดตรงกับตารางหลักเป๊ะ 100%</b>
+       <br><i class="fas fa-mouse-pointer me-1 mt-2"></i> <b>ทริค:</b> คลิกค้างแล้วลากคลุมช่องคะแนนที่ต้องการ (เหมือน Excel) จอจะเลื่อนอัตโนมัติ แล้วกด <b>Ctrl+C</b> เพื่อคัดลอก
      </div>
   `;
   document.getElementById('sgsActionButtons').innerHTML = buttonsHtml;
@@ -1279,27 +982,21 @@ function renderSGSGrid(mode) {
     <th class="align-middle text-primary bg-light" style="width: 100px;">รหัสนักเรียน</th>
     <th class="align-middle text-start bg-light" style="min-width: 150px;">ชื่อ-สกุล</th>`;
 
-  let maxForm = 0;
-  currentScoreConfig.indicators.forEach(ind => maxForm += parseFloat(ind.score) || 0);
-  if (maxForm === 0) maxForm = 50;
-
   if (mode === 'normal') {
       currentScoreConfig.indicators.forEach((ind) => {
          theadHtml += `<th class="bg-light">${ind.name}<br><small class="text-muted">(${ind.score})</small></th>`;
       });
-      let maxMid = parseFloat(currentScoreConfig.midtermScore) || 20;
-      let maxFin = parseFloat(currentScoreConfig.finalScore) || 30;
+      let maxMid = parseFloat(document.getElementById('edit-ratio-m')?.innerText) || 20;
+      let maxFin = parseFloat(document.getElementById('edit-ratio-e')?.innerText) || 30;
       theadHtml += `<th class="table-warning">กลางภาค<br><small class="text-muted">(${maxMid})</small></th>`;
       theadHtml += `<th class="table-danger">ปลายภาค<br><small class="text-muted">(${maxFin})</small></th>`;
   } else {
-      // 🌟 อัปเดตหัวตาราง: ย้ายกลางภาค (20) ไปไว้ตำแหน่งที่ 4
-      let magicHeaders = ["ย่อย 1 (10)", "ย่อย 2 (10)", "ย่อย 3 (10)", "กลางภาค (20)", "ย่อย 4 (10)", "ย่อย 5 (10)", "ปลายภาค (30)"];
+      let magicHeaders = ["ย่อย 1", "ย่อย 2", "ย่อย 3", "กลางภาค", "ย่อย 4", "ย่อย 5", "ปลายภาค"];
       magicHeaders.forEach(h => {
           if (h.includes("กลางภาค")) theadHtml += `<th class="table-warning">${h}</th>`;
           else if (h.includes("ปลายภาค")) theadHtml += `<th class="table-danger">${h}</th>`;
           else theadHtml += `<th class="bg-light">${h}</th>`;
       });
-      // เพิ่มคอลัมน์ รวม และ เกรด ให้ครูตรวจสอบ
       theadHtml += `<th class="bg-secondary text-white border-start" style="width:60px;">รวม</th><th class="bg-success text-white" style="width:60px;">เกรด</th>`;
   }
   theadHtml += `</tr>`;
@@ -1317,18 +1014,15 @@ function renderSGSGrid(mode) {
       let cIdx = 0;
       let hasData = false;
       
-      // ดึงกลางภาคและซ่อม
       let rawMidStr = document.querySelector(`.midterm-std-${safeStdId}`)?.value || '';
       let rawMidReStr = document.querySelector(`.midterm-re-std-${safeStdId}`)?.value || '';
       if (rawMidStr !== '' || rawMidReStr !== '') hasData = true;
       let finalMid = (parseFloat(rawMidReStr) || 0) > 0 ? (parseFloat(rawMidReStr) || 0) : (parseFloat(rawMidStr) || 0);
 
-      // ดึงปลายภาค
       let rawFinStr = document.querySelector(`.final-std-${safeStdId}`)?.value || '';
       if (rawFinStr !== '') hasData = true;
       let finalFin = parseFloat(rawFinStr) || 0;
 
-      // ดึงคะแนนเก็บรวม
       let rawForms = [];
       let rawFormSum = 0;
       currentScoreConfig.indicators.forEach((ind, idx) => {
@@ -1345,47 +1039,43 @@ function renderSGSGrid(mode) {
           rowHtml += `<td class="sgs-cell align-middle fs-6 table-warning fw-bold text-dark" data-r="${rIdx}" data-c="${cIdx++}">${hasData ? (rawMidReStr !== '' ? rawMidReStr : rawMidStr) : ''}</td>`;
           rowHtml += `<td class="sgs-cell align-middle fs-6 table-danger fw-bold text-dark" data-r="${rIdx}" data-c="${cIdx++}">${hasData ? rawFinStr : ''}</td>`;
       } else {
-          // โหมดเวทมนตร์ 10-10-10-20-10-10-30
           if (!hasData) {
               for(let i=0; i<7; i++) rowHtml += `<td class="sgs-cell align-middle" data-r="${rIdx}" data-c="${cIdx++}"></td>`;
               rowHtml += `<td class="align-middle fw-bold text-muted bg-light border-start">-</td><td class="align-middle fw-bold text-muted bg-light">-</td>`;
           } else {
-              // 1. ห้ามยุ่งกับกลางภาคและปลายภาค
+              // 🌟 1. ดึงคะแนนดิบ 100% ไม่แปลสัดส่วน
               let sgsMid = finalMid; 
               let sgsFin = finalFin;
+              let sgsFormTotal = rawFormSum; 
 
-              // 2. สเกลเฉพาะคะแนนเก็บเป็น 50 (คงทศนิยมไว้ 2 ตำแหน่ง)
-              let sgsFormTotal = Math.round((rawFormSum / maxForm) * 50 * 100) / 100;
-              
-              // 3. ซอยคะแนนเก็บลง 5 ตะกร้า (ไม่ปัดทศนิยมทิ้ง)
+              // 🌟 2. กระจายลง 5 ช่องให้เนียนที่สุด
               let forms = [0, 0, 0, 0, 0];
               let base = Math.floor(sgsFormTotal / 5);
-              let rem = Math.round((sgsFormTotal - (base * 5)) * 100) / 100; // หาเศษที่เหลือ
+              let rem = Math.round((sgsFormTotal - (base * 5)) * 100) / 100;
 
               for(let i=0; i<5; i++) forms[i] = base;
               
-              let i = 0;
-              while (rem >= 1 && i < 5) {
-                  forms[i] += 1;
+              let idx = 0;
+              while (rem >= 1 && idx < 5) {
+                  forms[idx] += 1;
                   rem -= 1;
-                  i++;
+                  idx++;
               }
-              if (rem > 0 && i < 5) {
-                  forms[i] += parseFloat(rem.toFixed(2));
+              if (rem > 0 && idx < 5) {
+                  forms[idx] += parseFloat(rem.toFixed(2));
               }
 
-              // 🌟 อัปเดตตำแหน่งข้อมูล: ย้ายกลางภาคไปไว้ช่องที่ 4 (index 3)
+              // ลำดับช่อง: ย่อย1, ย่อย2, ย่อย3, กลางภาค, ย่อย4, ย่อย5, ปลายภาค
               let sgsRow = [forms[0], forms[1], forms[2], sgsMid, forms[3], forms[4], sgsFin];
 
-              sgsRow.forEach((val, idx) => {
+              sgsRow.forEach((val, index) => {
                   let bgClass = '';
-                  // 🌟 เปลี่ยนสีไฮไลท์กลางภาคจาก index 2 เป็น index 3 ให้ตรงตำแหน่ง
-                  if (idx === 3) bgClass = 'table-warning fw-bold text-dark';
-                  else if (idx === 6) bgClass = 'table-danger fw-bold text-dark';
+                  if (index === 3) bgClass = 'table-warning fw-bold text-dark';
+                  else if (index === 6) bgClass = 'table-danger fw-bold text-dark';
                   rowHtml += `<td class="sgs-cell align-middle fs-6 ${bgClass}" data-r="${rIdx}" data-c="${cIdx++}">${val}</td>`;
               });
 
-              // 4. เพิ่มช่องรวมและเกรด
+              // ตรวจสอบรวมและเกรด
               let totalSgs = Math.round((sgsFormTotal + sgsMid + sgsFin) * 100) / 100;
               let gradeSgs = calculateGrade(totalSgs);
               let gradeClass = totalSgs < 50 ? 'text-danger' : 'text-success';
@@ -1400,10 +1090,10 @@ function renderSGSGrid(mode) {
   });
 
   document.getElementById('sgsPreviewBody').innerHTML = tbodyHtml;
-  initSGSDragSelection(); // เปิดระบบลากคลุมดำ
+  initSGSDragSelection(); 
 }
 
-// 🌟 3. ระบบจับเมาส์ลากคลุมดำ
+// 🌟 3. ระบบจับเมาส์ลากคลุมดำ (มี Auto-Scroll)
 function initSGSDragSelection() {
     const tbody = document.getElementById('sgsPreviewBody');
     if(!tbody) return;
@@ -1419,7 +1109,7 @@ function initSGSDragSelection() {
         startSGS = { r: parseInt(td.dataset.r), c: parseInt(td.dataset.c) };
         endSGS = { r: parseInt(td.dataset.r), c: parseInt(td.dataset.c) };
         drawSGSSelection(newTbody);
-        e.preventDefault(); // กันไม่ให้เบราว์เซอร์ลากคลุมตัวหนังสือสีฟ้าปกติ
+        e.preventDefault(); 
     });
 
     newTbody.addEventListener('mouseover', function(e) {
@@ -1430,12 +1120,51 @@ function initSGSDragSelection() {
         drawSGSSelection(newTbody);
     });
 
-    document.addEventListener('mouseup', function() {
-        isDraggingSGS = false;
-    });
+    if (!window.sgsGlobalListenersAdded) {
+        window.sgsGlobalListenersAdded = true;
+        
+        document.addEventListener('mousemove', function(e) {
+            if(!isDraggingSGS) return;
+            const scrollContainer = document.getElementById('sgsPreviewTable')?.parentElement;
+            if(!scrollContainer) return;
+            
+            const rect = scrollContainer.getBoundingClientRect();
+            const threshold = 50; 
+            
+            clearInterval(window.sgsScrollInterval); 
+            
+            if (e.clientY >= rect.bottom - threshold && e.clientY <= rect.bottom + 50) {
+                window.sgsScrollInterval = setInterval(() => {
+                    scrollContainer.scrollTop += 20; 
+                    updateSGSSelectionFromPoint(e.clientX, Math.min(e.clientY, rect.bottom - 10)); 
+                }, 30);
+            } 
+            else if (e.clientY <= rect.top + threshold + 40 && e.clientY >= rect.top - 50) {
+                window.sgsScrollInterval = setInterval(() => {
+                    scrollContainer.scrollTop -= 20; 
+                    updateSGSSelectionFromPoint(e.clientX, Math.max(e.clientY, rect.top + 50));
+                }, 30);
+            }
+        });
+
+        document.addEventListener('mouseup', function() {
+            isDraggingSGS = false;
+            clearInterval(window.sgsScrollInterval); 
+        });
+    }
 }
 
-// วาดสีน้ำเงินทับช่องที่ถูกคลุม
+function updateSGSSelectionFromPoint(x, y) {
+    const elements = document.elementsFromPoint(x, y);
+    if (!elements) return;
+    const td = elements.find(el => el.classList && el.classList.contains('sgs-cell'));
+    if (td) {
+        endSGS = { r: parseInt(td.dataset.r), c: parseInt(td.dataset.c) };
+        const currentTbody = document.getElementById('sgsPreviewBody');
+        if(currentTbody) drawSGSSelection(currentTbody);
+    }
+}
+
 function drawSGSSelection(tbody) {
     const minR = Math.min(startSGS.r, endSGS.r);
     const maxR = Math.max(startSGS.r, endSGS.r);
@@ -1453,7 +1182,7 @@ function drawSGSSelection(tbody) {
     });
 }
 
-// 🌟 4. ดักจับปุ่ม Ctrl+C เพื่อคัดลอก (เฉพาะหน้าต่างนี้)
+// 🌟 4. ดักจับปุ่ม Ctrl+C เพื่อคัดลอก
 document.addEventListener('keydown', function(e) {
     if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
         const sgsModal = document.getElementById('sgsExportModal');
@@ -1467,7 +1196,7 @@ document.addEventListener('keydown', function(e) {
     }
 });
 
-// ฟังก์ชันดูดข้อมูลช่องสีน้ำเงินลง Clipboard
+// ฟังก์ชันดูดข้อมูลลง Clipboard
 window.copySGSSelected = function() {
     const tbody = document.getElementById('sgsPreviewBody');
     if(!tbody) return;
@@ -1488,7 +1217,7 @@ window.copySGSSelected = function() {
             if (td && td.classList.contains('sgs-selected')) {
                 rowVals.push(td.innerText.trim());
             } else {
-                rowVals.push(""); // ข้ามช่องที่ไม่ได้เลือก
+                rowVals.push(""); 
             }
         }
         copyString += rowVals.join('\t') + '\n';
