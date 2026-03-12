@@ -18,36 +18,29 @@
       loadSarabunHistory();
   }
 
-  // 🌟 ฟังก์ชันอัจฉริยะ: ดึงคำซ้ำๆ จากประวัติมาเป็นตัวเลือก (Auto-Suggest)
   function buildAutoSuggestLists(data) {
       let fromSet = new Set();
       let toSet = new Set();
       let assigneeSet = new Set();
 
-      // 1. เพิ่มค่าเริ่มต้นยอดฮิต (พิมพ์นิดเดียว เด้งเลย)
       toSet.add("สำนักงานเขตพื้นที่การศึกษามัธยมศึกษาอุดรธานี");
       toSet.add("สำนักงานเขตพื้นที่การศึกษามัธยมศึกษาเลย หนองบัวลำภู");
-      fromSet.add("ผู้อำนวยการโรงเรียนภูพระบาทวิทยา");
+      fromSet.add("ผู้อำนวยการโรงเรียน");
 
-      // 2. ดึงชื่อครูที่ล็อกอินอยู่ใส่ไปด้วย
       try {
           const user = window.currentUser || JSON.parse(localStorage.getItem('pssms_user'));
           if(user && user.name) assigneeSet.add(user.name);
       } catch(e) {}
 
-      // 3. กวาดข้อมูลจากประวัติเก่าๆ (ใครเคยพิมพ์อะไรไว้ มันจะจำมาแนะนำต่อให้หมด!)
       data.forEach(r => {
           if(r.docFrom && r.docFrom !== '-' && r.docFrom !== '') fromSet.add(r.docFrom.trim());
           if(r.docTo && r.docTo !== '-' && r.docTo !== '') toSet.add(r.docTo.trim());
           if(r.assignee && r.assignee !== '-' && r.assignee !== '') assigneeSet.add(r.assignee.trim());
       });
 
-      // 4. เอาข้อมูลไปยัดใส่ Datalist หน้าเว็บ
       const populate = (id, set) => {
           const el = document.getElementById(id);
-          if(el) {
-              el.innerHTML = Array.from(set).map(val => `<option value="${val}">`).join('');
-          }
+          if(el) el.innerHTML = Array.from(set).map(val => `<option value="${val}">`).join('');
       };
 
       populate('dl-docFrom', fromSet);
@@ -104,12 +97,10 @@
               document.getElementById('divDocFrom').style.display = 'block';
               document.getElementById('divDocTo').style.display = 'block';
               document.getElementById('docTo').required = true;
-              
               document.getElementById('divDates').style.display = 'flex';
               document.getElementById('divTargetDate').style.display = 'block'; 
               document.getElementById('divDocTime').style.display = 'block'; 
               document.getElementById('docTime').required = true;
-              
               document.getElementById('divAssignee').style.display = 'block';
               document.getElementById('docAssignee').required = true;
               document.getElementById('docAssignee').value = userName;
@@ -129,12 +120,10 @@
               document.getElementById('docFrom').value = "ผู้อำนวยการโรงเรียน"; 
               document.getElementById('divDocTo').style.display = 'block';
               document.getElementById('docTo').required = true;
-              
               document.getElementById('divDates').style.display = 'flex';
               document.getElementById('divTargetDate').style.display = 'block';
               document.getElementById('divDocTime').style.display = 'block'; 
               document.getElementById('docTime').required = true;
-
               document.getElementById('divAssignee').style.display = 'block';
               document.getElementById('docAssignee').required = true;
               document.getElementById('docAssignee').value = userName;
@@ -226,7 +215,7 @@
       safeRun(3).withSuccessHandler(res => {
           window.sarabunGlobalData = res; 
           filterSarabunData(); 
-          buildAutoSuggestLists(res); // 🌟 สั่งอัปเดตคำแนะนำทันทีที่ดึงข้อมูลเสร็จ
+          buildAutoSuggestLists(res); 
       }).getSarabunHistory(userName, userRole);
   }
 
@@ -295,21 +284,95 @@
           }
 
           let actionHTML = `<div class="small">`;
-          
           let timeShow = (r.docTime && r.docTime !== '-' && r.docTime !== '') ? ` เวลา ${r.docTime} น.` : '';
           actionHTML += `<div class="mb-1"><i class="fas fa-calendar-alt text-secondary me-1"></i>ลงวันที่: <span class="fw-bold text-dark">${formatD(r.targetDate)}${timeShow}</span></div>`;
-          
           if(r.docType !== 'ทะเบียนเกียรติบัตร' && r.assignee !== '-') {
               actionHTML += `<div class="text-success text-truncate" style="max-width: 200px;"><i class="fas fa-user-check me-1"></i>รับผิดชอบ: ${r.assignee}</div>`;
           }
           actionHTML += `<div class="text-muted mt-2 text-truncate" style="max-width: 200px; font-size:0.75rem;"><i class="fas fa-edit me-1"></i>ผู้ขอ: ${r.requester}</div></div>`;
 
-          let fileBtn = r.fileUrl && r.fileUrl !== '-' ? 
-              `<a href="${r.fileUrl}" target="_blank" class="btn btn-sm btn-success rounded-pill px-3 shadow-sm"><i class="fas fa-file-pdf me-1"></i>ดูไฟล์</a>` : 
-              `<button class="btn btn-sm btn-outline-secondary rounded-pill px-3" onclick="alert('ระบบแนบไฟล์ PDF เตรียมพบกันใน Step 4 ครับ! 🚀')"><i class="fas fa-upload me-1"></i>แนบไฟล์</button>`;
+          // 🌟 1. ตั้งค่า ID ให้ปุ่มเพื่อให้เราพุ่งเป้าไปเปลี่ยนหน้าตามันได้
+          let fileBtn = r.fileUrl && r.fileUrl !== '-' && r.fileUrl !== '' ? 
+              `<a href="${r.fileUrl}" target="_blank" class="btn btn-sm btn-success rounded-pill px-3 shadow-sm"><i class="fas fa-file-pdf me-1"></i> ดูเอกสาร</a>` : 
+              `<button id="btn-upload-${r.id}" class="btn btn-sm btn-outline-secondary rounded-pill px-3" style="transition: all 0.3s;" onclick="triggerSarabunUpload('${r.id}', '${r.docNumber}')"><i class="fas fa-upload me-1"></i> แนบไฟล์</button>`;
 
           html += `<tr class="bg-white"><td class="ps-4 py-3 align-middle"><span class="badge bg-danger fs-6 px-3 py-2 shadow-sm rounded-pill">${r.docNumber}</span></td><td class="py-3 align-middle">${typeBadge}${detailsHTML}</td><td class="py-3 align-middle">${actionHTML}</td><td class="text-center py-3 align-middle">${fileBtn}</td></tr>`;
       });
       tbody.innerHTML = html;
+  }
+
+  // ==========================================
+  // 📁 ระบบแนบไฟล์เอกสาร (UX อัปเกรด!)
+  // ==========================================
+
+  function triggerSarabunUpload(id, docNum) {
+      document.getElementById('uploadTargetId').value = id;
+      document.getElementById('uploadTargetDocNum').value = docNum;
+      document.getElementById('sarabunFileInput').click(); 
+  }
+
+  function handleSarabunFileUpload(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      if (file.size > 5 * 1024 * 1024) {
+          showToast("⚠️ ไฟล์ใหญ่เกินไป กรุณาแนบไฟล์ขนาดไม่เกิน 5 MB ครับ", "warning");
+          event.target.value = '';
+          return;
+      }
+
+      const id = document.getElementById('uploadTargetId').value;
+      const docNum = document.getElementById('uploadTargetDocNum').value;
+
+      // 🌟 2. ดึงปุ่มมาแปลงโฉมเป็น "กำลังโหลด" โดยไม่บล็อกหน้าจอ
+      const uploadBtn = document.getElementById(`btn-upload-${id}`);
+      let originalBtnHtml = '';
+      if (uploadBtn) {
+          originalBtnHtml = uploadBtn.innerHTML;
+          uploadBtn.disabled = true;
+          uploadBtn.classList.remove('btn-outline-secondary');
+          uploadBtn.classList.add('btn-primary', 'text-white', 'shadow-sm');
+          uploadBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>อัปโหลด...';
+      }
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+          const base64Data = e.target.result;
+          
+          safeRun(3).withSuccessHandler(res => {
+              event.target.value = ''; 
+              
+              if(res.status === 'success') {
+                  // 🌟 3. เปลี่ยนปุ่มเป็น "สำเร็จ!" สีเขียว เพื่อบอก User ก่อน 1 วินาที
+                  if (uploadBtn) {
+                      uploadBtn.classList.remove('btn-primary');
+                      uploadBtn.classList.add('btn-success');
+                      uploadBtn.innerHTML = '<i class="fas fa-check-circle me-1"></i> สำเร็จ!';
+                  }
+                  showToast("✅ แนบไฟล์เอกสารเสร็จสมบูรณ์", 'success');
+                  
+                  // หน่วงเวลา 1 วินาทีให้คนดูชื่นใจ แล้วค่อยรีเฟรชตาราง
+                  setTimeout(loadSarabunHistory, 1000); 
+              } else {
+                  if (uploadBtn) {
+                      uploadBtn.disabled = false;
+                      uploadBtn.classList.remove('btn-primary', 'text-white', 'shadow-sm');
+                      uploadBtn.classList.add('btn-outline-secondary');
+                      uploadBtn.innerHTML = originalBtnHtml;
+                  }
+                  showToast("❌ " + res.message, 'danger');
+              }
+          }).withFailureHandler(err => {
+              event.target.value = '';
+              if (uploadBtn) {
+                  uploadBtn.disabled = false;
+                  uploadBtn.classList.remove('btn-primary', 'text-white', 'shadow-sm');
+                  uploadBtn.classList.add('btn-outline-secondary');
+                  uploadBtn.innerHTML = originalBtnHtml;
+              }
+              showToast("❌ เกิดข้อผิดพลาดในการเชื่อมต่อ", "danger");
+          }).uploadSarabunFile(id, base64Data, file.name, docNum);
+      };
+      reader.readAsDataURL(file); 
   }
 </script>

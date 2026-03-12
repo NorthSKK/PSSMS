@@ -2726,3 +2726,52 @@ function getSarabunHistory(requesterName, role) {
   }
   return results;
 }
+
+/**
+ * 💾 ฟังก์ชันอัปโหลดไฟล์ของงานสารบรรณ และบันทึกลงฐานข้อมูล
+ */
+function uploadSarabunFile(id, base64Data, filename, docNumber) {
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(15000);
+    
+    // 1. อัปโหลดไฟล์ขึ้น Google Drive
+    const safeDocNum = String(docNumber).replace(/\//g, '-'); 
+    const safeFilename = `Sarabun_${safeDocNum}_${filename}`;
+    const fileUrl = uploadFileToDrive(base64Data, safeFilename);
+    
+    if (fileUrl.startsWith("Error")) throw new Error(fileUrl);
+
+    // 2. บันทึก URL ไฟล์ ลงในฐานข้อมูล
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName("Sarabun_Database");
+    if (!sheet) throw new Error("ไม่พบฐานข้อมูล");
+
+    // 🌟 ท่าไม้ตาย: ใช้ getDisplayValue() บังคับอ่านค่าแบบตัวอักษรเพียวๆ
+    const targetDocNum = String(docNumber).trim();
+    const currentDocNum = String(sheet.getRange(parseInt(id), 3).getDisplayValue()).trim(); 
+
+    if (currentDocNum === targetDocNum) {
+        sheet.getRange(parseInt(id), 15).setValue(fileUrl); // คอลัมน์ 15 (O) คือ FileURL
+    } else {
+        // ถ้าคลาดเคลื่อน ให้สแกนหาใหม่ โดยใช้ getDisplayValues() กวาดอ่านแบบตัวอักษร
+        const allData = sheet.getDataRange().getDisplayValues();
+        let found = false;
+        for(let i = 1; i < allData.length; i++) {
+            if(String(allData[i][2]).trim() === targetDocNum) {
+                sheet.getRange(i + 1, 15).setValue(fileUrl);
+                found = true;
+                break;
+            }
+        }
+        if(!found) throw new Error(`ไม่พบเอกสารเลขที่ ${targetDocNum} ในระบบ`);
+    }
+    
+    return { status: "success", message: "แนบไฟล์เสร็จสมบูรณ์" };
+
+  } catch(e) {
+    return { status: "error", message: e.message };
+  } finally {
+    lock.releaseLock();
+  }
+}
