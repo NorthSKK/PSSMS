@@ -1,6 +1,6 @@
 <script>
 // ==========================================
-// 15. POR POR 5: SUBJECT CONFIG LOGIC
+// 15. POR POR 5: SUBJECT CONFIG LOGIC (อัปเกรดระบบแม่แบบมาตรฐาน)
 // ==========================================
 function initSubjectConfigPage() {
   const user = getSessionUser();
@@ -40,17 +40,67 @@ function loadSubjectConfig() {
   showLoader(true);
   
   google.script.run.withSuccessHandler(config => {
-       showLoader(false); const tbody = document.getElementById('indicatorTableBody'); tbody.innerHTML = '';
+       showLoader(false); 
+       const tbody = document.getElementById('indicatorTableBody'); 
+       tbody.innerHTML = '';
+
+       // 🌟 เสกแผงปุ่ม "แม่แบบมาตรฐาน" ไว้เหนือตาราง
+       let tplDiv = document.getElementById('templateButtonsDiv');
+       if(!tplDiv) {
+           const container = tbody.closest('table').parentElement;
+           tplDiv = document.createElement('div');
+           tplDiv.id = 'templateButtonsDiv';
+           tplDiv.className = 'mb-3 bg-light p-3 rounded-4 border border-primary border-opacity-25 d-flex gap-3 align-items-center shadow-sm';
+           container.insertBefore(tplDiv, tbody.closest('table'));
+       }
+       tplDiv.innerHTML = `
+          <span class="fw-bold text-primary small"><i class="fas fa-magic me-1"></i> เลือกแม่แบบมาตรฐาน:</span>
+          <button type="button" class="btn btn-sm btn-primary rounded-pill shadow-sm px-3" onclick="applyScoreTemplate('theory')"><i class="fas fa-book me-1"></i> วิชาทฤษฎี (30:20:20:30)</button>
+          <button type="button" class="btn btn-sm btn-success rounded-pill shadow-sm px-3" onclick="applyScoreTemplate('practical')"><i class="fas fa-tools me-1"></i> วิชาปฏิบัติ (30:20:30:20)</button>
+       `;
+
        if (config) {
+          // ถ้าเคยตั้งค่าไว้แล้ว ให้โหลดของเก่ามา
           const ratios = config.ratio.split(':');
-          document.getElementById('scoreFormative').value = ratios[0] || 0; document.getElementById('scoreMidterm').value = ratios[1] || 0; document.getElementById('scoreFinal').value = ratios[2] || 0;
-          if(config.indicators && config.indicators.length > 0) { config.indicators.forEach(ind => addIndicatorRow(ind.name, ind.score, ind.description || '')); } else { addIndicatorRow(); }
+          document.getElementById('scoreFormative').value = ratios[0] || 0; 
+          document.getElementById('scoreMidterm').value = ratios[1] || 0; 
+          document.getElementById('scoreFinal').value = ratios[2] || 0;
+          if(config.indicators && config.indicators.length > 0) { 
+              config.indicators.forEach(ind => addIndicatorRow(ind.name, ind.score, ind.description || '')); 
+          } else { 
+              addIndicatorRow(); 
+          }
        } else {
-          document.getElementById('scoreFormative').value = 70; document.getElementById('scoreMidterm').value = 10; document.getElementById('scoreFinal').value = 20; addIndicatorRow();
+          // 🌟 ถ้าเป็นวิชาใหม่ซิงๆ ให้โหลด "แม่แบบวิชาทฤษฎี" ให้ทันทีโดยอัตโนมัติ!
+          applyScoreTemplate('theory');
        }
        calculateTotalConfigScore();
     }).getSubjectConfig(item[0], item[2], user.currentTerm, user.currentYear);
 }
+
+// 🌟 ฟังก์ชันอัจฉริยะ: โหลดแม่แบบคะแนนอัตโนมัติ
+window.applyScoreTemplate = function(type) {
+    const tbody = document.getElementById('indicatorTableBody');
+    tbody.innerHTML = ''; 
+    
+    if (type === 'theory') {
+        document.getElementById('scoreFormative').value = 50; // รวมเก็บทั้งหมด
+        document.getElementById('scoreMidterm').value = 20; 
+        document.getElementById('scoreFinal').value = 30; 
+        addIndicatorRow('คะแนนก่อนกลางภาค (ใบงาน/สอบย่อย)', 30, '');
+        addIndicatorRow('คะแนนหลังกลางภาค (ใบงาน/สอบย่อย)', 20, '');
+    } else if (type === 'practical') {
+        document.getElementById('scoreFormative').value = 60; // รวมเก็บทั้งหมด
+        document.getElementById('scoreMidterm').value = 20; 
+        document.getElementById('scoreFinal').value = 20; 
+        addIndicatorRow('คะแนนปฏิบัติก่อนกลางภาค', 30, '');
+        addIndicatorRow('คะแนนปฏิบัติหลังกลางภาค', 30, '');
+    }
+    calculateTotalConfigScore();
+    
+    // โชว์แจ้งเตือนเด้งๆ ว่าโหลดเสร็จแล้ว
+    if(typeof showToast === 'function') showToast('✅ ปรับใช้แม่แบบคะแนนเรียบร้อย!', 'success');
+};
 
 function calculateTotalConfigScore() {
   const f = parseInt(document.getElementById('scoreFormative').value) || 0;
@@ -74,7 +124,7 @@ function saveSubjectConfigData() {
   rows.forEach(row => {
     const name = row.querySelector('.ind-name').value.trim();
     const score = parseInt(row.querySelector('.ind-score').value) || 0;
-    const description = row.querySelector('.ind-desc').value.trim(); // ดึงค่าจากช่องรายละเอียด
+    const description = row.querySelector('.ind-desc').value.trim();
     if(name && score > 0) { 
       indicators.push({ name: name, score: score, description: description }); 
     }
@@ -278,10 +328,10 @@ function refreshTableOnly() {
         const stdId = String(std[0]).trim();
         const safeStdId = normID(stdId); 
         
-        const indNames = Array.from(document.querySelectorAll('.ind-name-edit')).map(el => el.innerText.trim());
+        // 🌟 เปลี่ยนมาใช้ Index (i) แทนชื่อหัวตาราง ป้องกันการเปลี่ยนชื่อแล้วข้อมูลหลุด
         document.querySelectorAll(`.formative-std-${safeStdId}`).forEach((input, i) => {
-          if(input.value !== '' && indNames[i]) {
-             const safeIndName = normStr(`ind_${indNames[i]}`); 
+          if(input.value !== '') {
+             const safeIndName = `formative_${i}`; 
              tempScores[`${safeStdId}_${safeIndName}`] = parseFloat(input.value);
           }
         });
@@ -306,7 +356,6 @@ function refreshTableOnly() {
   }
   renderAllInOneTable(currentScoreStudents, currentScoreConfig, tempScores, tempQuals); 
 }
-
 // 🌟 2. ฟังก์ชันวาดตาราง (แก้บัคการชนกันของระบบเวลาเรียน vs ระบบหมายเหตุ)
 function renderAllInOneTable(students, config, existingScores, existingQuals) {
   const thead = document.getElementById('scoreTableHeader');
@@ -410,20 +459,17 @@ function renderAllInOneTable(students, config, existingScores, existingQuals) {
     let attText = '';
     let autoMS = false;
 
-    // 🌟 ดึงข้อมูลจากฐานข้อมูล ถ้าฐานข้อมูลเป็นเครื่องหมาย - (แปลว่าครูจงใจลบ) ให้เก็บสถานะไว้
     let rawRemark = (existingScores[`${safeStdId}_remark`] !== undefined) ? existingScores[`${safeStdId}_remark`] : '';
     let remarkVal = rawRemark;
     
     if (pct !== undefined) {
         attText = `<span class="ms-2 fw-bold ${pct < 80 ? 'text-danger' : 'text-success'}" style="font-size: 0.72rem; letter-spacing:-0.3px;"><i class="fas fa-user-clock me-1"></i>${pct}%</span>`;
-        // 🚨 ป้องกันระบบชนกัน: ให้ มส. อัตโนมัติ เฉพาะคนที่ "ยังไม่เคยถูกครูกดบันทึกช่องหมายเหตุเลย" เท่านั้น (rawRemark ต้องว่างจริงๆ ไม่ใช่เครื่องหมายขีด)
         if (pct < 80 && rawRemark === '') { 
             remarkVal = 'มส'; 
             autoMS = true; 
         }
     }
     
-    // ถ้าครูเคยจงใจลบออกจนเหลือ - ให้แสดงผลหน้าเว็บเป็นช่องว่าง (ครูจะได้มองสบายตา)
     if (remarkVal === '-') remarkVal = '';
     
     bodyHtml += `<tr>
@@ -437,7 +483,7 @@ function renderAllInOneTable(students, config, existingScores, existingQuals) {
       </td>`;
     
     config.indicators.forEach((ind, idx) => {
-      const indName = normStr(`ind_${ind.name}`);
+      const indName = `formative_${idx}`; 
       const scoreKey = `${safeStdId}_${indName}`; 
       const val = (existingScores[scoreKey] !== undefined && existingScores[scoreKey] !== "") ? existingScores[scoreKey] : '';
       
@@ -446,7 +492,7 @@ function renderAllInOneTable(students, config, existingScores, existingQuals) {
       let bgStyle = sgsColumnStates[colKey] ? 'background:transparent;' : 'background:#e9ecef; opacity:0.6;';
 
       bodyHtml += `<td class="p-0 align-middle text-center" title="คลิกขวาเพื่อดูประวัติ">
-                     <input type="number" class="score-cell-input nav-input formative-std-${safeStdId} sgs-col-${colKey}" style="${bgStyle}" value="${val}" data-row="${rowIndex}" data-col="${colIndex++}" onkeydown="handleCellNav(event)" onkeyup="calcRow('${stdId}', '${safeStdId}')" oncontextmenu="viewScoreHistory(event, '${stdId}', '${std[2]}', '${indName}', '${ind.name}'); return false;" ${lockState}>
+                     <input type="number" class="score-cell-input nav-input formative-std-${safeStdId} sgs-col-${colKey}" style="${bgStyle}" value="${val}" data-row="${rowIndex}" data-col="${colIndex++}" onkeydown="handleCellNav(event)" onkeyup="calcRow('${stdId}', '${safeStdId}')" onpaste="handleExcelPaste(event)" oncontextmenu="viewScoreHistory(event, '${stdId}', '${std[2]}', '${indName}', '${ind.name}'); return false;" ${lockState}>
                    </td>`;
     });
 
@@ -466,18 +512,19 @@ function renderAllInOneTable(students, config, existingScores, existingQuals) {
     const q = existingQuals[safeStdId] || { read: "3", char: "3", comp: "3" };
     const opt = `<option value="3">3</option><option value="2">2</option><option value="1">1</option><option value="0">0</option>`;
 
+    // 🌟 ใส่ onpaste="handleExcelPaste(event)" ให้ครบทุกช่อง
     bodyHtml += `<td class="p-0 align-middle text-center border-start col-highlight-f"><input type="text" class="score-cell-input fw-bold text-primary" style="background:transparent;" id="sum_f_std_${safeStdId}" value="0" readonly tabindex="-1"></td>
       
       <td class="p-0 align-middle text-center col-highlight-m" title="คลิกขวาเพื่อดูประวัติ">
-        <input type="number" class="score-cell-input nav-input midterm-std-${safeStdId} sgs-col-midterm" style="${mBg}" value="${midVal}" data-row="${rowIndex}" data-col="${colIndex++}" onkeydown="handleCellNav(event)" onkeyup="calcRow('${stdId}', '${safeStdId}')" oncontextmenu="viewScoreHistory(event, '${stdId}', '${std[2]}', 'midterm', 'กลางภาค'); return false;" ${mLock}>
+        <input type="number" class="score-cell-input nav-input midterm-std-${safeStdId} sgs-col-midterm" style="${mBg}" value="${midVal}" data-row="${rowIndex}" data-col="${colIndex++}" onkeydown="handleCellNav(event)" onkeyup="calcRow('${stdId}', '${safeStdId}')" onpaste="handleExcelPaste(event)" oncontextmenu="viewScoreHistory(event, '${stdId}', '${std[2]}', 'midterm', 'กลางภาค'); return false;" ${mLock}>
       </td>
       
       <td class="p-0 align-middle text-center border-start border-white col-highlight-mr" title="คลิกขวาเพื่อดูประวัติ">
-        <input type="number" class="score-cell-input nav-input midterm-re-std-${safeStdId} text-danger fw-bold sgs-col-midterm-re" style="${mrBg}" value="${midReVal}" placeholder="-" data-row="${rowIndex}" data-col="${colIndex++}" onkeydown="handleCellNav(event)" onkeyup="calcRow('${stdId}', '${safeStdId}')" oncontextmenu="viewScoreHistory(event, '${stdId}', '${std[2]}', 'midterm_re', 'สอบซ่อม'); return false;" ${mrLock}>
+        <input type="number" class="score-cell-input nav-input midterm-re-std-${safeStdId} text-danger fw-bold sgs-col-midterm-re" style="${mrBg}" value="${midReVal}" placeholder="-" data-row="${rowIndex}" data-col="${colIndex++}" onkeydown="handleCellNav(event)" onkeyup="calcRow('${stdId}', '${safeStdId}')" onpaste="handleExcelPaste(event)" oncontextmenu="viewScoreHistory(event, '${stdId}', '${std[2]}', 'midterm_re', 'สอบซ่อม'); return false;" ${mrLock}>
       </td>
       
       <td class="p-0 align-middle text-center border-start col-highlight-e" title="คลิกขวาเพื่อดูประวัติ">
-        <input type="number" class="score-cell-input nav-input final-std-${safeStdId} sgs-col-final" style="${eBg}" value="${finVal}" data-row="${rowIndex}" data-col="${colIndex++}" onkeydown="handleCellNav(event)" onkeyup="calcRow('${stdId}', '${safeStdId}')" oncontextmenu="viewScoreHistory(event, '${stdId}', '${std[2]}', 'final', 'ปลายภาค'); return false;" ${eLock}>
+        <input type="number" class="score-cell-input nav-input final-std-${safeStdId} sgs-col-final" style="${eBg}" value="${finVal}" data-row="${rowIndex}" data-col="${colIndex++}" onkeydown="handleCellNav(event)" onkeyup="calcRow('${stdId}', '${safeStdId}')" onpaste="handleExcelPaste(event)" oncontextmenu="viewScoreHistory(event, '${stdId}', '${std[2]}', 'final', 'ปลายภาค'); return false;" ${eLock}>
       </td>
       
       <td class="text-center align-middle text-dark fw-bold border-start col-highlight-total" id="sum_total_std_${safeStdId}" style="font-size: 0.95rem;">0</td>
@@ -713,9 +760,9 @@ function saveAllInOneScores(isSilent = false) {
         const stdId = String(std[0]).trim();
         const safeStdId = normID(stdId); 
         
-        // เก็บข้อมูลคะแนนดิบ
         document.querySelectorAll(`.formative-std-${safeStdId}`).forEach((input, i) => {
-          const indName = normStr(`ind_${newIndicators[i].name}`);
+          // 🌟 เวลาเซฟ ก็ส่ง ID อมตะไปให้ฐานข้อมูลจำไว้ ห้ามใช้ชื่อหัวตาราง!
+          const indName = `formative_${i}`; 
           const val = input.value !== '' ? parseFloat(input.value) : ''; 
           payload.scoreRecords.push({ studentId: stdId, subjectCode: item[0], term: user.currentTerm, year: user.currentYear, indicatorId: indName, score: val });
         });
@@ -729,15 +776,12 @@ function saveAllInOneScores(isSilent = false) {
         const finInput = document.querySelector(`.final-std-${safeStdId}`);
         if (finInput) payload.scoreRecords.push({ studentId: stdId, subjectCode: item[0], term: user.currentTerm, year: user.currentYear, indicatorId: 'final', score: finInput.value !== '' ? parseFloat(finInput.value) : '' });
 
-        // 🚨 ดึงค่า ร/มส 
         const remarkInput = document.querySelector(`.remark-select[data-safeid="${safeStdId}"]`);
         const remarkVal = remarkInput ? remarkInput.value.trim() : '';
-        const finalRemark = remarkVal === '' ? '-' : remarkVal; // แปลงค่าว่างให้เป็น - เพื่อให้ระบบจำ
+        const finalRemark = remarkVal === '' ? '-' : remarkVal; 
 
-        // 🌟 1. ยัดลง Score_Database (เพื่อให้เก็บเป็นประวัติรายตัวชี้วัดด้วย)
         payload.scoreRecords.push({ studentId: stdId, subjectCode: item[0], term: user.currentTerm, year: user.currentYear, indicatorId: 'remark', score: finalRemark });
 
-        // 🌟 2. ยัดลง Grade_Summary 
         const tCell = document.getElementById(`sum_total_std_${safeStdId}`);
         const gCell = document.getElementById(`grade_std_${safeStdId}`);
         payload.gradeRecords.push({ 
@@ -745,7 +789,7 @@ function saveAllInOneScores(isSilent = false) {
             subjectCode: item[0], 
             totalScore: tCell ? tCell.innerText : '0', 
             grade: gCell ? gCell.innerText : '0',
-            remark: finalRemark // ยัด ร/มส มาตรงนี้
+            remark: finalRemark
         });
         
         const qRead = document.querySelector(`.qual-read[data-safeid="${safeStdId}"]`);
@@ -765,6 +809,12 @@ function saveAllInOneScores(isSilent = false) {
           isSavingScores = false; 
           if(btn) { btn.disabled = false; btn.innerHTML = originalText; btn.className = originalBtnClass; }
           
+          // 🌟 เช็คและแจ้งเตือนถ้าหลังบ้านเจอ Error แบบเงียบๆ
+          if (res && res.status === 'error') {
+              showToast("❌ ขัดข้อง: " + res.message, "danger");
+              return;
+          }
+
           document.getElementById('scoreRatioBadge').innerText = `สัดส่วนปัจจุบัน ${f}:${m}:${e}`;
 
           if (!isSilent) {
@@ -1255,5 +1305,102 @@ function updateRemarkInstant(stdId, selectElement) {
       }
    }).saveStudentRemarkDirectly(stdId, subjectCode, user.currentTerm, user.currentYear, remarkVal);
 }
+
+// ==========================================
+// 📋 ฟังก์ชันรับการวางข้อมูลจาก Excel (Paste) แบบทะลุทะลวง
+// ==========================================
+window.handleExcelPaste = function(e) {
+    e.preventDefault();
+    const clipboardData = e.clipboardData || window.clipboardData;
+    const pastedData = clipboardData.getData('Text');
+    if (!pastedData) return;
+
+    // แยกรหัสบรรทัด (รองรับการขึ้นบรรทัดใหม่ทุกรูปแบบ)
+    const rows = pastedData.split(/\r\n|\n|\r/); 
+    const targetInput = e.target;
+    
+    // หาพิกัดเริ่มต้นที่เมาส์คลิกวาง
+    const startRowIdx = parseInt(targetInput.dataset.row);
+    const startColIdx = parseInt(targetInput.dataset.col);
+
+    const tbody = document.getElementById('scoreTableBody');
+    if(!tbody) return;
+    const trs = tbody.querySelectorAll('tr');
+
+    // วนลูปยัดข้อมูลลงตารางทีละช่อง
+    for (let r = 0; r < rows.length; r++) {
+        if(rows[r].trim() === '') continue; 
+        const cols = rows[r].split('\t'); // แยกคอลัมน์ด้วย Tab (เหมือนก๊อปจาก Excel)
+        
+        const currentRowIdx = startRowIdx + r;
+        if (currentRowIdx >= trs.length) break; // ถ้าวางทะลุจำนวนเด็ก ให้หยุด
+        
+        const tr = trs[currentRowIdx];
+
+        for (let c = 0; c < cols.length; c++) {
+            const currentColIdx = startColIdx + c;
+            // วิ่งหาช่อง Input ที่พิกัดตรงกัน
+            const input = tr.querySelector(`input[data-row="${currentRowIdx}"][data-col="${currentColIdx}"]`);
+            
+            // วางได้เฉพาะช่องที่ "ติ๊กเปิดล็อกแล้ว" เท่านั้น
+            if (input && !input.readOnly && !input.disabled) {
+                let val = cols[c].trim();
+                input.value = val;
+                
+                // กระตุ้นให้ระบบคำนวณเกรดใหม่ทันทีที่ตัวเลขเปลี่ยน
+                input.dispatchEvent(new Event('keyup'));
+            }
+        }
+    }
+    
+    // สั่งคำนวณผลรวมใหม่ทั้งกระดาน
+    reCalcAllRows();
+    if (typeof showToast === 'function') showToast('✅ วางข้อมูลจาก Excel สำเร็จ!', 'success');
+};
+
+// ==========================================
+// 📋 ฟังก์ชันรับการวางข้อมูลจาก Excel (Paste) ทะลุทะลวง
+// ==========================================
+window.handleExcelPaste = function(e) {
+    e.preventDefault();
+    const clipboardData = e.clipboardData || window.clipboardData;
+    const pastedData = clipboardData.getData('Text');
+    if (!pastedData) return;
+
+    const rows = pastedData.split(/\r\n|\n|\r/); 
+    const targetInput = e.target;
+    
+    const startRowIdx = parseInt(targetInput.dataset.row);
+    const startColIdx = parseInt(targetInput.dataset.col);
+
+    const tbody = document.getElementById('scoreTableBody');
+    if(!tbody) return;
+    const trs = tbody.querySelectorAll('tr');
+
+    for (let r = 0; r < rows.length; r++) {
+        if(rows[r].trim() === '') continue; 
+        const cols = rows[r].split('\t'); 
+        
+        const currentRowIdx = startRowIdx + r;
+        if (currentRowIdx >= trs.length) break; 
+        
+        const tr = trs[currentRowIdx];
+
+        for (let c = 0; c < cols.length; c++) {
+            const currentColIdx = startColIdx + c;
+            const input = tr.querySelector(`input.score-cell-input[data-row="${currentRowIdx}"][data-col="${currentColIdx}"]`);
+            
+            // วางได้เฉพาะช่องที่ไม่ได้ถูกล็อก (ไม่ติด ReadOnly)
+            if (input && !input.readOnly && !input.disabled) {
+                let val = cols[c].trim();
+                input.value = val;
+                input.dispatchEvent(new Event('keyup')); // กระตุ้นให้คำนวณผลรวมใหม่
+            }
+        }
+    }
+    
+    reCalcAllRows();
+    if (typeof showToast === 'function') showToast('✅ วางข้อมูลจาก Excel สำเร็จ!', 'success');
+};
 
 </script>

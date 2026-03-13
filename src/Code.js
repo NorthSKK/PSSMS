@@ -1899,7 +1899,7 @@ function getAllInOneScoreGridData(subjectCode, className, term, year) {
 }
 
 // ==========================================
-// 💾 ระบบบันทึกคะแนนทั้งหมด (แก้ไข Error ปีกกา try..catch แล้ว)
+// 💾 ระบบบันทึกคะแนนทั้งหมด (Ultimate Fix - ทะลวงชีต 100%)
 // ==========================================
 function saveAllInOneWithConfig(payload) {
   const { subjectCode, className, teacherId, term, year, newConfig, scoreRecords, qualRecords, gradeRecords } = payload;
@@ -1915,7 +1915,16 @@ function saveAllInOneWithConfig(payload) {
     const normID = (id) => { let clean = String(id).replace(/[^a-zA-Z0-9]/g, '').replace(/^0+/, ''); return clean || '0'; };
     const normStr = (str) => String(str).replace(/\s+/g, '').toLowerCase();
 
-    // มัดรวม ร/มส จากหน้าเว็บ
+    // 🚨 ดักจับกรณีแผ่นงานหายหรือชื่อผิด
+    const configSheet = ss.getSheetByName("Subject_Config");
+    const sheetScore = ss.getSheetByName("Score_Database");
+    const qualSheet = ss.getSheetByName("Qualitative_Assess");
+    const gradeSheet = ss.getSheetByName("Grade_Summary");
+
+    if (!configSheet || !sheetScore || !qualSheet || !gradeSheet) {
+        return { status: 'error', message: '❌ ไม่พบชีตฐานข้อมูล ปพ.5 (อาจจะถูกลบหรือเปลี่ยนชื่อ)' };
+    }
+
     const msMap = {};
     if (scoreRecords) {
        scoreRecords.forEach(r => {
@@ -1938,66 +1947,90 @@ function saveAllInOneWithConfig(payload) {
        let found = false;
        scoreRecords.forEach(r => {
           if (normID(r.studentId) === sid && String(r.indicatorId).trim().toLowerCase() === 'remark') {
-              r.score = msMap[sid];
-              found = true;
+              r.score = msMap[sid]; found = true;
           }
        });
        if (!found) scoreRecords.push({ studentId: sid, subjectCode: subjectCode, term: term, year: year, indicatorId: 'remark', score: msMap[sid] });
     });
     
-    // 1. Config
+    // 🌟 1. Config (จัดระเบียบตารางบังคับ 8 คอลัมน์เป๊ะๆ)
     if (newConfig) {
-       const configSheet = ss.getSheetByName("Subject_Config");
-       if (configSheet) {
+         if (configSheet.getLastRow() === 0) configSheet.appendRow(["subject_id", "subject_code", "class_name", "term", "year", "score_ratio", "indicators_json", "teacher_id"]);
          const configData = configSheet.getDataRange().getValues();
          let configUpdated = false;
+         const ratioStr = `${newConfig.formative || 70}:${newConfig.midterm || 10}:${newConfig.final || 20}`;
+         const subjectId = `${subjectCode}_${className}_${term}_${year}`;
+
          for (let i = 1; i < configData.length; i++) {
            if (String(configData[i][1]) === String(subjectCode) && String(configData[i][2]) === String(className) && String(configData[i][3]) === String(term) && String(configData[i][4]) === String(year)) {
-               configData[i][5] = newConfig.formative || 70; configData[i][6] = newConfig.midterm || 10; configData[i][7] = newConfig.final || 20;
-               configData[i][8] = JSON.stringify(newConfig.indicators || []);
+               configData[i][5] = ratioStr; 
+               configData[i][6] = JSON.stringify(newConfig.indicators || []);
                configUpdated = true; break;
            }
          }
-         if (configUpdated) configSheet.getRange(1, 1, configData.length, configData[0].length).setValues(configData);
-         else configSheet.appendRow([new Date(), subjectCode, className, term, year, newConfig.formative, newConfig.midterm, newConfig.final, JSON.stringify(newConfig.indicators), teacherId]);
-       }
+         
+         if (configUpdated) {
+             const uniformData = configData.map(row => {
+                 let r = row.slice(0, 8);
+                 while(r.length < 8) r.push("");
+                 return r;
+             });
+             configSheet.getRange(1, 1, uniformData.length, 8).setValues(uniformData);
+         } else {
+             configSheet.appendRow([subjectId, subjectCode, className, term, year, ratioStr, JSON.stringify(newConfig.indicators || []), teacherId]);
+         }
     }
 
-    // 2. Score
-    const sheetScore = ss.getSheetByName("Score_Database");
-    if (sheetScore && scoreRecords && scoreRecords.length > 0) {
+    let debugMsg = "";
+
+    // 🌟 2. Score Database
+    if (scoreRecords && scoreRecords.length > 0) {
+        if (sheetScore.getLastRow() === 0) sheetScore.appendRow(["uid", "student_id", "subject_code", "indicator_id", "score", "term", "year"]);
         let scoreData = sheetScore.getDataRange().getValues(); 
         const scoreMap = {};
         scoreRecords.forEach(r => {
-           const uid = `${normID(r.studentId)}_${normStr(r.subjectCode)}_${normStr(r.indicatorId)}_${normStr(r.term)}_${normStr(r.year)}`;
-           scoreMap[uid] = r;
+           if(r.score !== undefined && r.score !== null) { 
+               const uid = `${normID(r.studentId)}_${normStr(r.subjectCode)}_${normStr(r.indicatorId)}_${normStr(r.term)}_${normStr(r.year)}`;
+               scoreMap[uid] = r;
+           }
         });
 
         let scoreUpdated = false;
+        let cUpdate = 0;
         for(let i = 1; i < scoreData.length; i++) {
           const uid = `${normID(scoreData[i][1])}_${normStr(scoreData[i][2])}_${normStr(scoreData[i][3])}_${normStr(scoreData[i][5])}_${normStr(scoreData[i][6])}`;
           if(scoreMap[uid]) {
              if (String(scoreData[i][4]) !== String(scoreMap[uid].score)) {
-                 scoreData[i][4] = scoreMap[uid].score; scoreUpdated = true;
+                 scoreData[i][4] = scoreMap[uid].score; 
+                 scoreUpdated = true;
+                 cUpdate++;
              }
              scoreMap[uid].processed = true; 
           }
         }
-        if(scoreUpdated) sheetScore.getRange(1, 1, scoreData.length, scoreData[0].length).setValues(scoreData);
+        if(scoreUpdated) {
+            const uniformScore = scoreData.map(row => { let r = row.slice(0, 7); while(r.length < 7) r.push(""); return r; });
+            sheetScore.getRange(1, 1, uniformScore.length, 7).setValues(uniformScore);
+        }
 
         const newScores = [];
         for (let uid in scoreMap) {
            if (!scoreMap[uid].processed) {
                const r = scoreMap[uid];
-               newScores.push([uid, "'" + r.studentId, r.subjectCode, r.indicatorId, r.score, r.term, r.year]);
+               if (r.score !== '') { // อย่าบันทึกช่องว่างเปล่าๆ ให้รกฐานข้อมูล
+                   newScores.push([uid, "'" + r.studentId, r.subjectCode, r.indicatorId, r.score, r.term, r.year]);
+               }
            }
         }
-        if (newScores.length > 0) sheetScore.getRange(sheetScore.getLastRow() + 1, 1, newScores.length, newScores[0].length).setValues(newScores);
+        if (newScores.length > 0) {
+            sheetScore.getRange(sheetScore.getLastRow() + 1, 1, newScores.length, 7).setValues(newScores);
+        }
+        debugMsg += `(คะแนนใหม่: ${newScores.length}, อัปเดต: ${cUpdate})`;
     }
 
-    // 3. Qual
-    const qualSheet = ss.getSheetByName("Qualitative_Assess");
-    if (qualSheet && qualRecords && qualRecords.length > 0) {
+    // 🌟 3. Qualitative Assess
+    if (qualRecords && qualRecords.length > 0) {
+        if (qualSheet.getLastRow() === 0) qualSheet.appendRow(["student_id", "subject_code", "term", "year", "reading_writing", "char_json", "comp_json"]);
         let qualData = qualSheet.getDataRange().getValues();
         const qualMap = {};
         qualRecords.forEach(r => { qualMap[`${normID(r.studentId)}_${normStr(r.subjectCode)}_${normStr(r.term)}_${normStr(r.year)}`] = r; });
@@ -2013,7 +2046,10 @@ function saveAllInOneWithConfig(payload) {
              qualMap[uid].processed = true;
           }
         }
-        if(qualUpdated) qualSheet.getRange(1, 1, qualData.length, qualData[0].length).setValues(qualData);
+        if(qualUpdated) {
+            const uniformQual = qualData.map(row => { let r = row.slice(0, 7); while(r.length < 7) r.push(""); return r; });
+            qualSheet.getRange(1, 1, uniformQual.length, 7).setValues(uniformQual);
+        }
         
         const newQuals = [];
         for (let uid in qualMap) {
@@ -2025,9 +2061,9 @@ function saveAllInOneWithConfig(payload) {
         if(newQuals.length > 0) qualSheet.getRange(qualSheet.getLastRow() + 1, 1, newQuals.length, 7).setValues(newQuals);
     }
 
-    // 4. Grade & Remark
-    const gradeSheet = ss.getSheetByName("Grade_Summary");
-    if (gradeSheet) { // 🌟 เพิ่ม if เช็คว่ามีชีตนี้ไหม เพื่อป้องกัน Error
+    // 🌟 4. Grade Summary
+    if (gradeRecords && gradeRecords.length > 0) { 
+        if (gradeSheet.getLastRow() === 0) gradeSheet.appendRow(["student_id", "subject_code", "total_score", "grade", "remedial_status", "attendance_percent"]);
         let gradeData = gradeSheet.getDataRange().getValues();
         const gradeMap = {};
         
@@ -2035,7 +2071,6 @@ function saveAllInOneWithConfig(payload) {
             const uid = `${normID(r.studentId)}_${normStr(r.subjectCode)}`;
             let cleanRemark = String(r.remark || '').trim();
             if (cleanRemark === '') cleanRemark = '-';
-            
             r.remark = cleanRemark; 
             gradeMap[uid] = r;
         });
@@ -2059,7 +2094,8 @@ function saveAllInOneWithConfig(payload) {
         }
         
         if(gradeUpdated) {
-            gradeSheet.getRange(1, 1, gradeData.length, gradeData[0].length).setValues(gradeData);
+            const uniformGrade = gradeData.map(row => { let r = row.slice(0, 6); while(r.length < 6) r.push(""); return r; });
+            gradeSheet.getRange(1, 1, uniformGrade.length, 6).setValues(uniformGrade);
         }
         
         const newGrades = [];
@@ -2069,17 +2105,14 @@ function saveAllInOneWithConfig(payload) {
                 newGrades.push(["'" + r.studentId, r.subjectCode, r.totalScore, r.grade, r.remark, "100"]);
             }
         }
-        
-        if(newGrades.length > 0) {
-            gradeSheet.getRange(gradeSheet.getLastRow() + 1, 1, newGrades.length, newGrades[0].length).setValues(newGrades);
-        }
-    } // 🌟 จบเงื่อนไข if(gradeSheet) ตรงนี้ ไม่มีปีกกาเกินแล้ว
+        if(newGrades.length > 0) gradeSheet.getRange(gradeSheet.getLastRow() + 1, 1, newGrades.length, 6).setValues(newGrades);
+    } 
 
     SpreadsheetApp.flush(); 
-    return {status: 'success', message: 'บันทึกคะแนน เกรด และคุณลักษณะเรียบร้อยแล้ว!'};
+    return {status: 'success', message: `✅ บันทึกเสร็จสมบูรณ์! ${debugMsg}`};
     
   } catch(e) {
-    return { status: 'error', message: e.message };
+    return { status: 'error', message: e.message + " | บรรทัดที่: " + (e.lineNumber || 'ไม่ทราบ') };
   } finally {
     lock.releaseLock();
   }
