@@ -123,21 +123,10 @@
         </div>
       </div>
 
-      <div class="table-responsive rounded-3 border shadow-sm">
-        <table class="table table-hover align-middle mb-0 text-center" style="font-size: 0.9rem;">
-          <thead class="table-light">
-            <tr>
-              <th style="width: 50px;">ที่</th>
-              <th style="width: 90px;">รหัส</th>
-              <th class="text-start" style="width: 220px;">ชื่อ-สกุล</th>
-              <th class="text-start">วิชาที่ติดปัญหา (สถานะ)</th>
-              <th style="width: 100px;">จัดการ</th>
-            </tr>
-          </thead>
-          <tbody id="riskTableBody">
-            <tr><td colspan="5" class="text-muted py-4"><span class="spinner-border spinner-border-sm me-2 text-primary"></span>กำลังประมวลผลข้อมูล...</td></tr>
-          </tbody>
-        </table>
+      <div id="riskCardsContainer" class="p-3 bg-light rounded-bottom-4" style="min-height: 150px;">
+          <div class="text-center text-muted py-4">
+              <div class="spinner-border spinner-border-sm me-2 text-danger"></div>กำลังประมวลผลข้อมูล...
+          </div>
       </div>
 
     </div>

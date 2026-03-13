@@ -2470,6 +2470,9 @@ function getTodayMorningSummary(teacherId, term, year) {
 // ==========================================
 // 🚨 ดึงข้อมูล Dashboard กลุ่มเสี่ยง (0, ร, มส.) สำหรับครู (แก้บัคไม่ทราบชื่อ 100%)
 // ==========================================
+// ==========================================
+// 🚨 ดึงข้อมูล Dashboard กลุ่มเสี่ยง (0, ร, มส.) สำหรับครู (Ultimate Fix: กรองวิชากิจกรรม & กรองวิชาที่ยังไม่กรอกคะแนน)
+// ==========================================
 function getTeacherRiskDashboard(teacherId, term, year) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -2517,17 +2520,36 @@ function getTeacherRiskDashboard(teacherId, term, year) {
     const gradeSheet = ss.getSheetByName("Grade_Summary");
     if (gradeSheet) {
         const gradeData = gradeSheet.getDataRange().getDisplayValues();
+        
+        // 🌟 ด่านที่ 2: วนลูปเช็ค "คะแนนสูงสุด" ของแต่ละรายวิชาก่อน
+        const subjectMaxScore = {};
+        for (let i = 1; i < gradeData.length; i++) {
+            let subCode = String(gradeData[i][1]).trim();
+            let totalScore = parseFloat(gradeData[i][2]) || 0;
+            if (!subjectMaxScore[subCode]) subjectMaxScore[subCode] = 0;
+            if (totalScore > subjectMaxScore[subCode]) subjectMaxScore[subCode] = totalScore;
+        }
+
         for (let i = 1; i < gradeData.length; i++) {
            let safeId = normID(gradeData[i][0]); 
            let subCode = String(gradeData[i][1]).trim();
-           let grade = String(gradeData[i][3]).trim();   // คอลัมน์ D
-           let remark = String(gradeData[i][4] || '').trim(); // คอลัมน์ E
+           let grade = String(gradeData[i][3]).trim();   // คอลัมน์ เกรด
+           let remark = String(gradeData[i][4] || '').trim(); // คอลัมน์ หมายเหตุ (ร, มส)
 
            if (teacherSubjects[subCode]) {
                let riskType = null;
-               if (grade === '0' || grade === '0.0') riskType = '0';
+               
+               // 🌟 ด่านที่ 1: เช็คว่าเป็นวิชากิจกรรมหรือไม่ (ขึ้นต้นด้วย ก. หรือ I.)
+               let isActivitySubject = subCode.startsWith('ก') || subCode.startsWith('I') || subCode.startsWith('i');
+
+               // กฎข้อ 1: ร และ มส ติดได้ทุกวิชา (รวมถึงวิชากิจกรรม)
                if (grade === 'ร' || remark === 'ร') riskType = 'ร';
-               if (grade === 'มส' || remark === 'มส') riskType = 'มส';
+               else if (grade === 'มส' || remark === 'มส') riskType = 'มส';
+               
+               // กฎข้อ 2: แจกเกรด 0 เฉพาะ "วิชาที่ไม่ใช่กิจกรรม" และ "ครูได้เริ่มกรอกคะแนนวิชานี้ไปบ้างแล้ว (MaxScore > 0)"
+               else if (!isActivitySubject && subjectMaxScore[subCode] > 0) {
+                   if (grade === '0' || grade === '0.0') riskType = '0';
+               }
 
                if (riskType) {
                    let key = `${safeId}_${subCode}`;

@@ -184,6 +184,34 @@ function buildScoreSubjectDropdown(subjects) {
   let html = '<option value="">-- เลือกรายวิชาที่ต้องการบันทึก --</option>';
   subjects.forEach(sub => { html += `<option value='${JSON.stringify(sub)}'>${sub[0]} - ${sub[1]} (${sub[2]})</option>`; });
   select.innerHTML = html;
+
+  // 🌟 ดักอ่านโน้ตที่ฝากมาจาก Dashboard
+  let pendingSub = sessionStorage.getItem('pending_score_subject');
+  let pendingClass = sessionStorage.getItem('pending_score_class');
+  
+  if (pendingSub && pendingClass) {
+      let found = false;
+      // วนลูปหาตัวเลือกใน Dropdown ที่ตรงกับวิชาและห้องที่คลิกมา
+      for (let i = 0; i < select.options.length; i++) {
+          if (select.options[i].value) {
+              let valObj = JSON.parse(select.options[i].value);
+              if (valObj[0] === pendingSub && valObj[2] === pendingClass) {
+                  select.selectedIndex = i;
+                  found = true;
+                  break;
+              }
+          }
+      }
+      
+      if (found) {
+          // ถ้าหาเจอ ให้ลบโน้ตทิ้งเพื่อไม่ให้เด้งซ้ำคราวหน้า แล้วสั่งโหลดตารางทันที!
+          sessionStorage.removeItem('pending_score_subject');
+          sessionStorage.removeItem('pending_score_class');
+          
+          // หน่วงเวลา 0.3 วิ เพื่อให้หน้าจอแสดงผลเสร็จก่อนโหลดตาราง (กันบัค UI)
+          setTimeout(loadScoreGrid, 300); 
+      }
+  }
 }
 
 function toggleHeaderEditMode() {
