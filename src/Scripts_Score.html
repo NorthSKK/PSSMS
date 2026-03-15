@@ -1668,16 +1668,18 @@ function renderEvalTable(students, existingQuals) {
   tbody.innerHTML = bodyHtml;
   
   // คำนวณสีและตัวเลขครั้งแรก
+  // 🌟 เพิ่มการส่งค่า true ไปด้วย เพื่อบอกระบบว่า "นี่คือการวาดตารางครั้งแรกนะ อย่าเพิ่ง Auto-save!"
   students.forEach(std => {
-      calcEvalRow(normID(std[0]), 'c');
-      calcEvalRow(normID(std[0]), 'r');
+      calcEvalRow(normID(std[0]), 'c', true);
+      calcEvalRow(normID(std[0]), 'r', true);
   });
 }
 
-function calcEvalRow(safeStdId, type) {
+function calcEvalRow(safeStdId, type, isInit = false) {
     let total = 0;
     for(let i=1; i<=4; i++) {
         let input = document.getElementById(`${type}${i}_${safeStdId}`);
+        if(!input) continue;
         let val = parseFloat(input.value) || 0;
         
         // ดักจับคะแนนเกิน 25 
@@ -1688,7 +1690,8 @@ function calcEvalRow(safeStdId, type) {
     }
     
     // อัปเดตคะแนนรวม
-    document.getElementById(`${type}Tot_${safeStdId}`).innerText = total;
+    let totEl = document.getElementById(`${type}Tot_${safeStdId}`);
+    if(totEl) totEl.innerText = total;
     
     // ตัดเกรด 0-3
     let grade = 0;
@@ -1698,11 +1701,26 @@ function calcEvalRow(safeStdId, type) {
     else grade = 0;
     
     let grdEl = document.getElementById(`${type}Grd_${safeStdId}`);
-    grdEl.innerText = grade;
-    
-    // ไฮไลท์สีเกรด
-    if(grade === 0) grdEl.className = "text-center align-middle fw-bold fs-5 text-danger bg-danger bg-opacity-10";
-    else grdEl.className = "text-center align-middle fw-bold fs-5 text-success";
+    if(grdEl) {
+        grdEl.innerText = grade;
+        // ไฮไลท์สีเกรด
+        if(grade === 0) grdEl.className = "text-center align-middle fw-bold fs-5 text-danger bg-danger bg-opacity-10";
+        else grdEl.className = "text-center align-middle fw-bold fs-5 text-success";
+    }
+
+    // 🌟 เพิ่มระบบ Auto-save 3 วินาที
+    // ถ้าไม่ได้อยู่ในการดึงข้อมูลครั้งแรก (isInit = false) ให้จับเวลาเซฟ
+    if (!isInit) {
+        const btn = document.getElementById('btnSaveScores');
+        if (typeof isHeaderEditMode !== 'undefined' && !isHeaderEditMode && btn) {
+            if (typeof autoSaveTimer !== 'undefined') clearTimeout(autoSaveTimer);
+            btn.innerHTML = '<i class="fas fa-hourglass-half fa-spin me-2"></i>รอเซฟ (3 วิ)...';
+            btn.className = "btn btn-outline-warning text-dark shadow-sm px-4 fw-bold"; 
+            autoSaveTimer = setTimeout(() => { 
+                if (typeof saveAllInOneScores === 'function') saveAllInOneScores(true); 
+            }, 3000); 
+        }
+    }
 }
 
 </script>
