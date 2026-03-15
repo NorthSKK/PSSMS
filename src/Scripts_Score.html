@@ -22,6 +22,19 @@ function initSubjectConfigPage() {
 function buildConfigSubjectDropdown(subjects) {
   const select = document.getElementById('configClassSelect');
   if(subjects.length === 0) { select.innerHTML = `<option value="">⚠️ ไม่พบวิชาในเทอมนี้</option>`; return; }
+
+  // 🧠 สมองกลจัดเรียง: เอาวิชาปกติไว้บน เอากิจกรรม(ก, I) ไว้ล่างสุด และเรียงตามรหัสวิชา -> ห้องเรียน
+  subjects.sort((a, b) => {
+      const codeA = String(a[0] || '').trim();
+      const codeB = String(b[0] || '').trim();
+      const isActA = codeA.startsWith('ก') || codeA.toLowerCase().startsWith('i');
+      const isActB = codeB.startsWith('ก') || codeB.toLowerCase().startsWith('i');
+
+      if (isActA !== isActB) return isActA ? 1 : -1; // แยกกิจกรรมไปไว้ข้างล่าง
+      if (codeA !== codeB) return codeA.localeCompare(codeB, 'th'); // เรียงตามรหัสวิชา
+      return String(a[2] || '').localeCompare(String(b[2] || ''), 'th'); // เรียงตามห้องเรียน
+  });
+
   let html = '<option value="">-- เลือกรายวิชาที่ต้องการตั้งค่า --</option>';
   subjects.forEach(sub => { html += `<option value='${JSON.stringify(sub)}'>${sub[0]} - ${sub[1]} (${sub[2]})</option>`; });
   select.innerHTML = html;
@@ -162,7 +175,22 @@ const normStr = (str) => String(str).replace(/\s+/g, '').toLowerCase();
 function initScoreEntryPage() {
   const user = getSessionUser();
   if(!user) return;
+  
+  // 🌟 [เพิ่มใหม่] โชว์แผงตั้งค่า ปพ.5 หากเป็น Admin
+  if (user.role.toUpperCase() === 'ADMIN') {
+     const adminPanel = document.getElementById('adminPrintSettingsPanel');
+     if (adminPanel) {
+         adminPanel.classList.remove('d-none');
+         // ปิดกล่องให้ยุบไว้ก่อน เพื่อไม่ให้รกหน้าจอ (แอดมินกดกางได้)
+         const collapseEl = document.getElementById('adminSettingsCollapse');
+         if (collapseEl) new bootstrap.Collapse(collapseEl, { toggle: false }).hide();
+         // เรียกฟังก์ชันโหลดข้อมูล
+         if (typeof initPrintSettings === 'function') initPrintSettings();
+     }
+  }
+
   const select = document.getElementById('scoreClassSelect');
+  // ... โค้ดเดิมดึงวิชา ...
   select.innerHTML = `<option value="">⏳ กำลังโหลดวิชา...</option>`;
   
   const subjectCacheKey = `v2_subjects_${user.id}_${user.currentTerm}_${user.currentYear}`;
@@ -181,11 +209,24 @@ function initScoreEntryPage() {
 function buildScoreSubjectDropdown(subjects) {
   const select = document.getElementById('scoreClassSelect');
   if(subjects.length === 0) { select.innerHTML = `<option value="">⚠️ ไม่พบวิชาในเทอมนี้</option>`; return; }
+
+  // 🧠 สมองกลจัดเรียง (ใช้ตรรกะเดียวกัน)
+  subjects.sort((a, b) => {
+      const codeA = String(a[0] || '').trim();
+      const codeB = String(b[0] || '').trim();
+      const isActA = codeA.startsWith('ก') || codeA.toLowerCase().startsWith('i');
+      const isActB = codeB.startsWith('ก') || codeB.toLowerCase().startsWith('i');
+
+      if (isActA !== isActB) return isActA ? 1 : -1; 
+      if (codeA !== codeB) return codeA.localeCompare(codeB, 'th'); 
+      return String(a[2] || '').localeCompare(String(b[2] || ''), 'th'); 
+  });
+
   let html = '<option value="">-- เลือกรายวิชาที่ต้องการบันทึก --</option>';
   subjects.forEach(sub => { html += `<option value='${JSON.stringify(sub)}'>${sub[0]} - ${sub[1]} (${sub[2]})</option>`; });
   select.innerHTML = html;
 
-  // 🌟 ดักอ่านโน้ตที่ฝากมาจาก Dashboard
+  // 🌟 ดักอ่านโน้ตที่ฝากมาจาก Dashboard (ระบบกดวาร์ปจากหน้าแรก)
   let pendingSub = sessionStorage.getItem('pending_score_subject');
   let pendingClass = sessionStorage.getItem('pending_score_class');
   
@@ -1429,6 +1470,112 @@ window.handleExcelPaste = function(e) {
     
     reCalcAllRows();
     if (typeof showToast === 'function') showToast('✅ วางข้อมูลจาก Excel สำเร็จ!', 'success');
+};
+
+// ==========================================
+// 🖨️ ระบบพิมพ์ ปพ.5 (เวอร์ชัน Template - คลีนที่สุด!)
+// ==========================================
+window.preparePrintPorPor5 = function() {
+    const select = document.getElementById('scoreClassSelect');
+    if(!select || !select.value) {
+       showToast('⚠️ กรุณาเลือกวิชาที่ต้องการพิมพ์ก่อนครับ', 'warning');
+       return;
+    }
+    
+    const subjectObj = JSON.parse(select.value);
+    const subCode = subjectObj[0];
+    const subName = subjectObj[1];
+    const className = subjectObj[2];
+    const user = getSessionUser();
+    
+    const btn = document.getElementById('btnPrintPP5');
+    if(btn) btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>กำลังโหลดฟอร์ม...';
+    
+    // ดึงสถิติ
+    let stats = { grade: {'4':0, '3.5':0, '3':0, '2.5':0, '2':0, '1.5':0, '1':0, '0':0, 'ร':0, 'มส':0}, read: {'3':0, '2':0, '1':0, '0':0}, char: {'3':0, '2':0, '1':0, '0':0}, total: 0 };
+    let hasQualData = false;
+    let students = []; 
+    
+    document.querySelectorAll('#scoreTableBody tr').forEach(tr => {
+       let no = tr.querySelector('.sticky-col-1')?.innerText.trim();
+       let nameBox = tr.querySelector('.sticky-col-2 .fw-bold') || tr.querySelector('.sticky-col-2');
+       let name = nameBox ? nameBox.innerText.trim() : '';
+       if(!no || !name) return; 
+       
+       stats.total++; 
+       students.push({ no: no, name: name });
+       
+       const g = tr.querySelector('.score-grade')?.innerText.trim();
+       if(stats.grade[g] !== undefined) stats.grade[g]++;
+       
+       const r = tr.querySelector('.qual-read')?.value;
+       if(r !== undefined && r !== "") { stats.read[r]++; hasQualData = true; }
+       
+       const c = tr.querySelector('.qual-char')?.value;
+       if(c !== undefined && c !== "") { stats.char[c]++; hasQualData = true; }
+    });
+    
+    // ดึงตั้งค่าจากหลังบ้าน แล้วส่งไปเข้าเครื่องผลิต Template
+    google.script.run.withSuccessHandler(res => {
+         const sys = res.sys || {};
+         const hrList = res.hr || [];
+         
+         let t1 = "..........................................................", t2 = "..........................................................";
+         const hrMatch = hrList.find(h => h.cls === className);
+         if(hrMatch) { t1 = hrMatch.t1 || t1; t2 = hrMatch.t2 || t2; }
+         
+         const c = subCode.charAt(0);
+         let deptName = ".......................................................";
+         let headName = sys.academic_head || "..........................................................";
+         if(c === 'ท') { deptName = 'ภาษาไทย'; headName = sys.head_thai; }
+         else if(c === 'ค') { deptName = 'คณิตศาสตร์'; headName = sys.head_math; }
+         else if(c === 'ว') { deptName = 'วิทยาศาสตร์และเทคโนโลยี'; headName = sys.head_sci; }
+         else if(c === 'ส') { deptName = 'สังคมศึกษา ศาสนา และวัฒนธรรม'; headName = sys.head_soc; }
+         else if(c === 'พ') { deptName = 'สุขศึกษาและพลศึกษา'; headName = sys.head_pe; }
+         else if(c === 'ศ') { deptName = 'ศิลปะ'; headName = sys.head_art; }
+         else if(c === 'ง') { deptName = 'การงานอาชีพ'; headName = sys.head_occ; }
+         else if(c === 'อ') { deptName = 'ภาษาต่างประเทศ'; headName = sys.head_eng; }
+         else if(c === 'ก' || c === 'I' || c === 'i') { deptName = 'กิจกรรมพัฒนาผู้เรียน'; headName = sys.head_act; }
+
+         const isJunior = className.includes('ม.1') || className.includes('ม.2') || className.includes('ม.3');
+
+         // 📦 จัดของใส่กล่อง เตรียมส่งไปให้ Template หลังบ้าน
+         const payload = {
+             subCode: subCode, subName: subName, className: className, classNum: className.replace('ม.', ''),
+             user: user, sys: sys, stats: stats, students: students,
+             t1: t1, t2: t2, deptName: deptName, headName: headName,
+             p_name: sys.principal_name || '..........................................................',
+             m_head: sys.measure_head || '..........................................................',
+             a_head: sys.academic_head || '..........................................................',
+             checkJunior: isJunior ? '<span style="font-size: 16pt;">☑</span>' : '<span style="font-size: 18pt;">☐</span>',
+             checkSenior: !isJunior ? '<span style="font-size: 16pt;">☑</span>' : '<span style="font-size: 18pt;">☐</span>'
+         };
+
+         // 🚀 ส่งไปประมวลผลที่ Code.js แล้วเอา HTML ที่เสร็จแล้วมาเปิดหน้าต่างใหม่
+         google.script.run
+         .withSuccessHandler(html => {
+             // ถ้าสำเร็จ ให้คืนค่าปุ่มกลับมาและเปิดหน้าปริ้นท์
+             if(btn) btn.innerHTML = '<i class="fas fa-print me-1"></i> <span class="d-none d-sm-inline">พิมพ์ ปพ.5</span>';
+             
+             const printWindow = window.open('', '_blank');
+             printWindow.document.write(html);
+             printWindow.document.close();
+             
+             setTimeout(() => {
+                 printWindow.focus();
+                 printWindow.print();
+             }, 1000);
+         })
+         .withFailureHandler(err => {
+             // 🚨 ถ้า Error ให้แจ้งเตือนและคืนค่าปุ่ม
+             if(btn) btn.innerHTML = '<i class="fas fa-print me-1"></i> <span class="d-none d-sm-inline">พิมพ์ ปพ.5</span>';
+             showToast('❌ Error ระบบหลังบ้าน: ' + err.message, 'danger');
+             console.error('รายละเอียด Error:', err);
+             alert('เกิดข้อผิดพลาดในการสร้างฟอร์ม ปพ.5:\n\n' + err.message + '\n\n(กรุณาเช็คชื่อไฟล์ Template_PP5 หรือไฟล์ Code.js ว่าบันทึกแล้วหรือไม่)');
+         })
+         .generatePP5Template(payload);
+
+    }).getPrintConfigData(user.currentTerm, user.currentYear);
 };
 
 </script>

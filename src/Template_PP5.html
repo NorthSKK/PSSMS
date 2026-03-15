@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <title>พิมพ์ ปพ.5 - <?= data.subName ?> (<?= data.className ?>)</title>
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Sarabun', sans-serif; background: #525659; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+        .a4-page { width: 210mm; min-height: 297mm; background: white; padding: 12mm 15mm; margin-bottom: 20px; box-sizing: border-box; box-shadow: 0 4px 15px rgba(0,0,0,0.3); color: black; position: relative; }
+        .text-center { text-align: center; }
+        .text-end { text-align: right; }
+        .fw-bold { font-weight: 700; }
+        .fw-semibold { font-weight: 600; }
+        .print-table { width: 100%; border-collapse: collapse; margin-bottom: 15px; font-size: 12pt; border: 1.5px solid black; }
+        .print-table th, .print-table td { border: 1px solid black; padding: 6px 4px; text-align: center; vertical-align: middle; line-height: 1.1; }
+        
+        /* 🌟 อัปเดต: เพิ่ม print-color-adjust เพื่อรองรับทุกเบราว์เซอร์ */
+        .print-table th { 
+            background-color: #f2f2f2 !important; 
+            -webkit-print-color-adjust: exact; /* สำหรับ Chrome, Safari, Edge */
+            print-color-adjust: exact;         /* มาตรฐานสากล สำหรับ Firefox และเบราว์เซอร์ใหม่ๆ */
+            font-weight: 600; 
+        }
+        
+        .print-table-sm th, .print-table-sm td { padding: 4px 2px; font-size: 10pt; }
+        .dot-line { border-bottom: 1px dotted black; display: inline-block; min-width: 50px; text-align: center; }
+        .sign-line { border-bottom: 1px dotted black; display: inline-block; width: 180px; text-align: center; margin: 0 5px; }
+        
+        @media print {
+            body { background: white; padding: 0; display: block; }
+            .a4-page { margin: 0; padding: 10mm; box-shadow: none; page-break-after: always; width: 100%; min-height: 100vh; }
+            @page { size: A4 portrait; margin: 0mm; }
+        }
+    </style>
+</head>
+<body>
+    <div class="a4-page" style="font-size: 14pt;">
+        <div class="text-end fw-bold" style="font-size: 18pt;">ปพ.๕</div>
+        <div class="text-center fw-bold" style="font-size: 18pt; margin-top: 5px; letter-spacing: 1px;">แบบบันทึกผลการพัฒนาคุณภาพผู้เรียน</div>
+        
+        <div class="text-center" style="margin-top: 8px;">
+            ระดับชั้นมัธยมศึกษา &nbsp;&nbsp;&nbsp; 
+            <span style="display:inline-flex; align-items:center; gap:5px;"><?!= data.checkJunior ?> ตอนต้น</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
+            <span style="display:inline-flex; align-items:center; gap:5px;"><?!= data.checkSenior ?> ตอนปลาย</span>
+        </div>
+        <div class="text-center" style="margin-top: 5px; margin-bottom: 25px;">ชั้นมัธยมศึกษาปีที่ <span class="fw-bold"><?= data.classNum ?></span></div>
+        
+        <div class="text-center fw-bold" style="font-size: 16pt;"><?= data.sys.school_name || 'โรงเรียนภูพระบาทวิทยา' ?></div>
+        <div class="text-center mb-4">อำเภอบ้านผือ &nbsp;&nbsp;&nbsp;&nbsp; จังหวัดอุดรธานี</div>
+        
+        <div style="margin-top: 25px; margin-left: 50px; line-height: 2.2;">
+            <div>รายวิชา <span class="dot-line fw-bold px-2" style="width: 250px;"><?= data.subName ?></span> รหัสวิชา <span class="dot-line fw-bold px-2" style="width: 120px;"><?= data.subCode ?></span></div>
+            <div>ภาคเรียนที่ <span class="dot-line fw-bold px-2" style="width: 60px;"><?= data.user.currentTerm ?></span> ปีการศึกษา <span class="dot-line fw-bold px-2" style="width: 100px;"><?= data.user.currentYear ?></span></div>
+            <div>กลุ่มสาระการเรียนรู้ <span class="dot-line fw-bold px-2" style="width: 320px;"><?= data.deptName ?></span></div>
+            
+            <div style="margin-top: 15px;">ครูผู้สอน <span class="dot-line fw-bold px-2" style="width: 380px;"><?= data.user.name ?></span></div>
+            <div style="display: flex; margin-top: 5px;">
+                <div style="width: 90px;">ครูที่ปรึกษา</div>
+                <div>
+                    <div>1. <span class="dot-line fw-bold px-2" style="width: 350px;"><?= data.t1 ?></span></div>
+                    <div>2. <span class="dot-line fw-bold px-2" style="width: 350px;"><?= data.t2 ?></span></div>
+                </div>
+            </div>
+        </div>
+        
+        <div style="margin-top: 25px;">
+            <table class="print-table mb-4">
+                <thead>
+                    <tr><th rowspan="3" style="width: 20%;">จำนวนนักเรียน<br>ทั้งหมด</th><th colspan="10">สรุปผลการเรียน</th><th rowspan="3" style="width: 15%;">หมายเหตุ</th></tr>
+                    <tr><th colspan="10">จำนวนนักเรียนที่ได้รับระดับผลการเรียน</th></tr>
+                    <tr><th>4</th><th>3.5</th><th>3</th><th>2.5</th><th>2</th><th>1.5</th><th>1</th><th>0</th><th>ร</th><th>มส</th></tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="fw-bold" style="font-size: 14pt;"><?= data.stats.total ?></td>
+                        <td><?= data.stats.grade['4'] || 0 ?></td><td><?= data.stats.grade['3.5'] || 0 ?></td><td><?= data.stats.grade['3'] || 0 ?></td>
+                        <td><?= data.stats.grade['2.5'] || 0 ?></td><td><?= data.stats.grade['2'] || 0 ?></td><td><?= data.stats.grade['1.5'] || 0 ?></td>
+                        <td><?= data.stats.grade['1'] || 0 ?></td><td><?= data.stats.grade['0'] || 0 ?></td><td><?= data.stats.grade['ร'] || 0 ?></td><td><?= data.stats.grade['มส'] || 0 ?></td>
+                        <td></td>
+                    </tr>
+                </tbody>
+            </table>
+            
+            <div style="display: flex; gap: 15px;">
+                <table class="print-table" style="width: 50%;">
+                    <thead>
+                        <tr><th colspan="4">คุณลักษณะอันพึงประสงค์</th></tr>
+                        <tr><th>ดีเยี่ยม</th><th>ดี</th><th>ผ่าน</th><th>ควรปรับปรุง</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td><?= data.stats.char['3'] || 0 ?></td><td><?= data.stats.char['2'] || 0 ?></td><td><?= data.stats.char['1'] || 0 ?></td><td><?= data.stats.char['0'] || 0 ?></td></tr>
+                    </tbody>
+                </table>
+
+                <table class="print-table" style="width: 50%;">
+                    <thead>
+                        <tr><th colspan="4">การอ่าน คิดวิเคราะห์ เขียน</th></tr>
+                        <tr><th>ดีเยี่ยม</th><th>ดี</th><th>ผ่าน</th><th>ควรปรับปรุง</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td><?= data.stats.read['3'] || 0 ?></td><td><?= data.stats.read['2'] || 0 ?></td><td><?= data.stats.read['1'] || 0 ?></td><td><?= data.stats.read['0'] || 0 ?></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <div style="margin-top: 35px; font-size: 13pt;">
+            <div class="fw-bold" style="text-decoration: underline; margin-bottom: 20px;">การอนุมัติผลการเรียน</div>
+            
+            <div style="display: flex; justify-content: space-between; padding: 0 20px; margin-bottom: 25px;">
+                <div class="text-center">
+                    <div>ลงชื่อ <span class="sign-line"></span> ครูผู้สอน</div>
+                    <div style="margin-top: 5px;">( <?= data.user.name ?> )</div>
+                </div>
+                <div class="text-center">
+                    <div>ลงชื่อ <span class="sign-line"></span> หัวหน้ากลุ่มสาระฯ</div>
+                    <div style="margin-top: 5px;">( <span class="dot-line" style="width: 150px; border:none;"><?= data.headName ?></span> )</div>
+                </div>
+            </div>
+
+            <div class="text-center" style="margin-bottom: 30px;">
+                <div>ลงชื่อ <span class="sign-line"></span> หัวหน้างานวัดและประเมินผล</div>
+                <div style="margin-top: 5px;">( <span class="dot-line" style="width: 150px; border:none;"><?= data.m_head ?></span> )</div>
+            </div>
+
+            <div style="display: flex; margin-left: 20px; border: 1px solid #ddd; padding: 15px; border-radius: 8px; background: #fafafa;">
+                <div style="width: 90px; font-weight: bold;">เรียนเสนอ</div>
+                <div style="flex-grow: 1;">
+                    <div style="margin-bottom: 10px;">ผู้อำนวยการโรงเรียน</div>
+                    <div style="margin-bottom: 15px; margin-left: 20px;">เพื่อโปรดพิจารณา</div>
+                    
+                    <div style="display: flex; justify-content: space-around; margin-bottom: 20px;">
+                        <div class="text-center">
+                            <div style="margin-bottom: 15px;">
+                                <span style="font-size: 16pt; vertical-align: middle;">☐</span> ควรอนุมัติ
+                            </div>
+                            <div>ลงชื่อ <span class="sign-line"></span></div>
+                            <div style="margin-top: 5px;">( <span class="dot-line" style="width: 150px; border:none;"><?= data.a_head ?></span> )</div>
+                            <div style="font-size: 11pt; margin-top: 3px;">รองผู้อำนวยการ / หัวหน้ากลุ่มงานวิชาการ</div>
+                        </div>
+
+                        <div class="text-center border-start ps-4" style="border-left: 1px solid #ccc;">
+                            <div style="margin-bottom: 15px; display: flex; justify-content: center; gap: 20px;">
+                                <span><span style="font-size: 16pt; vertical-align: middle;">☐</span> อนุมัติ</span>
+                                <span><span style="font-size: 16pt; vertical-align: middle;">☐</span> ไม่อนุมัติ</span>
+                            </div>
+                            <div>ลงชื่อ <span class="sign-line"></span></div>
+                            <div style="margin-top: 5px;">( <span class="dot-line" style="width: 150px; border:none;"><?= data.p_name ?></span> )</div>
+                            <div style="font-size: 11pt; margin-top: 3px;">ผู้อำนวยการโรงเรียน</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="a4-page">
+        <div class="text-center fw-bold" style="font-size: 16pt; margin-bottom: 20px; letter-spacing: 1px;">บันทึกเวลาเรียน</div>
+        
+        <div style="display: flex; justify-content: space-between; font-size: 12pt; margin-bottom: 15px; align-items: flex-end;">
+            <div style="line-height: 2;">
+                วิชา <span class="fw-bold dot-line" style="width: 250px;"><?= data.subName ?></span> 
+                รหัสวิชา <span class="fw-bold dot-line" style="width: 100px;"><?= data.subCode ?></span><br>
+                ภาคเรียนที่ <span class="fw-bold dot-line text-center" style="width: 40px;"><?= data.user.currentTerm ?></span> 
+                ปีการศึกษา <span class="fw-bold dot-line text-center" style="width: 60px;"><?= data.user.currentYear ?></span>
+            </div>
+            <div class="text-end" style="line-height: 2; border: 1px solid #ccc; padding: 5px 15px; border-radius: 6px; background: #fafafa;">
+                สัดส่วนเวลาเรียนเต็ม <span class="dot-line" style="width: 40px;"></span> คาบ<br>
+                <span class="fw-semibold">ร้อยละ 80</span> <span class="dot-line" style="width: 30px;"></span> คาบ &nbsp;|&nbsp;
+                <span class="fw-semibold">ร้อยละ 60</span> <span class="dot-line" style="width: 30px;"></span> คาบ
+            </div>
+        </div>
+
+        <table class="print-table print-table-sm" style="width: 100%;">
+            <thead>
+                <tr>
+                    <th rowspan="4" style="width: 35px;">เลขที่</th>
+                    <th rowspan="4" style="width: 180px;">ชื่อ - สกุล</th>
+                    <th style="width: 60px; font-size: 9pt; border-bottom: 2px solid #aaa !important;">สัปดาห์ที่</th>
+                    <? for(let c=0; c<20; c++) { ?><th style="width: 18px;"></th><? } ?>
+                    <th rowspan="4" style="width: 45px; font-size: 10pt;">เวลา<br>เรียน<br>เต็ม</th>
+                    <th rowspan="4" style="width: 40px; font-size: 10pt;">ขาด</th>
+                    <th rowspan="4" style="width: 50px; font-size: 10pt;">หมาย<br>เหตุ</th>
+                </tr>
+                <tr><th style="font-size: 9pt; background: #fdfdfd !important;">เดือน</th><? for(let c=0; c<20; c++) { ?><th></th><? } ?></tr>
+                <tr><th style="font-size: 9pt; background: #fdfdfd !important;">วันที่</th><? for(let c=0; c<20; c++) { ?><th></th><? } ?></tr>
+                <tr><th style="font-size: 9pt; background: #fdfdfd !important;">คาบที่</th><? for(let c=0; c<20; c++) { ?><th></th><? } ?></tr>
+            </thead>
+            <tbody>
+                <? for(let i=0; i < data.students.length; i++) { ?>
+                <tr>
+                    <td class="fw-bold"><?= data.students[i].no ?></td>
+                    <td style="text-align: left; padding-left: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 250px;"><?= data.students[i].name ?></td>
+                    <td style="background: #fdfdfd !important;"></td>
+                    <? for(let c=0; c<20; c++) { ?><td></td><? } ?>
+                    <td style="background: #f8f9fa !important;"></td>
+                    <td style="background: #fff0f0 !important;"></td>
+                    <td></td>
+                </tr>
+                <? } ?>
+            </tbody>
+        </table>
+    </div>
+</body>
+</html>

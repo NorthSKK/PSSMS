@@ -1519,6 +1519,113 @@ function setupPorPor5Database() {
 }
 
 // ==========================================
+// ระบบตั้งค่าการพิมพ์ ปพ.5 (ผู้ลงนาม & ครูที่ปรึกษา)
+// ==========================================
+
+// 1. ฟังก์ชันดึงข้อมูลการตั้งค่า (ถ้าชีตไม่มี ระบบจะสร้างให้ทันที)
+function getPrintConfigData(term, year) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName('Print_Config');
+  
+  // ถ้ายังไม่มีชีต ให้สร้างใหม่
+  if (!sheet) {
+     sheet = ss.insertSheet('Print_Config');
+     sheet.appendRow(['term', 'year', 'sys_data_json', 'homeroom_data_json']);
+  }
+  
+  const data = sheet.getDataRange().getValues();
+  
+  // ค้นหาข้อมูลของเทอมและปีที่ระบุ
+  for (let i = 1; i < data.length; i++) {
+     if (String(data[i][0]) === String(term) && String(data[i][1]) === String(year)) {
+         return {
+             status: 'success',
+             sys: JSON.parse(data[i][2] || '{}'),
+             hr: JSON.parse(data[i][3] || '[]')
+         };
+     }
+  }
+  
+  // ถ้าไม่เจอของเทอมนี้ ให้ส่งค่าว่างๆ กลับไป (หรือค่าเริ่มต้น)
+  return { 
+     status: 'success', 
+     sys: { school_name: 'โรงเรียนภูพระบาทวิทยา', principal_name: '', measure_head: '', academic_head: '' }, 
+     hr: [] 
+  };
+}
+
+// 2. ฟังก์ชันบันทึกข้อมูลการตั้งค่า
+function savePrintConfigData(payload) {
+  const lock = LockService.getScriptLock();
+  try {
+     lock.waitLock(10000);
+     const ss = SpreadsheetApp.getActiveSpreadsheet();
+     let sheet = ss.getSheetByName('Print_Config');
+     
+     if (!sheet) {
+         sheet = ss.insertSheet('Print_Config');
+         sheet.appendRow(['term', 'year', 'sys_data_json', 'homeroom_data_json']);
+     }
+     
+     const data = sheet.getDataRange().getValues();
+     let found = false;
+     
+     // วนหาว่าเคยมีข้อมูลเทอม/ปีนี้หรือยัง ถ้ามีให้เซฟทับบรรทัดเดิม
+     for (let i = 1; i < data.length; i++) {
+         if (String(data[i][0]) === String(payload.term) && String(data[i][1]) === String(payload.year)) {
+             sheet.getRange(i + 1, 3).setValue(JSON.stringify(payload.sys));
+             sheet.getRange(i + 1, 4).setValue(JSON.stringify(payload.hr));
+             found = true; 
+             break;
+         }
+     }
+     
+     // ถ้าไม่เคยมี ให้ขึ้นบรรทัดใหม่
+     if (!found) {
+         sheet.appendRow([payload.term, payload.year, JSON.stringify(payload.sys), JSON.stringify(payload.hr)]);
+     }
+     
+     return { status: 'success', message: `✅ บันทึกตั้งค่า ปพ.5 ของภาคเรียนที่ ${payload.term}/${payload.year} เรียบร้อย!` };
+  } catch(e) {
+     return { status: 'error', message: e.message };
+  } finally {
+     lock.releaseLock();
+  }
+}
+
+// ==========================================
+// 🧑‍🏫 ดึงรายชื่อครูทั้งหมดไปทำ Dropdown (สำหรับตั้งค่า ปพ.5)
+// ==========================================
+function getTeacherListForDropdown() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName("User_Database");
+  if (!sheet) return [];
+  
+  const data = sheet.getDataRange().getValues();
+  const teachers = [];
+  
+  // วนลูปดึงเฉพาะชื่อ-สกุล (คอลัมน์ Index 2) ของคนที่เป็น Teacher หรือ Admin
+  for (let i = 1; i < data.length; i++) {
+    const role = String(data[i][3]).trim().toUpperCase();
+    if (role === 'TEACHER') {
+      teachers.push(String(data[i][2]).trim()); 
+    }
+  }
+  
+  // เรียงลำดับชื่อ ก-ฮ ให้หาใน Dropdown ง่ายๆ
+  return teachers.sort((a, b) => a.localeCompare(b, 'th')); 
+}
+
+// ==========================================
+// 🖨️ รวมร่าง HTML Template ปพ.5
+// ==========================================
+function generatePP5Template(payload) {
+  const template = HtmlService.createTemplateFromFile('Template_PP5');
+  template.data = payload;
+  return template.evaluate().getContent();
+}
+
+// ==========================================
 // 12. LESSON RECORD & FILE UPLOAD (บันทึกหลังสอนแบบละเอียด)
 // ==========================================
 

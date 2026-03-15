@@ -1,7 +1,7 @@
-<div class="container-fluid">
+<div class="container-fluid py-4 animate__animated animate__fadeIn">
   <h4 class="mb-4"><i class="fas fa-cogs text-secondary"></i> ตั้งค่าระบบ</h4>
 
-  <div class="row">
+  <div class="row mb-4">
     <div class="col-md-7">
       <div class="card shadow-sm border-0">
         <div class="card-header bg-primary text-white">
@@ -40,8 +40,8 @@
             </div>
 
             <hr>
-            <button type="button" class="btn btn-primary w-100 py-2" onclick="saveConfig()">
-              <i class="fas fa-save me-2"></i> บันทึกการเปลี่ยนแปลงและระยะเวลาเทอม
+            <button type="button" class="btn btn-primary w-100 py-2 fw-bold" onclick="saveConfig()">
+              <i class="fas fa-save me-2"></i> บันทึกการเปลี่ยนแปลงภาคเรียน
             </button>
           </form>
         </div>
@@ -71,4 +71,74 @@
        </div>
     </div>
   </div>
+
+  <h5 class="mb-3 mt-5 border-bottom pb-2 text-primary fw-bold">
+    <i class="fas fa-print me-2"></i> ตั้งค่าการพิมพ์ ปพ.5 (รายชื่อและผู้ลงนาม)
+  </h5>
+  
+  <div class="row g-4">
+    <div class="col-xl-4">
+      <div class="card shadow-sm border-0 h-100">
+        <div class="card-header bg-white fw-bold py-3 border-bottom-0">
+          <i class="fas fa-signature text-warning me-2"></i>ข้อมูลผู้ลงนาม
+        </div>
+        <div class="card-body bg-light rounded-bottom">
+          <form id="formSignatory">
+            <div class="mb-3">
+              <label class="form-label small fw-bold text-muted">ชื่อโรงเรียน</label>
+              <input type="text" class="form-control shadow-sm border-0" id="cfg_school_name" value="โรงเรียนภูพระบาทวิทยา">
+            </div>
+            <div class="mb-3">
+              <label class="form-label small fw-bold text-muted">ผู้อำนวยการโรงเรียน</label>
+              <input type="text" class="form-control shadow-sm border-0" id="cfg_principal_name" placeholder="นาย/นาง/นางสาว...">
+            </div>
+            <div class="mb-3">
+              <label class="form-label small fw-bold text-muted">หัวหน้างานการวัดและประเมินผล</label>
+              <input type="text" class="form-control shadow-sm border-0" id="cfg_measure_head" placeholder="นาย/นาง/นางสาว...">
+            </div>
+            <div class="mb-3">
+              <label class="form-label small fw-bold text-muted">หัวหน้าวิชาการ (หรือตัวแทนหัวหน้ากลุ่มสาระ)</label>
+              <input type="text" class="form-control shadow-sm border-0" id="cfg_academic_head" placeholder="นาย/นาง/นางสาว...">
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-xl-8">
+      <div class="card shadow-sm border-0 h-100">
+        <div class="card-header bg-white fw-bold py-3 d-flex justify-content-between align-items-center border-bottom-0">
+          <div><i class="fas fa-chalkboard-teacher text-success me-2"></i>ครูที่ปรึกษาประจำชั้น</div>
+          <button type="button" class="btn btn-sm btn-outline-success rounded-pill fw-bold px-3 shadow-sm" onclick="addHomeroomRow()">
+            <i class="fas fa-plus me-1"></i>เพิ่มห้องเรียน
+          </button>
+        </div>
+        <div class="card-body bg-light rounded-bottom p-0">
+          <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+            <table class="table table-hover align-middle mb-0 border-top bg-white">
+              <thead class="table-secondary sticky-top">
+                <tr>
+                  <th class="text-center" style="width: 60px;">ที่</th>
+                  <th style="width: 150px;">ชั้นเรียน</th>
+                  <th>ครูที่ปรึกษาคนที่ 1</th>
+                  <th>ครูที่ปรึกษาคนที่ 2 (ถ้ามี)</th>
+                  <th class="text-center" style="width: 60px;">ลบ</th>
+                </tr>
+              </thead>
+              <tbody id="homeroomTableBody">
+                <tr><td colspan="5" class="text-center p-4"><div class="spinner-border spinner-border-sm text-primary"></div> กำลังโหลดข้อมูล...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="text-end mt-4 mb-5">
+    <button type="button" class="btn btn-primary rounded-pill shadow px-5 py-2 fw-bold fs-6" id="btnSaveConfigAll" onclick="saveAllPrintConfig()">
+      <i class="fas fa-save me-2"></i>บันทึกการตั้งค่า ปพ.5
+    </button>
+  </div>
+
 </div>

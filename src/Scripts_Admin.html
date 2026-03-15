@@ -368,4 +368,171 @@ function switchTimetableView(mode) {
     document.getElementById('btnListView').classList.remove('active'); document.getElementById('btnGridView').classList.add('active'); 
   }
 }
+
+// ==========================================
+// 🖨️ โค้ดควบคุมหน้าตั้งค่า ปพ.5
+// ==========================================
+
+window.allTeacherNames = []; // ตัวแปรกลางไว้เก็บรายชื่อครู
+
+// 1. โหลดข้อมูลตามเทอมและปีที่เลือก
+function initPrintSettings() {
+    const term = document.getElementById('inputTerm')?.value || (window.currentUser ? window.currentUser.currentTerm : '1');
+    const year = document.getElementById('inputYear')?.value || (window.currentUser ? window.currentUser.currentYear : '2568');
+
+    google.script.run.withSuccessHandler(teachers => {
+        window.allTeacherNames = teachers; 
+        
+        // สร้าง Dropdown ใส่ทุกช่องที่มีคลาส head-dept-select (รวม ผอ. งานวัดผล และ 8 กลุ่มสาระ)
+        let deptOptions = `<option value="">-- เลือกรายชื่อ --</option>`;
+        teachers.forEach(t => deptOptions += `<option value="${t}">${t}</option>`);
+        document.querySelectorAll('.head-dept-select').forEach(el => el.innerHTML = deptOptions);
+        
+        google.script.run.withSuccessHandler(res => {
+            if(res.status === 'success') {
+                document.getElementById('cfg_school_name').value = res.sys.school_name || 'โรงเรียนภูพระบาทวิทยา';
+                
+                // รายชื่อที่จะดึงมาใส่ Dropdown
+                const selectIds = [
+                    'principal_name', 'measure_head', 
+                    'head_thai', 'head_math', 'head_sci', 'head_soc', 
+                    'head_pe', 'head_art', 'head_occ', 'head_eng', 'head_act'
+                ];
+
+                selectIds.forEach(id => {
+                    const el = document.getElementById(`cfg_${id}`);
+                    const savedVal = res.sys[id] || '';
+                    if (el) {
+                        // ถ้าชื่อที่เคยเซฟไว้ โดนลบออกจากระบบไปแล้ว ให้มันยังโชว์อยู่ได้
+                        if (savedVal && !teachers.includes(savedVal)) {
+                            el.innerHTML += `<option value="${savedVal}" selected>${savedVal} (ไม่มีในระบบ)</option>`;
+                        } else {
+                            el.value = savedVal;
+                        }
+                    }
+                });
+
+                const tbody = document.getElementById('homeroomTableBody');
+                tbody.innerHTML = '';
+                
+                if(res.hr.length === 0) {
+                    addHomeroomRow('ม.1/1', '', ''); 
+                } else {
+                    res.hr.forEach(r => addHomeroomRow(r.cls, r.t1, r.t2));
+                }
+            }
+        }).getPrintConfigData(term, year);
+
+    }).getTeacherListForDropdown();
+}
+
+// 2. ฟังก์ชันวาดแถวครูที่ปรึกษา (แปลงจาก Input เป็น Select)
+function addHomeroomRow(cls = '', t1 = '', t2 = '') {
+    const tbody = document.getElementById('homeroomTableBody');
+    if (tbody.querySelector('td[colspan="5"]')) tbody.innerHTML = ''; 
+    
+    const rowCount = tbody.querySelectorAll('tr').length + 1;
+    const tr = document.createElement('tr');
+    tr.className = "bg-white";
+
+    // 🌟 สร้างตัวเลือก Dropdown
+    let optionsT1 = `<option value="">-- เลือกครูที่ปรึกษา --</option>`;
+    let optionsT2 = `<option value="">-- เลือกครูที่ปรึกษา --</option>`;
+    
+    window.allTeacherNames.forEach(name => {
+        const sel1 = (name === t1) ? 'selected' : '';
+        const sel2 = (name === t2) ? 'selected' : '';
+        optionsT1 += `<option value="${name}" ${sel1}>${name}</option>`;
+        optionsT2 += `<option value="${name}" ${sel2}>${name}</option>`;
+    });
+
+    // 🛡️ ท่าไม้ตาย: ถ้าชื่อครูเดิมถูกลบออกจากฐานข้อมูลไปแล้ว ก็ยังให้แสดงชื่อเดิมอยู่ จะได้ไม่หาย!
+    if (t1 && !window.allTeacherNames.includes(t1)) optionsT1 += `<option value="${t1}" selected>${t1} (ไม่อยู่ในระบบ)</option>`;
+    if (t2 && !window.allTeacherNames.includes(t2)) optionsT2 += `<option value="${t2}" selected>${t2} (ไม่อยู่ในระบบ)</option>`;
+
+    tr.innerHTML = `
+        <td class="text-center text-muted fw-bold align-middle">${rowCount}</td>
+        <td><input type="text" class="form-control form-control-sm hr-cls fw-bold text-primary" value="${cls}" placeholder="เช่น ม.1/1"></td>
+        <td><select class="form-select form-select-sm hr-t1 shadow-none border-secondary">${optionsT1}</select></td>
+        <td><select class="form-select form-select-sm hr-t2 shadow-none border-secondary">${optionsT2}</select></td>
+        <td class="text-center align-middle">
+            <button class="btn btn-sm btn-outline-danger border-0" onclick="this.closest('tr').remove(); renumberHomeroomRows();" title="ลบห้องนี้">
+            <i class="fas fa-trash"></i>
+            </button>
+        </td>
+    `;
+    tbody.appendChild(tr);
+}
+
+function renumberHomeroomRows() {
+    const rows = document.querySelectorAll('#homeroomTableBody tr');
+    rows.forEach((row, index) => {
+        const td = row.querySelector('td:first-child');
+        if(td) td.innerText = index + 1;
+    });
+}
+
+function saveAllPrintConfig() {
+    const btn = document.getElementById('btnSaveConfigAll');
+    const originalHTML = btn.innerHTML;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>กำลังบันทึก...';
+    btn.disabled = true;
+
+    const term = document.getElementById('inputTerm')?.value || (window.currentUser ? window.currentUser.currentTerm : '1');
+    const year = document.getElementById('inputYear')?.value || (window.currentUser ? window.currentUser.currentYear : '2568');
+
+    // เก็บข้อมูลลง Object ทั้งหมด
+    const sysObj = {
+        school_name: document.getElementById('cfg_school_name').value.trim(),
+        principal_name: document.getElementById('cfg_principal_name').value,
+        measure_head: document.getElementById('cfg_measure_head').value,
+        head_thai: document.getElementById('cfg_head_thai').value,
+        head_math: document.getElementById('cfg_head_math').value,
+        head_sci: document.getElementById('cfg_head_sci').value,
+        head_soc: document.getElementById('cfg_head_soc').value,
+        head_pe: document.getElementById('cfg_head_pe').value,
+        head_art: document.getElementById('cfg_head_art').value,
+        head_occ: document.getElementById('cfg_head_occ').value,
+        head_eng: document.getElementById('cfg_head_eng').value,
+        head_act: document.getElementById('cfg_head_act').value
+    };
+
+    const hrList = [];
+    document.querySelectorAll('#homeroomTableBody tr').forEach(row => {
+        const clsInput = row.querySelector('.hr-cls');
+        if(clsInput) {
+            const cls = clsInput.value.trim();
+            const t1 = row.querySelector('.hr-t1').value;
+            const t2 = row.querySelector('.hr-t2').value;
+            if(cls !== '') hrList.push({ cls: cls, t1: t1, t2: t2 });
+        }
+    });
+
+    const payload = { term: term, year: year, sys: sysObj, hr: hrList };
+
+    google.script.run
+    .withFailureHandler(err => {
+        btn.innerHTML = originalHTML; btn.disabled = false;
+        showToast('❌ ขัดข้อง: ' + err.message, 'danger');
+    })
+    .withSuccessHandler(res => {
+        btn.innerHTML = originalHTML; btn.disabled = false;
+        if(res.status === 'success') showToast(res.message, 'success');
+        else showToast('❌ ขัดข้อง: ' + res.message, 'danger');
+    })
+    .savePrintConfigData(payload);
+}
+
+// ==========================================
+// 💡 ทริกเสริม: เมื่อแอดมินเปลี่ยน เทอม หรือ ปี ด้านบน ให้ดึงข้อมูล ปพ.5 ของเทอมนั้นมาโชว์ทันที
+// ==========================================
+document.getElementById('inputTerm')?.addEventListener('change', initPrintSettings);
+document.getElementById('inputYear')?.addEventListener('blur', initPrintSettings);
+
+setTimeout(() => {
+    if (document.getElementById('homeroomTableBody')) {
+        initPrintSettings();
+    }
+}, 500);
+
 </script>

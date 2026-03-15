@@ -152,13 +152,25 @@ function renderApp(user) {
     `;
   }
 
+  // 🌟 ส่วนที่ปรับปรุงใหม่: แบ่งเมนูแอดมิน และ เมนูครูให้ชัดเจน
   if (role !== 'STUDENT') {
+    menuHTML += `<div class="menu-divider">บริหารจัดการ 4 ฝ่าย</div>`;
+    
+    if (role === 'ADMIN') {
+        // ของแอดมิน: ซ่อน "เช็คชื่อ" และ "แฟ้มสอน" (เหลือแค่ ปพ.5 กับ รายงาน มส.)
+        menuHTML += `<li class="mb-1"><div class="dept-btn academic" style="cursor: default;"><i class="fas fa-graduation-cap"></i> <span>ฝ่ายวิชาการ</span></div></li>`;
+        menuHTML += `<li class="mb-1 ms-3"><a href="javascript:void(0)" class="nav-link-sub text-success py-1" style="font-size: 0.85rem;" onclick="loadPage('Page_Score_Entry')"><i class="fas fa-edit me-2" style="font-size: 0.7rem;"></i>บันทึกคะแนน (ปพ.5)</a></li>`;
+        menuHTML += `<li class="mb-1 ms-3"><a href="javascript:void(0)" class="nav-link-sub text-info py-1" style="font-size: 0.85rem;" onclick="loadPage('Page_Academic_Report')"><i class="fas fa-chart-pie me-2" style="font-size: 0.7rem;"></i>รายงานสถิติ (มส.)</a></li>`;
+    } else {
+        // ของครู: เห็นครบทุกอันตามปกติ
+        menuHTML += `<li class="mb-1"><a href="javascript:void(0)" class="dept-btn academic" onclick="loadPage('Page_Academic')"><i class="fas fa-graduation-cap"></i> <span>ฝ่ายวิชาการ</span></a></li>`;
+        menuHTML += `<li class="mb-1 ms-3"><a href="javascript:void(0)" class="nav-link-sub text-success py-1" style="font-size: 0.85rem;" onclick="loadPage('Page_Score_Entry')"><i class="fas fa-edit me-2" style="font-size: 0.7rem;"></i>บันทึกคะแนน (ปพ.5)</a></li>`;
+        menuHTML += `<li class="mb-1 ms-3"><a href="javascript:void(0)" class="nav-link-sub text-info py-1" style="font-size: 0.85rem;" onclick="loadPage('Page_Academic_Report')"><i class="fas fa-chart-pie me-2" style="font-size: 0.7rem;"></i>รายงานสถิติ (มส.)</a></li>`;
+        menuHTML += `<li class="mb-2 ms-3"><a href="javascript:void(0)" class="nav-link-sub text-success py-1" style="font-size: 0.85rem;" onclick="loadPage('Page_Lesson_History')"><i class="fas fa-book-reader me-2" style="font-size: 0.7rem;"></i>แฟ้มบันทึกหลังสอน</a></li>`;
+    }
+
+    // เมนูของฝ่ายอื่นๆ (เห็นเหมือนกันทั้งแอดมินและครู)
     menuHTML += `
-      <div class="menu-divider">บริหารจัดการ 4 ฝ่าย</div>
-      <li class="mb-1"><a href="javascript:void(0)" class="dept-btn academic" onclick="loadPage('Page_Academic')"><i class="fas fa-graduation-cap"></i> <span>ฝ่ายวิชาการ</span></a></li>
-      <li class="mb-1 ms-3"><a href="javascript:void(0)" class="nav-link-sub text-success py-1" style="font-size: 0.85rem;" onclick="loadPage('Page_Score_Entry')"><i class="fas fa-edit me-2" style="font-size: 0.7rem;"></i>บันทึกคะแนน (ปพ.5)</a></li>
-      <li class="mb-1 ms-3"><a href="javascript:void(0)" class="nav-link-sub text-info py-1" style="font-size: 0.85rem;" onclick="loadPage('Page_Academic_Report')"><i class="fas fa-chart-pie me-2" style="font-size: 0.7rem;"></i>รายงานสถิติ (มส.)</a></li>
-      <li class="mb-2 ms-3"><a href="javascript:void(0)" class="nav-link-sub text-success py-1" style="font-size: 0.85rem;" onclick="loadPage('Page_Lesson_History')"><i class="fas fa-book-reader me-2" style="font-size: 0.7rem;"></i>แฟ้มบันทึกหลังสอน</a></li>
       <li class="mb-2"><a href="javascript:void(0)" class="dept-btn budget" onclick="loadPage('Page_Budget')"><i class="fas fa-wallet"></i> <span>ฝ่ายงบประมาณ</span></a></li>
       <li class="mb-2"><a href="javascript:void(0)" class="dept-btn personnel" onclick="loadPage('Page_Personnel')"><i class="fas fa-users"></i> <span>ฝ่ายบุคคล</span></a></li>
       <li class="mb-2"><a href="javascript:void(0)" class="dept-btn general" onclick="loadPage('Page_General')"><i class="fas fa-building"></i> <span>ฝ่ายทั่วไป</span></a></li>
