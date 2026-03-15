@@ -326,7 +326,9 @@ function loadScoreGrid() {
         currentScoreConfig = res.config;
         currentScoreStudents = res.students;
         currentAttStats = res.attStats || {}; 
+        document.getElementById('scoreTabs').classList.remove('d-none'); // โชว์ Tabs
         renderAllInOneTable(res.students, res.config, res.existingScores, res.existingQuals);
+        renderEvalTable(res.students, res.existingQuals); // วาดตารางประเมินใหม่
     })
     .getAllInOneScoreGridData(item[0], item[2], user.currentTerm, user.currentYear);
 }
@@ -861,11 +863,26 @@ function saveAllInOneScores(isSilent = false) {
             remark: finalRemark
         });
         
-        const qRead = document.querySelector(`.qual-read[data-safeid="${safeStdId}"]`);
-        const qChar = document.querySelector(`.qual-char[data-safeid="${safeStdId}"]`);
-        const qComp = document.querySelector(`.qual-comp[data-safeid="${safeStdId}"]`);
-        
-        payload.qualRecords.push({ studentId: stdId, subjectCode: item[0], term: user.currentTerm, year: user.currentYear, read: qRead ? qRead.value : '3', char: qChar ? qChar.value : '3', comp: qComp ? qComp.value : '3' });
+        // 🌟 ดึงข้อมูลจาก Tab ประเมินคุณลักษณะฯ แบบใหม่
+        const c1 = document.getElementById(`c1_${safeStdId}`) ? document.getElementById(`c1_${safeStdId}`).value : '';
+        const c2 = document.getElementById(`c2_${safeStdId}`) ? document.getElementById(`c2_${safeStdId}`).value : '';
+        const c3 = document.getElementById(`c3_${safeStdId}`) ? document.getElementById(`c3_${safeStdId}`).value : '';
+        const c4 = document.getElementById(`c4_${safeStdId}`) ? document.getElementById(`c4_${safeStdId}`).value : '';
+        const cTot = document.getElementById(`cTot_${safeStdId}`) ? document.getElementById(`cTot_${safeStdId}`).innerText : '0';
+        const cGrd = document.getElementById(`cGrd_${safeStdId}`) ? document.getElementById(`cGrd_${safeStdId}`).innerText : '0';
+
+        const r1 = document.getElementById(`r1_${safeStdId}`) ? document.getElementById(`r1_${safeStdId}`).value : '';
+        const r2 = document.getElementById(`r2_${safeStdId}`) ? document.getElementById(`r2_${safeStdId}`).value : '';
+        const r3 = document.getElementById(`r3_${safeStdId}`) ? document.getElementById(`r3_${safeStdId}`).value : '';
+        const r4 = document.getElementById(`r4_${safeStdId}`) ? document.getElementById(`r4_${safeStdId}`).value : '';
+        const rTot = document.getElementById(`rTot_${safeStdId}`) ? document.getElementById(`rTot_${safeStdId}`).innerText : '0';
+        const rGrd = document.getElementById(`rGrd_${safeStdId}`) ? document.getElementById(`rGrd_${safeStdId}`).innerText : '0';
+
+        payload.qualRecords.push({ 
+            studentId: stdId, subjectCode: item[0], term: user.currentTerm, year: user.currentYear, 
+            char1: c1, char2: c2, char3: c3, char4: c4, charTotal: cTot, char: cGrd,  // ใช้ตัวแปร char สำหรับเก็บเกรดสุดท้ายเพื่อให้ระบบเก่า (ปพ.5) ใช้งานต่อได้
+            read1: r1, read2: r2, read3: r3, read4: r4, readTotal: rTot, read: rGrd   // ใช้ตัวแปร read สำหรับเก็บเกรดสุดท้าย
+        });
       });
 
       safeRun(3)
@@ -1070,32 +1087,36 @@ function openSGSExportModal() {
   modal.show();
 }
 
-// 🌟 2. วาดตาราง SGS (มีปุ่มสลับโหมดให้เลือก)
+// 🌟 2. วาดตาราง SGS (เพิ่มโหมดแปลงคะแนนคุณลักษณะ 25 -> 3 อัตโนมัติ)
 function renderSGSGrid(mode) {
   window.sgsCurrentMode = mode;
+  const normID = (id) => { let clean = String(id).replace(/[^a-zA-Z0-9]/g, '').replace(/^0+/, ''); return clean || '0'; };
+
   let sortedStudents = [...currentScoreStudents].sort((a, b) => {
       let idA = parseInt(String(a[0]).replace(/[^0-9]/g, '')) || 0;
       let idB = parseInt(String(b[0]).replace(/[^0-9]/g, '')) || 0;
       return idA - idB;
   });
 
-  // วาดปุ่มสลับโหมดด้านบน
+  // 🔘 วาดปุ่มสลับโหมดด้านบน (เพิ่มปุ่มที่ 3)
   let buttonsHtml = `
      <div class="d-flex w-100 justify-content-between mb-3 align-items-center">
          <div class="btn-group shadow-sm">
              <button class="btn btn-sm ${mode === 'normal' ? 'btn-secondary' : 'btn-outline-secondary'} fw-bold px-3" onclick="renderSGSGrid('normal')"><i class="fas fa-table me-2"></i>ตาราง ปพ.5 เดิม</button>
              <button class="btn btn-sm ${mode === 'magic' ? 'btn-success' : 'btn-outline-success'} fw-bold px-3" onclick="renderSGSGrid('magic')"><i class="fas fa-magic me-2"></i>แปลงเป็น SGS (แยก 7 ช่อง)</button>
+             <button class="btn btn-sm ${mode === 'qual' ? 'btn-info text-white' : 'btn-outline-info'} fw-bold px-3" onclick="renderSGSGrid('qual')"><i class="fas fa-star me-2"></i>คุณลักษณะฯ (แปลง 0-3)</button>
          </div>
          <button class="btn btn-primary fw-bold shadow-sm px-4 rounded-pill" onclick="copySGSSelected()"><i class="fas fa-copy me-2"></i>คัดลอกส่วนที่เลือก (Ctrl+C)</button>
      </div>
      <div class="alert alert-info border-0 shadow-sm small py-2 mb-3">
-       <i class="fas fa-info-circle me-1"></i> <b>อัปเดตใหม่:</b> ระบบจะดึง "คะแนนดิบ" ที่ครูกรอกมาซอยแบ่งลง 7 ช่องให้โดยไม่แปลงสัดส่วน <b>รับประกันคะแนนรวมและเกรดตรงกับตารางหลักเป๊ะ 100%</b>
-       <br><i class="fas fa-mouse-pointer me-1 mt-2"></i> <b>ทริค:</b> คลิกค้างแล้วลากคลุมช่องคะแนนที่ต้องการ (เหมือน Excel) จอจะเลื่อนอัตโนมัติ แล้วกด <b>Ctrl+C</b> เพื่อคัดลอก
+       ${mode === 'qual' 
+         ? '<i class="fas fa-magic me-1"></i> <b>ระบบแปลงคะแนนอัจฉริยะ:</b> ดึงคะแนนดิบแต่ละช่วง (เต็ม 25) มาคำนวณตัดระดับ 0-3 ให้อัตโนมัติ (≥20=3, ≥17.5=2, ≥12.5=1, <12.5=0)' 
+         : '<i class="fas fa-mouse-pointer me-1"></i> <b>ทริค:</b> คลิกค้างแล้วลากคลุมช่องคะแนนที่ต้องการ (เหมือน Excel) จอจะเลื่อนอัตโนมัติ แล้วกด <b>Ctrl+C</b> เพื่อคัดลอก'}
      </div>
   `;
   document.getElementById('sgsActionButtons').innerHTML = buttonsHtml;
 
-  // วาดหัวตาราง
+  // 📝 วาดหัวตาราง
   let theadHtml = `<tr>
     <th class="align-middle bg-light text-muted" style="width: 50px;">ที่</th>
     <th class="align-middle text-primary bg-light" style="width: 100px;">รหัสนักเรียน</th>
@@ -1109,7 +1130,7 @@ function renderSGSGrid(mode) {
       let maxFin = parseFloat(document.getElementById('edit-ratio-e')?.innerText) || 30;
       theadHtml += `<th class="table-warning">กลางภาค<br><small class="text-muted">(${maxMid})</small></th>`;
       theadHtml += `<th class="table-danger">ปลายภาค<br><small class="text-muted">(${maxFin})</small></th>`;
-  } else {
+  } else if (mode === 'magic') {
       let magicHeaders = ["ย่อย 1", "ย่อย 2", "ย่อย 3", "กลางภาค", "ย่อย 4", "ย่อย 5", "ปลายภาค"];
       magicHeaders.forEach(h => {
           if (h.includes("กลางภาค")) theadHtml += `<th class="table-warning">${h}</th>`;
@@ -1117,11 +1138,17 @@ function renderSGSGrid(mode) {
           else theadHtml += `<th class="bg-light">${h}</th>`;
       });
       theadHtml += `<th class="bg-secondary text-white border-start" style="width:60px;">รวม</th><th class="bg-success text-white" style="width:60px;">เกรด</th>`;
+  } else if (mode === 'qual') {
+      // หัวตารางคุณลักษณะ 8 ช่อง (แปลงแล้ว)
+      theadHtml += `
+        <th class="table-primary border-start">คุณฯ 1</th><th class="table-primary">คุณฯ 2</th><th class="table-primary">คุณฯ 3</th><th class="table-primary">คุณฯ 4</th>
+        <th class="table-success border-start">อ่านฯ 1</th><th class="table-success">อ่านฯ 2</th><th class="table-success">อ่านฯ 3</th><th class="table-success">อ่านฯ 4</th>
+      `;
   }
   theadHtml += `</tr>`;
   document.getElementById('sgsPreviewHead').innerHTML = theadHtml;
 
-  // วาดข้อมูลนักเรียน
+  // 📝 วาดข้อมูลนักเรียน
   let tbodyHtml = '';
   sortedStudents.forEach((std, rIdx) => {
       const safeStdId = normID(std[0]);
@@ -1131,76 +1158,92 @@ function renderSGSGrid(mode) {
         <td class="text-start text-truncate" style="max-width: 150px;">${std[2]}</td>`;
 
       let cIdx = 0;
-      let hasData = false;
       
-      let rawMidStr = document.querySelector(`.midterm-std-${safeStdId}`)?.value || '';
-      let rawMidReStr = document.querySelector(`.midterm-re-std-${safeStdId}`)?.value || '';
-      if (rawMidStr !== '' || rawMidReStr !== '') hasData = true;
-      let finalMid = (parseFloat(rawMidReStr) || 0) > 0 ? (parseFloat(rawMidReStr) || 0) : (parseFloat(rawMidStr) || 0);
+      // 🌟 โหมดพิเศษ: คำนวณแปลง 25 ให้เป็น 3
+      if (mode === 'qual') {
+          const scale25To3 = (scoreStr) => {
+              if (scoreStr === '' || scoreStr === undefined || scoreStr === null) return '';
+              let s = parseFloat(scoreStr);
+              if (isNaN(s)) return '';
+              if (s >= 20) return 3;
+              if (s >= 17.5) return 2;
+              if (s >= 12.5) return 1;
+              return 0;
+          };
 
-      let rawFinStr = document.querySelector(`.final-std-${safeStdId}`)?.value || '';
-      if (rawFinStr !== '') hasData = true;
-      let finalFin = parseFloat(rawFinStr) || 0;
+          // วนดึงช่อง คุณลักษณะฯ
+          for(let i=1; i<=4; i++) {
+              let val = document.getElementById(`c${i}_${safeStdId}`)?.value;
+              let bg = val ? 'table-primary text-dark fw-bold' : '';
+              rowHtml += `<td class="sgs-cell align-middle fs-6 ${bg}" data-r="${rIdx}" data-c="${cIdx++}">${scale25To3(val)}</td>`;
+          }
+          // วนดึงช่อง อ่านคิดวิเคราะห์
+          for(let i=1; i<=4; i++) {
+              let val = document.getElementById(`r${i}_${safeStdId}`)?.value;
+              let bg = val ? 'table-success text-dark fw-bold' : '';
+              rowHtml += `<td class="sgs-cell align-middle fs-6 ${bg}" data-r="${rIdx}" data-c="${cIdx++}">${scale25To3(val)}</td>`;
+          }
+      } 
+      // 🌟 โหมดคะแนนปกติและโหมด 7 ช่อง
+      else {
+          let hasData = false;
+          let rawMidStr = document.querySelector(`.midterm-std-${safeStdId}`)?.value || '';
+          let rawMidReStr = document.querySelector(`.midterm-re-std-${safeStdId}`)?.value || '';
+          if (rawMidStr !== '' || rawMidReStr !== '') hasData = true;
+          let finalMid = (parseFloat(rawMidReStr) || 0) > 0 ? (parseFloat(rawMidReStr) || 0) : (parseFloat(rawMidStr) || 0);
 
-      let rawForms = [];
-      let rawFormSum = 0;
-      currentScoreConfig.indicators.forEach((ind, idx) => {
-          let formStr = document.querySelectorAll(`.formative-std-${safeStdId}`)[idx]?.value || '';
-          if (formStr !== '') hasData = true;
-          rawForms.push(formStr);
-          rawFormSum += parseFloat(formStr) || 0;
-      });
+          let rawFinStr = document.querySelector(`.final-std-${safeStdId}`)?.value || '';
+          if (rawFinStr !== '') hasData = true;
+          let finalFin = parseFloat(rawFinStr) || 0;
 
-      if (mode === 'normal') {
-          rawForms.forEach(val => {
-              rowHtml += `<td class="sgs-cell align-middle fs-6" data-r="${rIdx}" data-c="${cIdx++}">${val}</td>`;
+          let rawForms = [];
+          let rawFormSum = 0;
+          currentScoreConfig.indicators.forEach((ind, idx) => {
+              let formStr = document.querySelectorAll(`.formative-std-${safeStdId}`)[idx]?.value || '';
+              if (formStr !== '') hasData = true;
+              rawForms.push(formStr);
+              rawFormSum += parseFloat(formStr) || 0;
           });
-          rowHtml += `<td class="sgs-cell align-middle fs-6 table-warning fw-bold text-dark" data-r="${rIdx}" data-c="${cIdx++}">${hasData ? (rawMidReStr !== '' ? rawMidReStr : rawMidStr) : ''}</td>`;
-          rowHtml += `<td class="sgs-cell align-middle fs-6 table-danger fw-bold text-dark" data-r="${rIdx}" data-c="${cIdx++}">${hasData ? rawFinStr : ''}</td>`;
-      } else {
-          if (!hasData) {
-              for(let i=0; i<7; i++) rowHtml += `<td class="sgs-cell align-middle" data-r="${rIdx}" data-c="${cIdx++}"></td>`;
-              rowHtml += `<td class="align-middle fw-bold text-muted bg-light border-start">-</td><td class="align-middle fw-bold text-muted bg-light">-</td>`;
-          } else {
-              // 🌟 1. ดึงคะแนนดิบ 100% ไม่แปลสัดส่วน
-              let sgsMid = finalMid; 
-              let sgsFin = finalFin;
-              let sgsFormTotal = rawFormSum; 
 
-              // 🌟 2. กระจายลง 5 ช่องให้เนียนที่สุด
-              let forms = [0, 0, 0, 0, 0];
-              let base = Math.floor(sgsFormTotal / 5);
-              let rem = Math.round((sgsFormTotal - (base * 5)) * 100) / 100;
+          if (mode === 'normal') {
+              rawForms.forEach(val => { rowHtml += `<td class="sgs-cell align-middle fs-6" data-r="${rIdx}" data-c="${cIdx++}">${val}</td>`; });
+              rowHtml += `<td class="sgs-cell align-middle fs-6 table-warning fw-bold text-dark" data-r="${rIdx}" data-c="${cIdx++}">${hasData ? (rawMidReStr !== '' ? rawMidReStr : rawMidStr) : ''}</td>`;
+              rowHtml += `<td class="sgs-cell align-middle fs-6 table-danger fw-bold text-dark" data-r="${rIdx}" data-c="${cIdx++}">${hasData ? rawFinStr : ''}</td>`;
+          } else if (mode === 'magic') {
+              if (!hasData) {
+                  for(let i=0; i<7; i++) rowHtml += `<td class="sgs-cell align-middle" data-r="${rIdx}" data-c="${cIdx++}"></td>`;
+                  rowHtml += `<td class="align-middle fw-bold text-muted bg-light border-start">-</td><td class="align-middle fw-bold text-muted bg-light">-</td>`;
+              } else {
+                  let sgsMid = finalMid; 
+                  let sgsFin = finalFin;
+                  let sgsFormTotal = rawFormSum; 
 
-              for(let i=0; i<5; i++) forms[i] = base;
-              
-              let idx = 0;
-              while (rem >= 1 && idx < 5) {
-                  forms[idx] += 1;
-                  rem -= 1;
-                  idx++;
+                  let forms = [0, 0, 0, 0, 0];
+                  let base = Math.floor(sgsFormTotal / 5);
+                  let rem = Math.round((sgsFormTotal - (base * 5)) * 100) / 100;
+
+                  for(let i=0; i<5; i++) forms[i] = base;
+                  
+                  let idx = 0;
+                  while (rem >= 1 && idx < 5) { forms[idx] += 1; rem -= 1; idx++; }
+                  if (rem > 0 && idx < 5) { forms[idx] += parseFloat(rem.toFixed(2)); }
+
+                  let sgsRow = [forms[0], forms[1], forms[2], sgsMid, forms[3], forms[4], sgsFin];
+
+                  sgsRow.forEach((val, index) => {
+                      let bgClass = '';
+                      if (index === 3) bgClass = 'table-warning fw-bold text-dark';
+                      else if (index === 6) bgClass = 'table-danger fw-bold text-dark';
+                      rowHtml += `<td class="sgs-cell align-middle fs-6 ${bgClass}" data-r="${rIdx}" data-c="${cIdx++}">${val}</td>`;
+                  });
+
+                  let totalSgs = Math.round((sgsFormTotal + sgsMid + sgsFin) * 100) / 100;
+                  let gradeSgs = typeof calculateGrade === 'function' ? calculateGrade(totalSgs) : '0';
+                  let gradeClass = totalSgs < 50 ? 'text-danger' : 'text-success';
+                  
+                  rowHtml += `<td class="align-middle fw-bold bg-light border-start text-dark">${totalSgs}</td>`;
+                  rowHtml += `<td class="align-middle fw-bold bg-light ${gradeClass} fs-5">${gradeSgs}</td>`;
               }
-              if (rem > 0 && idx < 5) {
-                  forms[idx] += parseFloat(rem.toFixed(2));
-              }
-
-              // ลำดับช่อง: ย่อย1, ย่อย2, ย่อย3, กลางภาค, ย่อย4, ย่อย5, ปลายภาค
-              let sgsRow = [forms[0], forms[1], forms[2], sgsMid, forms[3], forms[4], sgsFin];
-
-              sgsRow.forEach((val, index) => {
-                  let bgClass = '';
-                  if (index === 3) bgClass = 'table-warning fw-bold text-dark';
-                  else if (index === 6) bgClass = 'table-danger fw-bold text-dark';
-                  rowHtml += `<td class="sgs-cell align-middle fs-6 ${bgClass}" data-r="${rIdx}" data-c="${cIdx++}">${val}</td>`;
-              });
-
-              // ตรวจสอบรวมและเกรด
-              let totalSgs = Math.round((sgsFormTotal + sgsMid + sgsFin) * 100) / 100;
-              let gradeSgs = calculateGrade(totalSgs);
-              let gradeClass = totalSgs < 50 ? 'text-danger' : 'text-success';
-              
-              rowHtml += `<td class="align-middle fw-bold bg-light border-start text-dark">${totalSgs}</td>`;
-              rowHtml += `<td class="align-middle fw-bold bg-light ${gradeClass} fs-5">${gradeSgs}</td>`;
           }
       }
 
@@ -1209,7 +1252,9 @@ function renderSGSGrid(mode) {
   });
 
   document.getElementById('sgsPreviewBody').innerHTML = tbodyHtml;
-  initSGSDragSelection(); 
+  
+  // เรียกใช้ตัวลากคลุมดำ
+  if (typeof initSGSDragSelection === 'function') initSGSDragSelection(); 
 }
 
 // 🌟 3. ระบบจับเมาส์ลากคลุมดำ (มี Auto-Scroll)
@@ -1577,5 +1622,87 @@ window.preparePrintPorPor5 = function() {
 
     }).getPrintConfigData(user.currentTerm, user.currentYear);
 };
+
+// ==========================================
+// 🌟 ฟังก์ชันจัดการตารางประเมิน (คุณลักษณะฯ และ อ่านคิดเขียน)
+// ==========================================
+function renderEvalTable(students, existingQuals) {
+  const tbody = document.getElementById('evalTableBody');
+  let bodyHtml = '';
+  
+  students.sort((a, b) => String(a[0]).localeCompare(String(b[0])));
+
+  students.forEach((std, rowIndex) => {
+    const stdId = String(std[0]).trim();
+    const safeStdId = normID(stdId);
+    
+    // ดึงคะแนนเดิม (ถ้ามี) ถ้าไม่มีให้เป็นค่าว่าง
+    const q = existingQuals[safeStdId] || {};
+    const c1 = q.char1 || ''; const c2 = q.char2 || ''; const c3 = q.char3 || ''; const c4 = q.char4 || '';
+    const r1 = q.read1 || ''; const r2 = q.read2 || ''; const r3 = q.read3 || ''; const r4 = q.read4 || '';
+    const cTot = q.charTotal || 0; const cGrd = q.charGrade || 0;
+    const rTot = q.readTotal || 0; const rGrd = q.readGrade || 0;
+
+    bodyHtml += `<tr>
+      <td class="text-center text-muted fw-bold">${rowIndex + 1}</td>
+      <td class="text-start">
+         <div class="fw-bold text-dark text-truncate" style="max-width: 170px; font-size: 0.9rem;">${std[2]}</div>
+         <div class="text-muted font-monospace" style="font-size: 0.78rem;">${stdId}</div>
+      </td>
+      
+      <td class="p-0"><input type="number" id="c1_${safeStdId}" class="score-cell-input eval-input" value="${c1}" max="25" onkeyup="calcEvalRow('${safeStdId}', 'c')"></td>
+      <td class="p-0"><input type="number" id="c2_${safeStdId}" class="score-cell-input eval-input" value="${c2}" max="25" onkeyup="calcEvalRow('${safeStdId}', 'c')"></td>
+      <td class="p-0"><input type="number" id="c3_${safeStdId}" class="score-cell-input eval-input" value="${c3}" max="25" onkeyup="calcEvalRow('${safeStdId}', 'c')"></td>
+      <td class="p-0"><input type="number" id="c4_${safeStdId}" class="score-cell-input eval-input" value="${c4}" max="25" onkeyup="calcEvalRow('${safeStdId}', 'c')"></td>
+      <td class="text-center align-middle fw-bold border-start bg-light text-primary" id="cTot_${safeStdId}">${cTot}</td>
+      <td class="text-center align-middle fw-bold fs-5 text-success" id="cGrd_${safeStdId}">${cGrd}</td>
+
+      <td class="p-0 border-start"><input type="number" id="r1_${safeStdId}" class="score-cell-input eval-input" value="${r1}" max="25" onkeyup="calcEvalRow('${safeStdId}', 'r')"></td>
+      <td class="p-0"><input type="number" id="r2_${safeStdId}" class="score-cell-input eval-input" value="${r2}" max="25" onkeyup="calcEvalRow('${safeStdId}', 'r')"></td>
+      <td class="p-0"><input type="number" id="r3_${safeStdId}" class="score-cell-input eval-input" value="${r3}" max="25" onkeyup="calcEvalRow('${safeStdId}', 'r')"></td>
+      <td class="p-0"><input type="number" id="r4_${safeStdId}" class="score-cell-input eval-input" value="${r4}" max="25" onkeyup="calcEvalRow('${safeStdId}', 'r')"></td>
+      <td class="text-center align-middle fw-bold border-start bg-light text-success" id="rTot_${safeStdId}">${rTot}</td>
+      <td class="text-center align-middle fw-bold fs-5 text-success" id="rGrd_${safeStdId}">${rGrd}</td>
+    </tr>`;
+  });
+  tbody.innerHTML = bodyHtml;
+  
+  // คำนวณสีและตัวเลขครั้งแรก
+  students.forEach(std => {
+      calcEvalRow(normID(std[0]), 'c');
+      calcEvalRow(normID(std[0]), 'r');
+  });
+}
+
+function calcEvalRow(safeStdId, type) {
+    let total = 0;
+    for(let i=1; i<=4; i++) {
+        let input = document.getElementById(`${type}${i}_${safeStdId}`);
+        let val = parseFloat(input.value) || 0;
+        
+        // ดักจับคะแนนเกิน 25 
+        if (val > 25) { val = 25; input.value = 25; input.style.color = 'red'; } 
+        else { input.style.color = ''; }
+        
+        total += val;
+    }
+    
+    // อัปเดตคะแนนรวม
+    document.getElementById(`${type}Tot_${safeStdId}`).innerText = total;
+    
+    // ตัดเกรด 0-3
+    let grade = 0;
+    if(total >= 80) grade = 3;
+    else if(total >= 70) grade = 2;
+    else if(total >= 50) grade = 1;
+    else grade = 0;
+    
+    let grdEl = document.getElementById(`${type}Grd_${safeStdId}`);
+    grdEl.innerText = grade;
+    
+    // ไฮไลท์สีเกรด
+    if(grade === 0) grdEl.className = "text-center align-middle fw-bold fs-5 text-danger bg-danger bg-opacity-10";
+    else grdEl.className = "text-center align-middle fw-bold fs-5 text-success";
+}
 
 </script>

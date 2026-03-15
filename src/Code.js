@@ -1990,7 +1990,16 @@ function getAllInOneScoreGridData(subjectCode, className, term, year) {
   for(let i = 1; i < qualData.length; i++) {
     const row = qualData[i];
     if(normStr(row[1]) === normStr(subjectCode) && normStr(row[2]) === normStr(term) && normStr(row[3]) === normStr(year)) {
-      existingQuals[normID(row[0])] = { read: row[4], char: row[5], comp: row[6] };
+      // 🌟 สมองกล: เช็คว่าเป็นโครงสร้างเก่า (7 คอลัมน์) หรือโครงสร้างใหม่ (17 คอลัมน์)
+      if (row.length >= 16) {
+          existingQuals[normID(row[0])] = { 
+              read1: row[4], read2: row[5], read3: row[6], read4: row[7], readTotal: row[8], read: row[9],
+              char1: row[10], char2: row[11], char3: row[12], char4: row[13], charTotal: row[14], char: row[15],
+              comp: row[16] || '3'
+          };
+      } else {
+          existingQuals[normID(row[0])] = { read: row[4], char: row[5], comp: row[6] };
+      }
     }
   }
 
@@ -2135,9 +2144,17 @@ function saveAllInOneWithConfig(payload) {
         debugMsg += `(คะแนนใหม่: ${newScores.length}, อัปเดต: ${cUpdate})`;
     }
 
-    // 🌟 3. Qualitative Assess
+    // 🌟 3. Qualitative Assess (อัปเกรดเก็บคะแนนดิบ 17 คอลัมน์)
     if (qualRecords && qualRecords.length > 0) {
-        if (qualSheet.getLastRow() === 0) qualSheet.appendRow(["student_id", "subject_code", "term", "year", "reading_writing", "char_json", "comp_json"]);
+        if (qualSheet.getLastRow() === 0) {
+            qualSheet.appendRow(["student_id", "subject_code", "term", "year", "read1", "read2", "read3", "read4", "readTotal", "read_grade", "char1", "char2", "char3", "char4", "charTotal", "char_grade", "comp"]);
+        }
+        
+        // 🚨 บังคับขยายชีตอัตโนมัติ ถ้าคอลัมน์ไม่พอ 17 คอลัมน์
+        if (qualSheet.getMaxColumns() < 17) {
+            qualSheet.insertColumnsAfter(qualSheet.getMaxColumns(), 17 - qualSheet.getMaxColumns());
+        }
+
         let qualData = qualSheet.getDataRange().getValues();
         const qualMap = {};
         qualRecords.forEach(r => { qualMap[`${normID(r.studentId)}_${normStr(r.subjectCode)}_${normStr(r.term)}_${normStr(r.year)}`] = r; });
@@ -2146,26 +2163,34 @@ function saveAllInOneWithConfig(payload) {
         for(let i = 1; i < qualData.length; i++) {
           const uid = `${normID(qualData[i][0])}_${normStr(qualData[i][1])}_${normStr(qualData[i][2])}_${normStr(qualData[i][3])}`;
           if(qualMap[uid]) {
-             if (String(qualData[i][4]) !== String(qualMap[uid].read) || String(qualData[i][5]) !== String(qualMap[uid].char) || String(qualData[i][6]) !== String(qualMap[uid].comp)) {
-                 qualData[i][4] = qualMap[uid].read; qualData[i][5] = qualMap[uid].char; qualData[i][6] = qualMap[uid].comp;
-                 qualUpdated = true;
-             }
+             const q = qualMap[uid];
+             qualData[i][4] = q.read1; qualData[i][5] = q.read2; qualData[i][6] = q.read3; qualData[i][7] = q.read4; 
+             qualData[i][8] = q.readTotal; qualData[i][9] = q.read; 
+             qualData[i][10] = q.char1; qualData[i][11] = q.char2; qualData[i][12] = q.char3; qualData[i][13] = q.char4; 
+             qualData[i][14] = q.charTotal; qualData[i][15] = q.char; 
+             qualData[i][16] = q.comp || '3';
+             qualUpdated = true;
              qualMap[uid].processed = true;
           }
         }
         if(qualUpdated) {
-            const uniformQual = qualData.map(row => { let r = row.slice(0, 7); while(r.length < 7) r.push(""); return r; });
-            qualSheet.getRange(1, 1, uniformQual.length, 7).setValues(uniformQual);
+            const uniformQual = qualData.map(row => { let r = row.slice(0, 17); while(r.length < 17) r.push(""); return r; });
+            qualSheet.getRange(1, 1, uniformQual.length, 17).setValues(uniformQual);
         }
         
         const newQuals = [];
         for (let uid in qualMap) {
            if(!qualMap[uid].processed) {
               const r = qualMap[uid];
-              newQuals.push(["'" + r.studentId, r.subjectCode, r.term, r.year, r.read, r.char, r.comp]);
+              newQuals.push([
+                  "'" + r.studentId, r.subjectCode, r.term, r.year, 
+                  r.read1, r.read2, r.read3, r.read4, r.readTotal, r.read,
+                  r.char1, r.char2, r.char3, r.char4, r.charTotal, r.char,
+                  r.comp || '3'
+              ]);
            }
         }
-        if(newQuals.length > 0) qualSheet.getRange(qualSheet.getLastRow() + 1, 1, newQuals.length, 7).setValues(newQuals);
+        if(newQuals.length > 0) qualSheet.getRange(qualSheet.getLastRow() + 1, 1, newQuals.length, 17).setValues(newQuals);
     }
 
     // 🌟 4. Grade Summary
@@ -2276,9 +2301,10 @@ function saveAllInOneScores(payload) {
   if (newScores.length > 0) sheetScore.getRange(sheetScore.getLastRow() + 1, 1, newScores.length, newScores[0].length).setValues(newScores);
 
   // ==============================
-  // 2. บันทึกคุณลักษณะ (Qualitative_Assess)
+  // 2. บันทึกคุณลักษณะ (Qualitative_Assess) (อัปเกรด 17 คอลัมน์)
   // ==============================
   const qualSheet = ss.getSheetByName("Qualitative_Assess");
+  if (qualSheet.getMaxColumns() < 17) qualSheet.insertColumnsAfter(qualSheet.getMaxColumns(), 17 - qualSheet.getMaxColumns());
   let qualData = qualSheet.getDataRange().getValues();
   const qualMap = {};
   qualRecords.forEach(r => {
@@ -2291,25 +2317,34 @@ function saveAllInOneScores(payload) {
     const row = qualData[i];
     const uid = `${normID(row[0])}_${normStr(row[1])}_${normStr(row[2])}_${normStr(row[3])}`;
     if(qualMap[uid]) {
-       if (String(qualData[i][4]) !== String(qualMap[uid].read) || String(qualData[i][5]) !== String(qualMap[uid].char) || String(qualData[i][6]) !== String(qualMap[uid].comp)) {
-           qualData[i][4] = qualMap[uid].read;
-           qualData[i][5] = qualMap[uid].char;
-           qualData[i][6] = qualMap[uid].comp;
-           qualUpdated = true;
-       }
+       const q = qualMap[uid];
+       qualData[i][4] = q.read1; qualData[i][5] = q.read2; qualData[i][6] = q.read3; qualData[i][7] = q.read4; 
+       qualData[i][8] = q.readTotal; qualData[i][9] = q.read; 
+       qualData[i][10] = q.char1; qualData[i][11] = q.char2; qualData[i][12] = q.char3; qualData[i][13] = q.char4; 
+       qualData[i][14] = q.charTotal; qualData[i][15] = q.char; 
+       qualData[i][16] = q.comp || '3';
+       qualUpdated = true;
        qualMap[uid].processed = true;
     }
   }
-  if(qualUpdated) qualSheet.getRange(1, 1, qualData.length, qualData[0].length).setValues(qualData);
+  if(qualUpdated) {
+      const uniformQual = qualData.map(row => { let r = row.slice(0, 17); while(r.length < 17) r.push(""); return r; });
+      qualSheet.getRange(1, 1, uniformQual.length, 17).setValues(uniformQual);
+  }
   
   const newQuals = [];
   for (let uid in qualMap) {
      if(!qualMap[uid].processed) {
         const r = qualMap[uid];
-        newQuals.push(["'" + r.studentId, r.subjectCode, r.term, r.year, r.read, r.char, r.comp]);
+        newQuals.push([
+            "'" + r.studentId, r.subjectCode, r.term, r.year, 
+            r.read1, r.read2, r.read3, r.read4, r.readTotal, r.read,
+            r.char1, r.char2, r.char3, r.char4, r.charTotal, r.char,
+            r.comp || '3'
+        ]);
      }
   }
-  if(newQuals.length > 0) qualSheet.getRange(qualSheet.getLastRow() + 1, 1, newQuals.length, newQuals[0].length).setValues(newQuals);
+  if(newQuals.length > 0) qualSheet.getRange(qualSheet.getLastRow() + 1, 1, newQuals.length, 17).setValues(newQuals);
 
   // ==============================
   // 3. บันทึกเกรด (Grade_Summary)
