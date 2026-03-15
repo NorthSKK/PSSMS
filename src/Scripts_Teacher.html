@@ -2,20 +2,55 @@
 // ==========================================
 // 1. TEACHER DASHBOARD LOGIC
 // ==========================================
+// ==========================================
+// 1. TEACHER DASHBOARD LOGIC
+// ==========================================
+let todoRetryCount = 0; // 🌟 เพิ่มตัวนับรอบ
+
 function loadTodoList() {
   const user = getSessionUser();
   if (!user) return;
+  
+  const container = document.getElementById('todoListContainer');
+  
+  // 🌟 ดักรอแบบมีลิมิต: ป้องกันการวนลูปค้าง (Memory Leak) ถ้าย้ายหน้าหนี
+  if (!container) {
+      todoRetryCount++;
+      if (todoRetryCount < 10) { // ลองหา 10 ครั้ง (ประมาณ 5 วินาที) ถ้าไม่เจอก็เลิกหา
+          setTimeout(loadTodoList, 500);
+      }
+      return;
+  }
+  todoRetryCount = 0; // รีเซ็ตค่าเมื่อหากล่องเจอ
+
   const storageKey = `todo_list_${user.id}`;
-  let localTodos = JSON.parse(localStorage.getItem(storageKey)) || [];
+  let localTodos = [];
+  
+  try {
+      localTodos = JSON.parse(localStorage.getItem(storageKey));
+      if (!Array.isArray(localTodos)) localTodos = [];
+  } catch(e) { localTodos = []; }
+  
   renderTodoList(localTodos);
+  
   google.script.run.withSuccessHandler(function(serverData) {
-    if (serverData) { localStorage.setItem(storageKey, serverData); renderTodoList(JSON.parse(serverData)); }
+    if (serverData) { 
+        let parsed = [];
+        try {
+            parsed = typeof serverData === 'string' ? JSON.parse(serverData) : serverData;
+            if (!Array.isArray(parsed)) parsed = [];
+        } catch(e) { parsed = []; }
+        localStorage.setItem(storageKey, JSON.stringify(parsed)); 
+        renderTodoList(parsed); 
+    }
   }).getTodoList(user.id);
 }
 
 function syncTodoToServer(todos) {
   const user = getSessionUser();
   if (!user) return;
+  if (!Array.isArray(todos)) todos = [];
+  
   const storageKey = `todo_list_${user.id}`;
   localStorage.setItem(storageKey, JSON.stringify(todos));
   renderTodoList(todos);
@@ -23,22 +58,24 @@ function syncTodoToServer(todos) {
 }
 
 function renderTodoList(todos) {
+  if (!Array.isArray(todos)) todos = [];
+  
   const container = document.getElementById('todoListContainer');
   const countEl = document.getElementById('todoCount');
   if (!container) return;
+  
   const card = container.closest('.card');
   if (card) {
-      card.classList.remove('h-100'); // เอาคำสั่งยืดเต็มความสูงออก (ถ้ามี)
-      card.style.height = "fit-content"; // สั่งให้สูงเท่าที่จำเป็น
+      card.classList.remove('h-100'); 
+      card.style.height = "fit-content"; 
   }
 
-  // 🌟 แก้บั๊กกลืนหาย: เปลี่ยนจาก 300px เป็น 550px ให้มันกินพื้นที่ลงมาได้อีกเยอะๆ แต่ไม่ล้นจอ
-  container.style.maxHeight = "550"; 
+  container.style.maxHeight = "550px"; 
   container.style.overflowY = "auto";
   container.style.overflowX = "hidden";
   container.style.paddingRight = "5px"; 
 
-  if (!todos || todos.length === 0) {
+  if (todos.length === 0) {
     container.innerHTML = `<div class="d-flex align-items-center justify-content-center w-100 animate__animated animate__fadeIn" style="min-height: 100px; background-color: transparent; border: none;"><div class="text-center"><i class="fas fa-check-double fa-lg mb-2 text-success" style="opacity: 0.12;"></i><br><span class="text-muted" style="font-size: 0.82rem; opacity: 0.4; letter-spacing: 0.5px;">เคลียร์งานหมดแล้วครับ 🎉</span></div></div>`; 
     if (countEl) countEl.innerText = `0 งานค้าง`;
     return;
@@ -74,8 +111,14 @@ function addTodoItem() {
   const input = document.getElementById('newTodoInput');
   const text = input.value.trim();
   if (!text) return; 
+  
   const storageKey = `todo_list_${user.id}`;
-  let todos = JSON.parse(localStorage.getItem(storageKey)) || [];
+  let todos = [];
+  try {
+      todos = JSON.parse(localStorage.getItem(storageKey));
+      if (!Array.isArray(todos)) todos = [];
+  } catch(e) { todos = []; }
+
   const newTodo = { text: text, done: false, notionId: null };
   todos.unshift(newTodo);
   input.value = ''; 
@@ -85,7 +128,8 @@ function addTodoItem() {
     google.script.run.withSuccessHandler(function(response) {
       const result = JSON.parse(response);
       if (result.id) {
-        let currentTodos = JSON.parse(localStorage.getItem(storageKey)) || [];
+        let currentTodos = [];
+        try { currentTodos = JSON.parse(localStorage.getItem(storageKey)); if(!Array.isArray(currentTodos)) currentTodos=[]; } catch(e){}
         const idx = currentTodos.findIndex(t => t.text === text && !t.notionId);
         if (idx !== -1) { currentTodos[idx].notionId = result.id; syncTodoToServer(currentTodos); }
       }
@@ -97,12 +141,19 @@ function toggleTodoByObject(encodedObj) {
   const todoObj = JSON.parse(decodeURIComponent(encodedObj));
   const user = getSessionUser();
   const storageKey = `todo_list_${user.id}`;
-  let todos = JSON.parse(localStorage.getItem(storageKey)) || [];
+  let todos = [];
+  try {
+      todos = JSON.parse(localStorage.getItem(storageKey));
+      if (!Array.isArray(todos)) todos = [];
+  } catch(e) { todos = []; }
+  
   const target = todos.find(t => t.text === todoObj.text);
   if (target) {
     target.done = !target.done;
     syncTodoToServer(todos);
-    if (user.id === 'teacher12' && target.notionId) google.script.run.updateTaskStatus(target.notionId, target.done);
+    if (user.id === 'teacher12' && target.notionId) {
+        google.script.run.updateTaskStatus(target.notionId, target.done);
+    }
   }
 }
 
@@ -110,7 +161,12 @@ function deleteTodoByText(encodedText) {
   const text = decodeURIComponent(encodedText);
   const user = getSessionUser();
   const storageKey = `todo_list_${user.id}`;
-  let todos = JSON.parse(localStorage.getItem(storageKey)) || [];
+  let todos = [];
+  try {
+      todos = JSON.parse(localStorage.getItem(storageKey));
+      if (!Array.isArray(todos)) todos = [];
+  } catch(e) { todos = []; }
+  
   const newTodos = todos.filter(t => t.text !== text);
   syncTodoToServer(newTodos);
 }
@@ -118,8 +174,10 @@ function deleteTodoByText(encodedText) {
 function initTeacherDashboard() {
   const user = JSON.parse(localStorage.getItem('pssms_user') || sessionStorage.getItem('pssms_user'));
   if(!user) return;
+  
   if(document.getElementById('dashTeacherName')) document.getElementById('dashTeacherName').innerText = user.name;
   if(document.getElementById('dashTodayDate')) document.getElementById('dashTodayDate').innerText = new Date().toLocaleDateString('th-TH', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  
   const now = new Date();
   const localDate = new Date(now.getTime() - (now.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
   const scheduleCacheKey = `today_schedule_${user.id}_${localDate}`;
@@ -132,9 +190,13 @@ function initTeacherDashboard() {
        renderTeacherTodaySchedule(data);
      }).getTeacherTimetable(user.id);
   }
-  loadTeacherRiskDashboard();
-  loadTeacherAtRiskDashboard(user.id, user.currentTerm, user.currentYear);
-  loadMorningSummaryDashboard(user.id, user.currentTerm, user.currentYear);
+  
+  // 🌟 ป้องกัน Error โดมิโน่: ถ้ามีอะไรพังให้มันข้ามไปทำคำสั่งถัดไปเลย ไม่ต้องตายทั้งระบบ
+  try { loadTeacherRiskDashboard(); } catch(e) { console.error(e); }
+  try { loadTeacherAtRiskDashboard(user.id, user.currentTerm, user.currentYear); } catch(e) { console.error(e); }
+  try { loadMorningSummaryDashboard(user.id, user.currentTerm, user.currentYear); } catch(e) { console.error(e); }
+  
+  // 🌟 บังคับ To-Do List ให้โหลดแบบอิสระ ไม่ต้องรอฟังก์ชันข้างบนทำงานเสร็จ
   setTimeout(loadTodoList, 300);
 }
 
@@ -143,26 +205,18 @@ function renderTeacherTodaySchedule(timetable) {
   const nextTitle = document.getElementById('nextClassTitle');
   const nextDetail = document.getElementById('nextClassDetail');
   if(!tbody) return;
+  
   if(!timetable || timetable.length === 0) {
     tbody.innerHTML = '<tr><td colspan="3" class="text-center p-5 text-muted">ไม่มีตารางสอนในวันนี้</td></tr>';
     if(nextTitle) nextTitle.innerText = "ไม่มีภาระงานสอนวันนี้";
     return;
   }
   
-  // จัดเรียงคาบเรียนจากน้อยไปมาก
   timetable.sort((a,b) => parseInt(a[5]) - parseInt(b[5]));
   
-  // 🌟 เพิ่มเวลาคาบ 0 และคาบอื่นๆ ให้ครบ
   const timeMap = { 
-    0: "08:00-08:30", 
-    1: "08:30-09:20", 
-    2: "09:20-10:10", 
-    3: "10:20-11:10", 
-    4: "11:10-12:00", 
-    5: "13:00-13:50", 
-    6: "13:50-14:40", 
-    7: "14:40-15:30", 
-    8: "15:30-16:00" 
+    0: "08:00-08:30", 1: "08:30-09:20", 2: "09:20-10:10", 3: "10:20-11:10", 
+    4: "11:10-12:00", 5: "13:00-13:50", 6: "13:50-14:40", 7: "14:40-15:30", 8: "15:30-16:00" 
   };
   
   const now = new Date(); 
@@ -170,11 +224,10 @@ function renderTeacherTodaySchedule(timetable) {
   let nextClass = null; let html = '';
 
   timetable.forEach(r => {
-    const p = parseInt(r[5]); // ดึงเลขคาบ
-    const timeRange = timeMap[p] || "00:00-00:00"; // 🌟 ดัก Error ถ้าเวลาไม่มี
+    const p = parseInt(r[5]); 
+    const timeRange = timeMap[p] || "00:00-00:00"; 
     const times = timeRange.split('-');
     
-    // 🌟 ดัก Error ตอนคำนวณเวลา
     let startTotalMinutes = 0, endTotalMinutes = 0;
     if(times.length === 2) {
        const [startH, startM] = times[0].split(':').map(Number); 
@@ -213,13 +266,11 @@ function renderTeacherTodaySchedule(timetable) {
 function jumpToAttendance(encodedData) {
   const item = JSON.parse(decodeURIComponent(encodedData));
   
-  // 🌟 ดักจับ: ถ้ารหัสวิชาคือ HR หรือชื่อวิชามีคำว่า โฮมรูม ให้เปิดหน้าต่างเช็คชื่อตอนเช้า
   if (item[0].toUpperCase() === 'HR' || item[1].includes('โฮมรูม')) {
      openMorningCheckModal(item);
-     return; // จบการทำงาน ไม่ต้องไปหน้าเช็คชื่อปกติ
+     return; 
   }
 
-  // ถ้าเป็นวิชาปกติ ให้ไปหน้าเช็คชื่อ (Page_Academic) ตามเดิม
   sessionStorage.setItem('pending_attendance_item', encodedData);
   const now = new Date();
   const localDate = new Date(now.getTime() - (now.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
@@ -241,6 +292,7 @@ function loadTeacherAtRiskDashboard(teacherId, term, year) {
   if (sessionStorage.getItem(riskCacheKey)) {
     renderTeacherAtRiskDashboard(JSON.parse(sessionStorage.getItem(riskCacheKey)), container); return; 
   }
+  
   container.innerHTML = `<div class="text-center p-4"><div class="spinner-border text-danger mb-2" role="status"></div><div class="text-muted small">กำลังสแกนหานักเรียนกลุ่มเสี่ยงจากทุกรายวิชา...</div></div>`;
   google.script.run.withSuccessHandler(function(data) {
     sessionStorage.setItem(riskCacheKey, JSON.stringify(data));
@@ -254,6 +306,7 @@ function renderTeacherAtRiskDashboard(data, container) {
     if(arr.length === 0) return `<div class="text-center text-muted small py-4">ยอดเยี่ยม! ไม่มีนักเรียนในกลุ่มนี้ 🎉</div>`;
     return arr.map(s => `<div class="d-flex justify-content-between align-items-center border-bottom py-2"><div style="flex-grow:1; padding-right:10px;"><div class="fw-bold text-dark" style="font-size: 0.85rem;">${s.id} ${s.name}</div><div class="text-primary" style="font-size: 0.75rem;"><i class="fas fa-book me-1"></i>${s.subjectCode} (${s.className})</div><div class="text-muted" style="font-size: 0.7rem;">สอนไป ${s.taught} คาบ (ขาด <span class="text-danger fw-bold">${s.absent}</span>, ลา <span class="text-info">${s.leave}</span>)</div></div><div><span class="badge bg-${colorClass} rounded-pill shadow-sm" style="font-size: 0.85rem;">${s.percent}%</span></div></div>`).join('');
   };
+  
   const html = `<h6 class="fw-bold text-danger mb-3 border-bottom pb-2 border-danger border-2 d-inline-block mt-2"><i class="fas fa-exclamation-triangle me-2"></i>กระดานแจ้งเตือนกลุ่มเสี่ยง (รวมทุกวิชาที่สอน)</h6><div class="row g-3"><div class="col-md-4"><div class="card border-danger shadow-sm h-100"><div class="card-header bg-danger text-white fw-bold small d-flex justify-content-between align-items-center"><span><i class="fas fa-ban me-1"></i> หมดสิทธิ์ (< 60%)</span><span class="badge bg-white text-danger">${critical.length}</span></div><div class="card-body p-2" style="max-height: 300px; overflow-y: auto;">${renderList(critical, 'danger')}</div></div></div><div class="col-md-4"><div class="card border-warning shadow-sm h-100"><div class="card-header bg-warning text-dark fw-bold small d-flex justify-content-between align-items-center"><span><i class="fas fa-exclamation-circle me-1"></i> ติด มส. (60-79%)</span><span class="badge bg-white text-dark">${ms.length}</span></div><div class="card-body p-2" style="max-height: 300px; overflow-y: auto;">${renderList(ms, 'warning text-dark')}</div></div></div><div class="col-md-4"><div class="card border-info shadow-sm h-100"><div class="card-header bg-info text-dark fw-bold small d-flex justify-content-between align-items-center"><span><i class="fas fa-search me-1"></i> กลุ่มเสี่ยง (80-85%)</span><span class="badge bg-white text-dark">${risk.length}</span></div><div class="card-body p-2" style="max-height: 300px; overflow-y: auto;">${renderList(risk, 'info text-dark')}</div></div></div></div>`;
   container.innerHTML = html;
 }
@@ -268,7 +321,7 @@ function loadTeacherRiskDashboard() {
   const el0 = document.getElementById('riskCount0');
   const elR = document.getElementById('riskCountR');
   const elMS = document.getElementById('riskCountMS');
-  const container = document.getElementById('riskCardsContainer'); // 🌟 ชี้เป้าไปที่กล่องใหม่
+  const container = document.getElementById('riskCardsContainer'); 
   
   if(!el0 || !elR || !elMS || !container) return;
 
@@ -276,7 +329,6 @@ function loadTeacherRiskDashboard() {
   elR.innerHTML = '<span class="spinner-grow spinner-border-sm"></span>';
   elMS.innerHTML = '<span class="spinner-grow spinner-border-sm"></span>';
   
-  // โชว์ตัวหมุนรอโหลด
   container.innerHTML = `
       <div class="text-center text-muted py-5">
           <div class="spinner-border text-danger mb-3" role="status"></div><br>
@@ -286,12 +338,10 @@ function loadTeacherRiskDashboard() {
   safeRun(3).withSuccessHandler(function(res) {
     if (res.status === 'success') {
       
-      // อัปเดตตัวเลข 3 กล่องด้านบน
       el0.innerHTML = `<span class="fs-1">${res.summary.zero}</span> <span class="fs-6 fw-normal">รายการ</span>`;
       elR.innerHTML = `<span class="fs-1">${res.summary.r}</span> <span class="fs-6 fw-normal">รายการ</span>`;
       elMS.innerHTML = `<span class="fs-1">${res.summary.ms}</span> <span class="fs-6 fw-normal">รายการ</span>`;
 
-      // 🌟 ส่งข้อมูลไปให้ฟังก์ชันวาดการ์ด!
       renderRiskCards(res.details);
       
     } else {
@@ -302,13 +352,11 @@ function loadTeacherRiskDashboard() {
 
 // ==========================================
 // 📱 ฟังก์ชันย่อย: วาดการ์ดกลุ่มเสี่ยงแบบ "พร้อมแคปจอ" 
-// (อัปเดต: เพิ่มระบบคัดลอกรายชื่อส่ง Line แบบสวยงาม!)
 // ==========================================
 window.renderRiskCards = function(details) {
     const container = document.getElementById('riskCardsContainer');
     if(!container) return; 
 
-    // 🌟 ฝากข้อมูลเก็บไว้เผื่อกดปุ่มคัดลอก
     window.currentRiskDetails = details;
 
     if (!details || details.length === 0) {
@@ -409,11 +457,9 @@ window.jumpToScoreEntry = function(subjectCode, className) {
 window.copyRiskListByClass = function(cls) {
     if (!window.currentRiskDetails) return;
     
-    // 1. ดึงเฉพาะเด็กในห้องที่กด
     const classData = window.currentRiskDetails.filter(r => (r.className || 'ไม่ระบุห้อง') === cls);
     if (classData.length === 0) return;
 
-    // 2. จัดกลุ่มข้อความเตรียมพิมพ์
     let grouped = {};
     classData.forEach(r => {
         let sub = `${r.subjectName} (${r.subjectCode})`;
@@ -422,7 +468,6 @@ window.copyRiskListByClass = function(cls) {
         grouped[sub][type].push(`${r.stdName}`); 
     });
 
-    // 3. เริ่มปั้นข้อความสำหรับส่ง Line
     let textToCopy = `🚨 แจ้งเตือนนักเรียนกลุ่มเสี่ยง ห้อง ${cls} 🚨\n`;
     textToCopy += `----------------------------------\n`;
     
@@ -446,7 +491,6 @@ window.copyRiskListByClass = function(cls) {
     textToCopy += `----------------------------------\n`;
     textToCopy += `⚠️ รบกวนนักเรียนที่มีรายชื่อ ติดต่อครูผู้สอนด่วนครับ!`;
 
-    // 4. สั่งคัดลอกลง Clipboard เครื่อง
     navigator.clipboard.writeText(textToCopy).then(() => {
         if (typeof showToast === 'function') {
             showToast(`✅ คัดลอกรายชื่อห้อง ${cls} สำเร็จ!`, 'success');

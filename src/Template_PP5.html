@@ -57,14 +57,19 @@
     }
     body { font-size: 12pt; }
     .no-print { display: none !important; }
+    
+    /* 🌟 แก้ไข: บังคับปลดล็อคทุกแท็บให้เรียงต่อกันตอนสั่งพิมพ์ */
     .tab-content, .tab-content.hidden { 
-        display: block !important; visibility: visible !important; opacity: 1 !important;
-        height: auto !important; page-break-after: always !important; page-break-inside: avoid !important;
+        display: block !important; 
+        visibility: visible !important; 
+        opacity: 1 !important;
+        height: auto !important; 
+        page-break-after: always !important; 
+        page-break-inside: avoid !important;
         margin-bottom: 20px;
     }
-    .tab-content:last-of-type { page-break-after: auto !important; }
     
-    /* 🌟 บังคับขึ้นหน้าใหม่ให้ตารางที่โดนหั่น */
+    .tab-content:last-of-type { page-break-after: auto !important; }
     .print-page-break { page-break-before: always !important; }
     
     .data-table th { background: #1e3a5f !important; color: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -138,7 +143,7 @@
             <div class="flex border-b border-dashed border-gray-300 pb-1"><span class="font-semibold w-40 shrink-0">รายวิชา:</span> <span class="font-bold text-navy print:text-black"><?= data.subName ?></span></div>
             <div class="flex border-b border-dashed border-gray-300 pb-1"><span class="font-semibold w-40 shrink-0">รหัสวิชา:</span> <span class="font-bold"><?= data.subCode ?></span></div>
             <div class="flex border-b border-dashed border-gray-300 pb-1"><span class="font-semibold w-40 shrink-0">กลุ่มสาระการเรียนรู้:</span> <span><?= data.deptName ?></span></div>
-            <div class="flex border-b border-dashed border-gray-300 pb-1"><span class="font-semibold w-40 shrink-0">ชั้นมัธยมศึกษาปีที่:</span> <span class="font-bold text-navy print:text-black"><?= data.classNum ?> (<?= data.className ?>)</span></div>
+            <div class="flex border-b border-dashed border-gray-300 pb-1"><span class="font-semibold w-40 shrink-0">ชั้นมัธยมศึกษาปีที่:</span> <span class="font-bold text-navy print:text-black"><?= data.classNum ?></span></div>
             <div class="flex border-b border-dashed border-gray-300 pb-1"><span class="font-semibold w-40 shrink-0">ภาคเรียนที่ / ปีการศึกษา:</span> <span class="font-bold"><?= data.user.currentTerm ?> / <?= data.user.currentYear ?></span></div>
             <div class="flex border-b border-dashed border-gray-300 pb-1"><span class="font-semibold w-40 shrink-0">ครูผู้สอน:</span> <span class="font-bold"><?= data.user.name ?></span></div>
             <div class="flex border-b border-dashed border-gray-300 pb-1"><span class="font-semibold w-40 shrink-0">ครูที่ปรึกษา:</span> 
@@ -503,7 +508,6 @@
         document.getElementById('sum-0').innerText = gradeCounts['0'];
         document.getElementById('sum-r').innerText = gradeCounts['ร'];
         document.getElementById('sum-ms').innerText = gradeCounts['มส'];
-
         document.getElementById('sum-eval-total').innerText = students.length;
         document.getElementById('sum-char-3').innerText = charCounts['3'];
         document.getElementById('sum-char-2').innerText = charCounts['2'];

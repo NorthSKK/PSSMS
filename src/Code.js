@@ -1332,17 +1332,33 @@ function getMassiveAttendanceGrid(subjectCode, className, term, year) {
   };
 }
 
+// ==========================================
+// 🚀 ระบบลับ: บันทึกข้อมูลตารางรวมลงฐานข้อมูล (อัปเกรด Bulk Update เร็วขึ้น 100 เท่า!)
+// ==========================================
 function saveMassiveAttendanceGrid(subjectCode, subjectName, className, term, year, updates, newRecords, teacherId) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName("Attendance_Database");
   if (!sheet) return { status: "error", message: "ไม่พบชีต Attendance_Database" };
   
+  // 🌟 อัปเกรด: บันทึกข้อมูลเดิมแบบ รวดเดียวจบ (Bulk Update) 
   if (updates && updates.length > 0) {
-      updates.forEach(u => {
-          if (u.rowIdx) sheet.getRange(u.rowIdx, 11).setValue(u.status);
-      });
+      const lastRow = sheet.getLastRow();
+      if (lastRow > 0) {
+          // ดึงสถานะคอลัมน์ K (11) ออกมาทั้งแถบ
+          const statusRange = sheet.getRange(1, 11, lastRow, 1);
+          const statusValues = statusRange.getValues();
+          
+          updates.forEach(u => {
+              if (u.rowIdx && u.rowIdx <= lastRow) {
+                  statusValues[u.rowIdx - 1][0] = u.status; // อัปเดตค่าใน Array
+              }
+          });
+          // เทกลับลงไปรวดเดียวจบ!
+          statusRange.setValues(statusValues);
+      }
   }
   
+  // เพิ่มคาบเรียนใหม่ (ทำรวดเดียวอยู่แล้ว)
   if (newRecords && newRecords.length > 0) {
       const timestamp = new Date();
       const dataToAppend = newRecords.map(r => [

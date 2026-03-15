@@ -1513,12 +1513,28 @@ window.handleExcelPaste = function(e) {
 };
 
 // ==========================================
-// 🖨️ ระบบพิมพ์ ปพ.5 (อัปเดตดึงคะแนนดิบ 4 ช่วง คุณลักษณะฯ/อ่านเขียน)
+// 🖨️ ระบบพิมพ์ ปพ.5 (ทะลวง Pop-up Blocker 100%)
 // ==========================================
 window.preparePrintPorPor5 = function() {
     const select = document.getElementById('scoreClassSelect');
     if(!select || !select.value) { showToast('⚠️ กรุณาเลือกวิชาที่ต้องการพิมพ์ก่อนครับ', 'warning'); return; }
     
+    // 🌟 เปิดหน้าต่างใหม่ทันทีที่คลิก (วิธีนี้หลอกเบราว์เซอร์ได้ 100% ไม่โดนบล็อก)
+    const printWindow = window.open('', '_blank');
+    if(printWindow) {
+        printWindow.document.write(`
+            <div style="font-family: 'Sarabun', sans-serif; text-align: center; padding-top: 25vh; color: #1e3a5f;">
+                <div style="width: 50px; height: 50px; border: 5px solid #f0c040; border-top-color: transparent; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 20px;"></div>
+                <style>@keyframes spin { 100% { transform: rotate(360deg); } }</style>
+                <h2>⏳ กำลังประมวลผลเอกสาร ปพ.5...</h2>
+                <p style="color: #666;">กรุณารอสักครู่ ระบบกำลังรวบรวมคะแนนและสถิติเวลาเรียนครับ</p>
+            </div>
+        `);
+    } else {
+        alert("⚠️ เบราว์เซอร์ของคุณมีการป้องกันขั้นสูงสุด กรุณากดอนุญาต Pop-up ด้านบนขวาของช่อง URL ครับ");
+        return;
+    }
+
     const subjectObj = JSON.parse(select.value);
     const subCode = subjectObj[0];
     const subName = subjectObj[1];
@@ -1532,8 +1548,9 @@ window.preparePrintPorPor5 = function() {
     let studentsToPrint = []; 
     
     if (!currentScoreStudents || currentScoreStudents.length === 0) {
+        if(printWindow) printWindow.close();
         showToast('⚠️ ไม่พบข้อมูลนักเรียน', 'warning');
-        if(btn) btn.innerHTML = '<i class="fas fa-print me-1"></i> พิมพ์ ปพ.5';
+        if(btn) btn.innerHTML = '<i class="fas fa-print me-1"></i> <span class="d-none d-sm-inline">พิมพ์ ปพ.5</span>';
         return;
     }
 
@@ -1574,7 +1591,6 @@ window.preparePrintPorPor5 = function() {
         if(readGrd !== "") stats.read[readGrd]++;
         if(charGrd !== "") stats.char[charGrd]++;
 
-        // 🌟 ดึงออบเจ็กต์เวลาเรียนทั้งหมดของเด็กคนนี้มา
         let attPct = currentAttStats[safeStdId] || '-';
         let attObj = currentAttDetails[safeStdId] || { present: '-', late: '-', leave: '-', absent: '-', records: {} };
 
@@ -1582,7 +1598,7 @@ window.preparePrintPorPor5 = function() {
             no: no, id: stdId, name: name, 
             formativeScores: formativeScores, mid: mid, midRe: midRe, fin: fin, total: total, grade: finalGradeForStat, 
             attPct: attPct, attPresent: attObj.present, attLate: attObj.late, attLeave: attObj.leave, attAbsent: attObj.absent,
-            attRecords: attObj.records || {}, // 🌟 แนบประวัติรายคาบ
+            attRecords: attObj.records || {}, 
             readGrd: readGrd, charGrd: charGrd,
             c1: c1, c2: c2, c3: c3, c4: c4, cTot: cTot,
             r1: r1, r2: r2, r3: r3, r4: r4, rTot: rTot
@@ -1616,7 +1632,7 @@ window.preparePrintPorPor5 = function() {
              subCode: subCode, subName: subName, className: className, classNum: className.replace('ม.', ''),
              user: user, sys: sys, stats: stats, students: studentsToPrint,
              config: currentScoreConfig,
-             attSessions: currentAttSessions, // 🌟 แนบโครงสร้างหัวตารางคาบเรียนไปให้ Template วาด
+             attSessions: currentAttSessions, 
              t1: t1, t2: t2, deptName: deptName, headName: headName,
              p_name: sys.principal_name || '..........................................................',
              m_head: sys.measure_head || '..........................................................',
@@ -1628,13 +1644,17 @@ window.preparePrintPorPor5 = function() {
          google.script.run
          .withSuccessHandler(html => {
              if(btn) btn.innerHTML = '<i class="fas fa-print me-1"></i> <span class="d-none d-sm-inline">พิมพ์ ปพ.5</span>';
-             const printWindow = window.open('', '_blank');
-             printWindow.document.write(html);
-             printWindow.document.close();
-             setTimeout(() => { printWindow.focus(); printWindow.print(); }, 1000);
+             
+             // 🌟 2. เขียนทับเอกสารด้วยหน้า ปพ.5 จริงๆ
+             if(printWindow) {
+                 printWindow.document.open();
+                 printWindow.document.write(html);
+                 printWindow.document.close();
+             }
          })
          .withFailureHandler(err => {
              if(btn) btn.innerHTML = '<i class="fas fa-print me-1"></i> <span class="d-none d-sm-inline">พิมพ์ ปพ.5</span>';
+             if(printWindow) printWindow.close();
              showToast('❌ Error ระบบหลังบ้าน: ' + err.message, 'danger');
          })
          .generatePP5Template(payload);
