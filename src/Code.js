@@ -856,39 +856,27 @@ function getSemesterReport(subjectCode, className, term, year) {
   const targetTerm = String(term).trim();
   const targetYear = String(year).trim();
   
-  // --- 1. คำนวณคาบทั้งหมดตามโครงสร้าง (Total Expected) ---
   let periodsPerWeek = 0;
-  
-  // พยายามค้นหาแบบเข้มข้น (หาจาก New Schema Level/Room)
   for (let i = 1; i < timeData.length; i++) {
     const row = timeData[i];
-    // New Schema: 0:Code, 2:Level, 3:Room, 8:Term, 9:Year
     const tLevel = String(row[2]).trim();
     const tRoom = String(row[3]).trim();
-    const tClassID = normalize(`${tLevel}/${tRoom}`); // ประกอบร่าง "ม51"
+    const tClassID = normalize(`${tLevel}/${tRoom}`); 
 
-    if (normalize(row[0]) === cleanSub && 
-        tClassID === cleanClass &&
-        String(row[8]).trim() === targetTerm && 
-        String(row[9]).trim() === targetYear) {
+    if (normalize(row[0]) === cleanSub && tClassID === cleanClass && String(row[8]).trim() === targetTerm && String(row[9]).trim() === targetYear) {
       periodsPerWeek++;
     }
   }
 
-  // 🛡️ ระบบกันพลาด: ถ้าหาไม่เจอจริงๆ ให้สมมติว่ามี 3 คาบ/สัปดาห์ (กันโควตาเป็น 0)
-  if (periodsPerWeek === 0) {
-    console.log("⚠️ หาคาบเรียนไม่เจอ ใช้ค่า Default 3 คาบ/สัปดาห์");
-    periodsPerWeek = 3;
-  }
+  if (periodsPerWeek === 0) periodsPerWeek = 3;
 
   const weeksPerTerm = 20; 
-  const totalCoursePeriods = periodsPerWeek * weeksPerTerm; // คะแนนเต็ม (เช่น 60 คาบ)
-  const maxAbsenceQuota = Math.floor(totalCoursePeriods * 0.2); // ขาดได้สูงสุด (20%)
+  const totalCoursePeriods = periodsPerWeek * weeksPerTerm; 
+  const maxAbsenceQuota = Math.floor(totalCoursePeriods * 0.2); 
 
-  // --- 2. ดึงข้อมูลนักเรียน (Group By Session) ---
   const studentDataMap = {}; 
-  const allSessions = new Set();
   const studentInfo = {}; 
+  const sessionDetails = {}; // 🌟 เพิ่มกล่องเก็บข้อมูลรายคาบ
 
   for (let i = 1; i < attData.length; i++) {
     const row = attData[i];
@@ -898,65 +886,67 @@ function getSemesterReport(subjectCode, className, term, year) {
     const rowClass = normalize(row[6]); 
 
     if (rowSub === cleanSub && rowClass === cleanClass) {
-      
       const stdID = String(row[8]).trim();
       const stdName = row[9];
       const status = row[10];
       const sessionID = String(row[12]).trim() || (row[1] + "_" + row[7]);
       
-      allSessions.add(sessionID);
-      
+      // 🌟 สกัดข้อมูล วัน/เดือน/คาบ เก็บไว้
+      if (!sessionDetails[sessionID]) {
+          let d;
+          if (row[1] instanceof Date) d = row[1];
+          else d = new Date(row[1]);
+          
+          if (!isNaN(d.getTime())) {
+              let months = ["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
+              sessionDetails[sessionID] = {
+                  id: sessionID, rawDate: d.getTime(), month: months[d.getMonth()], date: d.getDate(), period: String(row[7]).trim()
+              };
+          } else {
+              sessionDetails[sessionID] = { id: sessionID, rawDate: 0, month: "-", date: "-", period: String(row[7]).trim() };
+          }
+      }
+
       if (!studentInfo[stdID]) studentInfo[stdID] = stdName;
       if (!studentDataMap[stdID]) studentDataMap[stdID] = {};
-      
       studentDataMap[stdID][sessionID] = status;
     }
   }
   
-  const currentTotalTaught = allSessions.size;
+  const currentTotalTaught = Object.keys(sessionDetails).length;
 
-  // --- 3. สรุปผลรายคน (สูตรใหม่: เริ่ม 100% แล้วลดลง) ---
+  // 🌟 จัดเรียงคาบเรียนตามวันที่ และคำนวณสัปดาห์
+  let sessionsList = Object.values(sessionDetails).sort((a, b) => a.rawDate - b.rawDate);
+  let currentWeek = 1; let pCount = 0;
+  sessionsList.forEach(s => {
+      s.week = currentWeek;
+      pCount++;
+      if (pCount >= periodsPerWeek) { pCount = 0; currentWeek++; }
+  });
+
   const reportData = Object.keys(studentDataMap).map(stdID => {
     let present = 0, late = 0, leave = 0, absent = 0;
-    
     const records = studentDataMap[stdID];
+    
     for (const sessKey in records) {
       const s = records[sessKey];
-      if (s === 'มา') present++;
-      else if (s === 'สาย') late++;
-      else if (s === 'ลา') leave++;
-      else if (s === 'ขาด') absent++;
+      if (s === 'มา') present++; else if (s === 'สาย') late++; else if (s === 'ลา') leave++; else if (s === 'ขาด') absent++;
     }
 
-    // สูตรใหม่: (คาบทั้งหมด - ขาด - ลา) / คาบทั้งหมด * 100
-    // *หมายเหตุ: ถ้าครูอยากให้ "ลา" ไม่เสียคะแนน ให้ลบ leave ออกจากสูตรลบ
-    const totalMissed = absent + leave; // นับทั้งขาดและลา เป็นตัวหักคะแนน
-    
-    // คำนวณ % จาก "ทั้งเทอม" (Start at 100%)
+    const totalMissed = absent + leave; 
     let percent = ((totalCoursePeriods - totalMissed) / totalCoursePeriods) * 100;
     
-    // แต่ถ้า % ปัจจุบันจริงๆ (Present/Taught) มันดีกว่า ก็ให้โชว์อันที่ดีกว่า (Optional)
-    // หรือเอาแบบตรงไปตรงมาตามที่ครูขอคือสูตรนี้เลย:
-    
     return { 
-      id: stdID, 
-      name: studentInfo[stdID], 
+      id: stdID, name: studentInfo[stdID], 
       present, late, leave, absent, 
-      total: present + late + leave + absent,
-      percent: percent.toFixed(2), 
-      currentTotalTaught 
+      percent: percent.toFixed(2), currentTotalTaught,
+      records: records // 🌟 ส่งประวัติมาสายลาขาดทุกคาบกลับไป
     };
   });
 
   return {
     students: reportData.sort((a, b) => a.id.localeCompare(b.id)),
-    meta: { 
-      periodsPerWeek, 
-      weeksPerTerm, 
-      totalCoursePeriods, 
-      maxAbsenceQuota,
-      currentTotalTaught 
-    }
+    meta: { periodsPerWeek, weeksPerTerm, totalCoursePeriods, maxAbsenceQuota, currentTotalTaught, sessionsList: sessionsList }
   };
 }
 
@@ -1281,6 +1271,87 @@ function updateAttendanceBatch(list) {
   }
 
   return { status: "success", message: `อัปเดตข้อมูล ${updateCount} รายการเรียบร้อย` };
+}
+
+// ==========================================
+// 🚀 ระบบลับ: ดึงข้อมูลเช็คชื่อแบบตารางรวม (อัปเกรดระบบจับคู่ข้อมูล 100%)
+// ==========================================
+function getMassiveAttendanceGrid(subjectCode, className, term, year) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const attSheet = ss.getSheetByName("Attendance_Database");
+  const students = getStudentsByClass(className);
+  
+  const cleanSub = String(subjectCode).replace(/[^a-zA-Z0-9ก-๙]/g, '');
+  const cleanClass = String(className).replace(/[^a-zA-Z0-9ก-๙]/g, '');
+  const targetTerm = String(term).trim();
+  const targetYear = String(year).trim();
+  
+  const attData = attSheet ? attSheet.getDataRange().getDisplayValues() : [];
+  
+  const sessionsMap = {}; 
+  const attendanceMap = {}; 
+  
+  for (let i = 1; i < attData.length; i++) {
+      const row = attData[i];
+      if (!row[1]) continue;
+      
+      const rSub = String(row[4]).replace(/[^a-zA-Z0-9ก-๙]/g, '');
+      const rClass = String(row[6]).replace(/[^a-zA-Z0-9ก-๙]/g, '');
+      const rTerm = String(row[2]).trim();
+      const rYear = String(row[3]).trim();
+      
+      // 🌟 ดักเช็คเทอมและปีการศึกษาด้วย ป้องกันไปดูดของเทอมอื่นมาผสม
+      if (rSub === cleanSub && rClass === cleanClass && rTerm === targetTerm && rYear === targetYear) {
+          
+          // 🌟 แปลงรหัสเป็นตัวเลขล้วนเพื่อแก้ปัญหาเลข 0 นำหน้า
+          const stdId = String(parseInt(String(row[8]).trim(), 10)); 
+          const status = row[10];
+          const period = String(row[7]).trim();
+          
+          let dateStr = String(row[1]).split(' ')[0].trim(); 
+          if(row[12]) {
+              const parts = String(row[12]).split('_');
+              if(parts.length > 1) dateStr = parts[0];
+          }
+          
+          const sessionKey = dateStr + "_" + period;
+          
+          if (!sessionsMap[sessionKey]) {
+              sessionsMap[sessionKey] = { date: dateStr, period: period, displayDate: dateStr };
+          }
+          
+          if (!attendanceMap[stdId]) attendanceMap[stdId] = {};
+          attendanceMap[stdId][sessionKey] = { status: status, rowIdx: i + 1 };
+      }
+  }
+  
+  return {
+      students: students,
+      sessions: Object.values(sessionsMap).sort((a, b) => a.date.localeCompare(b.date) || parseInt(a.period) - parseInt(b.period)),
+      attendance: attendanceMap
+  };
+}
+
+function saveMassiveAttendanceGrid(subjectCode, subjectName, className, term, year, updates, newRecords, teacherId) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName("Attendance_Database");
+  if (!sheet) return { status: "error", message: "ไม่พบชีต Attendance_Database" };
+  
+  if (updates && updates.length > 0) {
+      updates.forEach(u => {
+          if (u.rowIdx) sheet.getRange(u.rowIdx, 11).setValue(u.status);
+      });
+  }
+  
+  if (newRecords && newRecords.length > 0) {
+      const timestamp = new Date();
+      const dataToAppend = newRecords.map(r => [
+          timestamp, r.date, term, year, subjectCode, subjectName, className, r.period, r.studentId, r.studentName, r.status, teacherId, `${r.date}_${r.period}`
+      ]);
+      sheet.getRange(sheet.getLastRow() + 1, 1, dataToAppend.length, dataToAppend[0].length).setValues(dataToAppend);
+  }
+  
+  return { status: "success", message: "บันทึกข้อมูลตารางรวมเรียบร้อยแล้ว" };
 }
 
 // ==========================================
@@ -1917,7 +1988,7 @@ function saveSubjectConfig(configData) {
 // ==========================================
 
 // ==========================================
-// 📥 ระบบดึงข้อมูลคะแนน (อัปเกรด: ค้นหาคอลัมน์ remedial_status อัตโนมัติ)
+// 📥 ระบบดึงข้อมูลคะแนน (อัปเกรด: ส่งข้อมูล มา สาย ลา ขาด)
 // ==========================================
 function getAllInOneScoreGridData(subjectCode, className, term, year) {
   let config = getSubjectConfig(subjectCode, className, term, year);
@@ -1930,8 +2001,6 @@ function getAllInOneScoreGridData(subjectCode, className, term, year) {
   const normStr = (str) => String(str).replace(/\s+/g, '').toLowerCase();
 
   const existingScores = {};
-  
-  // 1. ดึงจาก Score_Database
   const sheetScore = ss.getSheetByName("Score_Database");
   if (sheetScore) {
     const scoreData = sheetScore.getDataRange().getDisplayValues();
@@ -1951,34 +2020,19 @@ function getAllInOneScoreGridData(subjectCode, className, term, year) {
     }
   }
 
-  // 2. 🚨 ดึงจาก Grade_Summary (ท่าไม้ตาย: สแกนทั้งบรรทัด ไม่สนชื่อคอลัมน์!)
   const gradeSheet = ss.getSheetByName("Grade_Summary");
   if (gradeSheet && gradeSheet.getLastRow() > 0) {
     const gradeData = gradeSheet.getDataRange().getDisplayValues();
-    
     for(let i = 1; i < gradeData.length; i++) {
-        // เช็ครหัสวิชาแบบยืดหยุ่น ป้องกันเคสมีช่องว่างหรือตัวอักษรแปลกๆ
         const rowSub = normStr(gradeData[i][1]);
-        const targetSub = normStr(subjectCode);
-        
-        if(rowSub === targetSub || rowSub.includes(targetSub)) {
+        if(rowSub === normStr(subjectCode) || rowSub.includes(normStr(subjectCode))) {
             const stdKey = normID(gradeData[i][0]);
             let foundRemark = false;
-
-            // 🌟 สแกนกวาดทุกเซลล์ในบรรทัดของเด็กคนนี้ (เริ่มจากคอลัมน์ที่ 3 เป็นต้นไป)
             for (let col = 2; col < gradeData[i].length; col++) {
                 const cellVal = String(gradeData[i][col]).trim();
-                if (cellVal === 'ร' || cellVal === 'มส') {
-                    existingScores[`${stdKey}_remark`] = cellVal; // ล็อคค่าทันทีถ้าเจอ
-                    foundRemark = true;
-                    break; // หยุดสแกนบรรทัดนี้ เพราะเจอเป้าหมายแล้ว
-                }
+                if (cellVal === 'ร' || cellVal === 'มส') { existingScores[`${stdKey}_remark`] = cellVal; foundRemark = true; break; }
             }
-            
-            // ถ้าสแกนจนจบแล้วไม่เจอ ร/มส แต่มีข้อมูลช่องว่างหรือขีด ให้จำไว้ว่าไม่ติด
-            if (!foundRemark && !existingScores[`${stdKey}_remark`]) {
-                existingScores[`${stdKey}_remark`] = '-';
-            }
+            if (!foundRemark && !existingScores[`${stdKey}_remark`]) existingScores[`${stdKey}_remark`] = '-';
         }
     }
   }
@@ -1986,32 +2040,34 @@ function getAllInOneScoreGridData(subjectCode, className, term, year) {
   const qualSheet = ss.getSheetByName("Qualitative_Assess");
   const qualData = qualSheet ? qualSheet.getDataRange().getDisplayValues() : [];
   const existingQuals = {};
-  
   for(let i = 1; i < qualData.length; i++) {
     const row = qualData[i];
     if(normStr(row[1]) === normStr(subjectCode) && normStr(row[2]) === normStr(term) && normStr(row[3]) === normStr(year)) {
-      // 🌟 สมองกล: เช็คว่าเป็นโครงสร้างเก่า (7 คอลัมน์) หรือโครงสร้างใหม่ (17 คอลัมน์)
       if (row.length >= 16) {
           existingQuals[normID(row[0])] = { 
               read1: row[4], read2: row[5], read3: row[6], read4: row[7], readTotal: row[8], read: row[9],
               char1: row[10], char2: row[11], char3: row[12], char4: row[13], charTotal: row[14], char: row[15],
               comp: row[16] || '3'
           };
-      } else {
-          existingQuals[normID(row[0])] = { read: row[4], char: row[5], comp: row[6] };
-      }
+      } else { existingQuals[normID(row[0])] = { read: row[4], char: row[5], comp: row[6] }; }
     }
   }
 
   let attStats = {};
+  let attDetails = {}; 
+  let attSessions = []; // 🌟 ตัวแปรเก็บหัวตารางรายคาบ
   try {
     const report = getSemesterReport(subjectCode, className, term, year);
     if(report && report.students) {
-      report.students.forEach(s => { attStats[normID(s.id)] = parseFloat(s.percent); });
+      attSessions = report.meta.sessionsList || []; // 🌟 เก็บโครงสร้างคาบส่งไปหน้าเว็บ
+      report.students.forEach(s => { 
+          attStats[normID(s.id)] = parseFloat(s.percent); 
+          attDetails[normID(s.id)] = s; 
+      });
     }
   } catch(e) {}
 
-  return { config: config, students: students, existingScores: existingScores, existingQuals: existingQuals, attStats: attStats };
+  return { config: config, students: students, existingScores: existingScores, existingQuals: existingQuals, attStats: attStats, attDetails: attDetails, attSessions: attSessions };
 }
 
 // ==========================================

@@ -163,6 +163,8 @@ function saveSubjectConfigData() {
 let currentScoreConfig = null;
 let currentScoreStudents = [];
 let currentAttStats = {};
+let currentAttDetails = {};
+let currentAttSessions = [];
 let isHeaderEditMode = false;
 let isQualVisible = false;
 let isSavingScores = false;
@@ -295,40 +297,33 @@ function loadScoreGrid() {
   const val = document.getElementById('scoreClassSelect').value;
   const gridCard = document.getElementById('scoreGridCard');
   const btnSave = document.getElementById('btnSaveScores');
-  
-  if(!val) {
-    gridCard.classList.add('d-none');
-    btnSave.disabled = true;
-    return;
-  }
+  if(!val) { gridCard.classList.add('d-none'); btnSave.disabled = true; return; }
 
   const item = JSON.parse(val);
   const user = getSessionUser();
   
-  // 🌟 1. เปิดการ์ดตารางขึ้นมาทันที (ไม่ต้องมี showLoader จอดำแล้ว!)
   gridCard.classList.remove('d-none');
   btnSave.disabled = true; 
   document.getElementById('scoreGridTitle').innerHTML = `<i class="fas fa-spinner fa-spin me-2 text-primary"></i>กำลังซิงค์ข้อมูล ปพ.5...`;
-  document.getElementById('scoreRatioBadge').innerText = "รอสักครู่";
   
-  // 🌟 2. วาดตารางโครงกระดูก (Skeleton) หลอกตาผู้ใช้
   renderSkeletonTable();
 
-  // 🌟 3. ยิงข้อมูลไปหลังบ้าน
   safeRun(3)
     .withFailureHandler(err => {
-        document.getElementById('scoreTableBody').innerHTML = `<tr><td colspan="10" class="text-center text-danger p-5"><i class="fas fa-exclamation-triangle fa-2x mb-2"></i><br>โหลดข้อมูลไม่สำเร็จ: ${err.message}</td></tr>`;
+        document.getElementById('scoreTableBody').innerHTML = `<tr><td colspan="10" class="text-center text-danger p-5">โหลดข้อมูลไม่สำเร็จ: ${err.message}</td></tr>`;
         document.getElementById('scoreGridTitle').innerHTML = `เกิดข้อผิดพลาดในการโหลด`;
     })
     .withSuccessHandler(res => {
-        // เมื่อข้อมูลมาถึง ค่อยเอาข้อมูลจริงไปทับ Skeleton
         btnSave.disabled = false;
         currentScoreConfig = res.config;
         currentScoreStudents = res.students;
         currentAttStats = res.attStats || {}; 
-        document.getElementById('scoreTabs').classList.remove('d-none'); // โชว์ Tabs
+        currentAttDetails = res.attDetails || {}; // 🌟 รับข้อมูลเวลาเรียนรายคน
+        currentAttSessions = res.attSessions || []; // 🌟 รับข้อมูลหัวตารางคาบเรียน
+
+        document.getElementById('scoreTabs').classList.remove('d-none');
         renderAllInOneTable(res.students, res.config, res.existingScores, res.existingQuals);
-        renderEvalTable(res.students, res.existingQuals); // วาดตารางประเมินใหม่
+        renderEvalTable(res.students, res.existingQuals);
     })
     .getAllInOneScoreGridData(item[0], item[2], user.currentTerm, user.currentYear);
 }
@@ -1518,14 +1513,11 @@ window.handleExcelPaste = function(e) {
 };
 
 // ==========================================
-// 🖨️ ระบบพิมพ์ ปพ.5 (เวอร์ชัน Template - คลีนที่สุด!)
+// 🖨️ ระบบพิมพ์ ปพ.5 (อัปเดตดึงคะแนนดิบ 4 ช่วง คุณลักษณะฯ/อ่านเขียน)
 // ==========================================
 window.preparePrintPorPor5 = function() {
     const select = document.getElementById('scoreClassSelect');
-    if(!select || !select.value) {
-       showToast('⚠️ กรุณาเลือกวิชาที่ต้องการพิมพ์ก่อนครับ', 'warning');
-       return;
-    }
+    if(!select || !select.value) { showToast('⚠️ กรุณาเลือกวิชาที่ต้องการพิมพ์ก่อนครับ', 'warning'); return; }
     
     const subjectObj = JSON.parse(select.value);
     const subCode = subjectObj[0];
@@ -1534,33 +1526,69 @@ window.preparePrintPorPor5 = function() {
     const user = getSessionUser();
     
     const btn = document.getElementById('btnPrintPP5');
-    if(btn) btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>กำลังโหลดฟอร์ม...';
+    if(btn) btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>กำลังรวบรวมข้อมูล...';
     
-    // ดึงสถิติ
     let stats = { grade: {'4':0, '3.5':0, '3':0, '2.5':0, '2':0, '1.5':0, '1':0, '0':0, 'ร':0, 'มส':0}, read: {'3':0, '2':0, '1':0, '0':0}, char: {'3':0, '2':0, '1':0, '0':0}, total: 0 };
-    let hasQualData = false;
-    let students = []; 
+    let studentsToPrint = []; 
     
-    document.querySelectorAll('#scoreTableBody tr').forEach(tr => {
-       let no = tr.querySelector('.sticky-col-1')?.innerText.trim();
-       let nameBox = tr.querySelector('.sticky-col-2 .fw-bold') || tr.querySelector('.sticky-col-2');
-       let name = nameBox ? nameBox.innerText.trim() : '';
-       if(!no || !name) return; 
-       
-       stats.total++; 
-       students.push({ no: no, name: name });
-       
-       const g = tr.querySelector('.score-grade')?.innerText.trim();
-       if(stats.grade[g] !== undefined) stats.grade[g]++;
-       
-       const r = tr.querySelector('.qual-read')?.value;
-       if(r !== undefined && r !== "") { stats.read[r]++; hasQualData = true; }
-       
-       const c = tr.querySelector('.qual-char')?.value;
-       if(c !== undefined && c !== "") { stats.char[c]++; hasQualData = true; }
+    if (!currentScoreStudents || currentScoreStudents.length === 0) {
+        showToast('⚠️ ไม่พบข้อมูลนักเรียน', 'warning');
+        if(btn) btn.innerHTML = '<i class="fas fa-print me-1"></i> พิมพ์ ปพ.5';
+        return;
+    }
+
+    currentScoreStudents.forEach((std, rowIndex) => {
+        const stdId = String(std[0]).trim();
+        const safeStdId = normID(stdId); 
+        const name = std[2];
+        const no = rowIndex + 1;
+        stats.total++; 
+
+        let formativeScores = [];
+        document.querySelectorAll(`.formative-std-${safeStdId}`).forEach(inp => { formativeScores.push(inp.value !== '' ? parseFloat(inp.value) : ''); });
+
+        let mid = document.querySelector(`.midterm-std-${safeStdId}`)?.value || '';
+        let midRe = document.querySelector(`.midterm-re-std-${safeStdId}`)?.value || '';
+        let fin = document.querySelector(`.final-std-${safeStdId}`)?.value || '';
+        let total = document.getElementById(`sum_total_std_${safeStdId}`)?.innerText || '';
+        let grade = document.getElementById(`grade_std_${safeStdId}`)?.innerText || '';
+        let remark = document.querySelector(`.remark-select[data-safeid="${safeStdId}"]`)?.value || '';
+
+        let readGrd = document.querySelector(`.qual-read[data-safeid="${safeStdId}"]`)?.value || '';
+        let charGrd = document.querySelector(`.qual-char[data-safeid="${safeStdId}"]`)?.value || '';
+        let c1='', c2='', c3='', c4='', cTot='';
+        let r1='', r2='', r3='', r4='', rTot='';
+
+        if (document.getElementById(`rGrd_${safeStdId}`)) {
+            readGrd = document.getElementById(`rGrd_${safeStdId}`).innerText; charGrd = document.getElementById(`cGrd_${safeStdId}`).innerText;
+            c1 = document.getElementById(`c1_${safeStdId}`)?.value || ''; c2 = document.getElementById(`c2_${safeStdId}`)?.value || '';
+            c3 = document.getElementById(`c3_${safeStdId}`)?.value || ''; c4 = document.getElementById(`c4_${safeStdId}`)?.value || '';
+            cTot = document.getElementById(`cTot_${safeStdId}`)?.innerText || '';
+            r1 = document.getElementById(`r1_${safeStdId}`)?.value || ''; r2 = document.getElementById(`r2_${safeStdId}`)?.value || '';
+            r3 = document.getElementById(`r3_${safeStdId}`)?.value || ''; r4 = document.getElementById(`r4_${safeStdId}`)?.value || '';
+            rTot = document.getElementById(`rTot_${safeStdId}`)?.innerText || '';
+        }
+
+        let finalGradeForStat = (remark === 'ร' || remark === 'มส') ? remark : grade;
+        if(stats.grade[finalGradeForStat] !== undefined) stats.grade[finalGradeForStat]++;
+        if(readGrd !== "") stats.read[readGrd]++;
+        if(charGrd !== "") stats.char[charGrd]++;
+
+        // 🌟 ดึงออบเจ็กต์เวลาเรียนทั้งหมดของเด็กคนนี้มา
+        let attPct = currentAttStats[safeStdId] || '-';
+        let attObj = currentAttDetails[safeStdId] || { present: '-', late: '-', leave: '-', absent: '-', records: {} };
+
+        studentsToPrint.push({ 
+            no: no, id: stdId, name: name, 
+            formativeScores: formativeScores, mid: mid, midRe: midRe, fin: fin, total: total, grade: finalGradeForStat, 
+            attPct: attPct, attPresent: attObj.present, attLate: attObj.late, attLeave: attObj.leave, attAbsent: attObj.absent,
+            attRecords: attObj.records || {}, // 🌟 แนบประวัติรายคาบ
+            readGrd: readGrd, charGrd: charGrd,
+            c1: c1, c2: c2, c3: c3, c4: c4, cTot: cTot,
+            r1: r1, r2: r2, r3: r3, r4: r4, rTot: rTot
+        });
     });
     
-    // ดึงตั้งค่าจากหลังบ้าน แล้วส่งไปเข้าเครื่องผลิต Template
     google.script.run.withSuccessHandler(res => {
          const sys = res.sys || {};
          const hrList = res.hr || [];
@@ -1584,10 +1612,11 @@ window.preparePrintPorPor5 = function() {
 
          const isJunior = className.includes('ม.1') || className.includes('ม.2') || className.includes('ม.3');
 
-         // 📦 จัดของใส่กล่อง เตรียมส่งไปให้ Template หลังบ้าน
          const payload = {
              subCode: subCode, subName: subName, className: className, classNum: className.replace('ม.', ''),
-             user: user, sys: sys, stats: stats, students: students,
+             user: user, sys: sys, stats: stats, students: studentsToPrint,
+             config: currentScoreConfig,
+             attSessions: currentAttSessions, // 🌟 แนบโครงสร้างหัวตารางคาบเรียนไปให้ Template วาด
              t1: t1, t2: t2, deptName: deptName, headName: headName,
              p_name: sys.principal_name || '..........................................................',
              m_head: sys.measure_head || '..........................................................',
@@ -1596,27 +1625,17 @@ window.preparePrintPorPor5 = function() {
              checkSenior: !isJunior ? '<span style="font-size: 16pt;">☑</span>' : '<span style="font-size: 18pt;">☐</span>'
          };
 
-         // 🚀 ส่งไปประมวลผลที่ Code.js แล้วเอา HTML ที่เสร็จแล้วมาเปิดหน้าต่างใหม่
          google.script.run
          .withSuccessHandler(html => {
-             // ถ้าสำเร็จ ให้คืนค่าปุ่มกลับมาและเปิดหน้าปริ้นท์
              if(btn) btn.innerHTML = '<i class="fas fa-print me-1"></i> <span class="d-none d-sm-inline">พิมพ์ ปพ.5</span>';
-             
              const printWindow = window.open('', '_blank');
              printWindow.document.write(html);
              printWindow.document.close();
-             
-             setTimeout(() => {
-                 printWindow.focus();
-                 printWindow.print();
-             }, 1000);
+             setTimeout(() => { printWindow.focus(); printWindow.print(); }, 1000);
          })
          .withFailureHandler(err => {
-             // 🚨 ถ้า Error ให้แจ้งเตือนและคืนค่าปุ่ม
              if(btn) btn.innerHTML = '<i class="fas fa-print me-1"></i> <span class="d-none d-sm-inline">พิมพ์ ปพ.5</span>';
              showToast('❌ Error ระบบหลังบ้าน: ' + err.message, 'danger');
-             console.error('รายละเอียด Error:', err);
-             alert('เกิดข้อผิดพลาดในการสร้างฟอร์ม ปพ.5:\n\n' + err.message + '\n\n(กรุณาเช็คชื่อไฟล์ Template_PP5 หรือไฟล์ Code.js ว่าบันทึกแล้วหรือไม่)');
          })
          .generatePP5Template(payload);
 

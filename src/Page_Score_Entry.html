@@ -18,6 +18,10 @@
     .btn-action-group .btn { padding: 0.3rem 0.6rem !important; font-size: 0.8rem; }
     .table-scroll-container { max-height: 60vh; }
   }
+
+  /* สไตล์ตารางประเมินคุณลักษณะฯ */
+  .eval-input { width: 45px !important; text-align: center; border: 1px solid #ced4da; border-radius: 4px; background: transparent; }
+  .eval-input:focus { background: #fff; outline: none; border-color: #86b7fe; box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25); }
 </style>
 
 <div class="container-fluid py-4 animate__animated animate__fadeIn">
@@ -217,13 +221,15 @@
               </tr>
             </thead>
             <tbody id="evalTableBody">
-              </tbody>
+            </tbody>
           </table>
         </div>
       </div>
     </div>
 
-  </div> <div id="scoreEmptyState" class="text-center p-5 text-muted d-none d-print-none">
+  </div> 
+
+  <div id="scoreEmptyState" class="text-center p-5 text-muted d-none d-print-none">
     <i class="fas fa-exclamation-circle fa-3x mb-3 text-warning"></i>
     <h5>กรุณาตั้งค่า "โครงสร้างวิชา" ก่อนทำการบันทึกคะแนนครับ</h5>
     <button class="btn btn-outline-primary mt-2" onclick="loadPage('Page_Subject_Config')">ไปที่หน้าตั้งค่าโครงสร้างวิชา</button>
