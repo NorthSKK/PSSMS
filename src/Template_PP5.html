@@ -43,8 +43,6 @@
 
   .result-pass { color: #2e7d32; font-weight: 600; }
   .result-fail { color: #c62828; font-weight: 600; }
-  
-  /* 🌟 ลดขนาดเส้นประพื้นฐานลงนิดหน่อย */
   .sign-box { border-bottom: 1px dotted #333; display: inline-block; width: 100px; text-align: center; }
 
   /* ==========================================
@@ -80,8 +78,6 @@
 
     #tab-cover .data-table th, #tab-cover .data-table td { padding: 4px !important; font-size: 10pt !important; }
     .print-table-sm th, .print-table-sm td { padding: 4px 4px !important; font-size: 10pt !important; }
-    
-    /* 🌟 บีบเส้นประให้พอดีหน้ากระดาษเฉพาะตอนพิมพ์ */
     .sign-box { width: 80px !important; }
   }
   </style>
@@ -91,7 +87,7 @@
   </script>
 </head>
 
-<body class="h-full bg-cream print:h-auto print:overflow-visible print:bg-white">
+<body class="h-full bg-cream print:h-auto print:overflow-visible print:bg-white" onsubmit="return false;">
   <div id="app-wrapper" class="h-full w-full overflow-auto print:h-auto print:overflow-visible print:block">
     
     <header class="bg-navy text-white px-4 py-3 no-print">
@@ -103,9 +99,12 @@
             <p id="header-subtitle" class="text-xs opacity-80 text-gold"><?= data.subName ?> — <?= data.className ?> — ภาคเรียน <?= data.user.currentTerm ?>/<?= data.user.currentYear ?></p>
           </div>
         </div>
-        <div class="flex items-center gap-2">
-            <button onclick="window.print()" class="flex items-center gap-2 px-4 py-2 rounded-lg bg-gold text-navy font-bold hover:bg-yellow-400 shadow-md transition"> 
-                <i data-lucide="printer" style="width:18px;height:18px;"></i> สั่งพิมพ์ ปพ.5 
+        <div class="flex items-center gap-2 no-print">
+            <button type="button" onclick="event.preventDefault(); window.focus(); window.print();" class="flex items-center gap-2 px-4 py-2 rounded-lg bg-gold text-navy font-bold hover:bg-yellow-400 shadow-md transition"> 
+                <i data-lucide="printer" style="width:18px;height:18px;"></i> สั่งพิมพ์
+            </button>
+            <button type="button" onclick="event.preventDefault(); if(window.parent && window.parent.closePrintOverlay) window.parent.closePrintOverlay(); else window.close();" class="flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-200 text-gray-700 font-bold hover:bg-gray-300 shadow-md transition"> 
+                <i data-lucide="x" style="width:18px;height:18px;"></i> ปิดหน้าต่าง
             </button>
         </div>
       </div>
@@ -123,11 +122,11 @@
 
     <nav class="bg-white border-b border-gray-200 px-4 no-print pt-2 shadow-sm overflow-x-auto">
       <div class="max-w-7xl mx-auto flex gap-1" id="tab-bar">
-        <button onclick="switchTab('cover')" data-tab="cover" class="tab-active px-5 py-3 rounded-t-lg text-sm font-bold transition whitespace-nowrap"> <i data-lucide="file-text" class="inline w-4 h-4 mr-1"></i> ปก/ข้อมูลวิชา </button> 
-        <button onclick="switchTab('indicators')" data-tab="indicators" class="tab-inactive px-5 py-3 rounded-t-lg text-sm font-bold transition whitespace-nowrap"> <i data-lucide="list-checks" class="inline w-4 h-4 mr-1"></i> รายละเอียดตัวชี้วัด </button> 
-        <button onclick="switchTab('scores')" data-tab="scores" class="tab-inactive px-5 py-3 rounded-t-lg text-sm font-bold transition whitespace-nowrap"> <i data-lucide="bar-chart-3" class="inline w-4 h-4 mr-1"></i> ผลการเรียนรู้ </button> 
-        <button onclick="switchTab('attendance')" data-tab="attendance" class="tab-inactive px-5 py-3 rounded-t-lg text-sm font-bold transition whitespace-nowrap"> <i data-lucide="calendar-check" class="inline w-4 h-4 mr-1"></i> เวลาเรียน </button> 
-        <button onclick="switchTab('evaluation')" data-tab="evaluation" class="tab-inactive px-5 py-3 rounded-t-lg text-sm font-bold transition whitespace-nowrap"> <i data-lucide="clipboard-check" class="inline w-4 h-4 mr-1"></i> การประเมิน </button>
+        <button type="button" onclick="event.preventDefault(); switchTab('cover')" data-tab="cover" class="tab-active px-5 py-3 rounded-t-lg text-sm font-bold transition whitespace-nowrap"> <i data-lucide="file-text" class="inline w-4 h-4 mr-1"></i> ปก/ข้อมูลวิชา </button> 
+        <button type="button" onclick="event.preventDefault(); switchTab('indicators')" data-tab="indicators" class="tab-inactive px-5 py-3 rounded-t-lg text-sm font-bold transition whitespace-nowrap"> <i data-lucide="list-checks" class="inline w-4 h-4 mr-1"></i> รายละเอียดตัวชี้วัด </button> 
+        <button type="button" onclick="event.preventDefault(); switchTab('scores')" data-tab="scores" class="tab-inactive px-5 py-3 rounded-t-lg text-sm font-bold transition whitespace-nowrap"> <i data-lucide="bar-chart-3" class="inline w-4 h-4 mr-1"></i> ผลการเรียนรู้ </button> 
+        <button type="button" onclick="event.preventDefault(); switchTab('attendance')" data-tab="attendance" class="tab-inactive px-5 py-3 rounded-t-lg text-sm font-bold transition whitespace-nowrap"> <i data-lucide="calendar-check" class="inline w-4 h-4 mr-1"></i> เวลาเรียน </button> 
+        <button type="button" onclick="event.preventDefault(); switchTab('evaluation')" data-tab="evaluation" class="tab-inactive px-5 py-3 rounded-t-lg text-sm font-bold transition whitespace-nowrap"> <i data-lucide="clipboard-check" class="inline w-4 h-4 mr-1"></i> การประเมิน </button>
       </div>
     </nav>
 
@@ -587,6 +586,7 @@
     }
 
     window.onload = () => { renderTables(); };
+    
   </script>
 </body>
 </html>

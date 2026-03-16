@@ -89,20 +89,21 @@
         
         <div class="col-lg-7 col-12 d-flex flex-wrap justify-content-lg-end justify-content-start align-items-center gap-2 btn-action-group">
           <div class="bg-light border rounded-pill p-1 shadow-sm d-flex align-items-center flex-wrap gap-1">
-            <button class="btn btn-sm btn-light rounded-pill px-3 text-secondary fw-bold" id="btnEditHeader" onclick="toggleHeaderEditMode()" title="แก้ไขหัวตาราง">
+            <button type="button" class="btn btn-sm btn-light rounded-pill px-3 text-secondary fw-bold" id="btnEditHeader" onclick="event.preventDefault(); toggleHeaderEditMode()" title="แก้ไขหัวตาราง">
               <i class="fas fa-th me-1"></i> <span>หัวตาราง</span>
             </button>
             <div class="vr text-secondary" style="opacity: 0.2; height: 20px;"></div>
-            <button class="btn btn-sm btn-light rounded-pill px-3 text-success fw-bold" id="btnExportSGS" onclick="openSGSExportModal()" title="ส่งออกคะแนนไป SGS">
+            <button type="button" class="btn btn-sm btn-light rounded-pill px-3 text-success fw-bold" id="btnExportSGS" onclick="event.preventDefault(); openSGSExportModal()" title="ส่งออกคะแนนไป SGS">
               <i class="fas fa-file-export me-1"></i> <span>SGS</span>
             </button>
             <div class="vr text-secondary" style="opacity: 0.2; height: 20px;"></div>
-            <button class="btn btn-sm btn-light rounded-pill px-3 text-secondary fw-bold" id="btnPrintPP5" onclick="preparePrintPorPor5()" title="พิมพ์ ปพ.5">
+            
+            <button type="button" class="btn btn-sm btn-light rounded-pill px-3 text-secondary fw-bold" id="btnPrintPP5" onclick="preparePrintPorPor5(event)" title="พิมพ์ ปพ.5">
               <i class="fas fa-print me-1"></i> <span>พิมพ์ ปพ.5</span>
             </button>
           </div>
           
-          <button class="btn btn-primary rounded-pill shadow-sm px-4 fw-bold mt-2 mt-sm-0" id="btnSaveScores" onclick="saveAllInOneScores()" disabled style="transition: 0.3s;">
+          <button type="button" class="btn btn-primary rounded-pill shadow-sm px-4 fw-bold mt-2 mt-sm-0" id="btnSaveScores" onclick="event.preventDefault(); saveAllInOneScores()" disabled style="transition: 0.3s;">
             <i class="fas fa-save me-2"></i>บันทึกข้อมูล
           </button>
         </div>
