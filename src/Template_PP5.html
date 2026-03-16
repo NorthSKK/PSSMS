@@ -1,4 +1,18 @@
 <!doctype html>
+<? 
+   // 🌟 สมองกลแยกสี: ตรวจสอบว่าเป็น ม.ต้น หรือ ม.ปลาย
+   let clsName = data.className || '';
+   let isJunior = clsName.includes('ม.1') || clsName.includes('ม.2') || clsName.includes('ม.3');
+   
+   // 🌟 กำหนดชุดสี (ม.ต้น = ชมพูบานเย็น , ม.ปลาย = กรมท่า)
+   let tPrimary = isJunior ? '#c2185b' : '#1e3a5f';      // สีหลัก
+   let tSecondary = isJunior ? '#d81b60' : '#2d5a8a';    // สีรอง (หัวตารางแถว 2)
+   let tAccent = '#f0c040';                              // สีตัด (เหลืองทอง ใช้ร่วมกันได้สวยทั้งคู่)
+   let tBg = isJunior ? '#fce4ec' : '#faf8f2';           // สีพื้นหลัง
+   let tTabInactive = isJunior ? '#f8bbd0' : '#e8edf3';  // สีแท็บที่ไม่ได้เลือก
+   let tTabHover = isJunior ? '#f48fb1' : '#d1dae6';     // สีเวลาเอาเมาส์ชี้แท็บ
+   let tTabTxt = isJunior ? '#880e4f' : '#3b5478';       // สีตัวอักษรแท็บ
+?>
 <html lang="th" class="h-full print:h-auto">
 <head>
   <meta charset="UTF-8">
@@ -11,14 +25,15 @@
   <style>
   * { font-family: 'Sarabun', sans-serif; }
 
-  .tab-active { background: #1e3a5f; color: #fff; border-bottom: 3px solid #f0c040; }
-  .tab-inactive { background: #e8edf3; color: #3b5478; }
-  .tab-inactive:hover { background: #d1dae6; }
+  /* 🌟 สีแท็บและตารางแบบแปรผันตามระดับชั้น */
+  .tab-active { background: <?= tPrimary ?>; color: #fff; border-bottom: 3px solid <?= tAccent ?>; }
+  .tab-inactive { background: <?= tTabInactive ?>; color: <?= tTabTxt ?>; }
+  .tab-inactive:hover { background: <?= tTabHover ?>; }
 
   .data-table { border-collapse: collapse; width: 100%; font-size: 13px; }
   .data-table th, .data-table td { border: 1px solid #b0bec5; padding: 6px 4px; text-align: center; vertical-align: middle; }
-  .data-table th { background: #1e3a5f; color: #fff; font-weight: 600; font-size: 12px; }
-  .data-table th.sub-header { background: #2d5a8a; font-size: 11px; }
+  .data-table th { background: <?= tPrimary ?>; color: #fff; font-weight: 600; font-size: 12px; }
+  .data-table th.sub-header { background: <?= tSecondary ?>; font-size: 11px; }
   .data-table tr:nth-child(even) td { background: #f5f8fb; }
   
   .data-table td.name-cell { 
@@ -71,8 +86,8 @@
     .tab-content:last-of-type { page-break-after: auto !important; }
     .print-page-break { page-break-before: always !important; }
     
-    .data-table th { background: #1e3a5f !important; color: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    .data-table th.sub-header { background: #2d5a8a !important; -webkit-print-color-adjust: exact; }
+    .data-table th { background: <?= tPrimary ?> !important; color: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .data-table th.sub-header { background: <?= tSecondary ?> !important; -webkit-print-color-adjust: exact; }
     .max-w-7xl { max-width: 100% !important; padding: 0 !important; }
     .shadow-sm { box-shadow: none !important; border: none !important; }
 
@@ -82,7 +97,8 @@
   }
   </style>
   <script>
-    tailwind.config = { theme: { extend: { colors: { navy: '#1e3a5f', navyLight: '#2d5a8a', gold: '#f0c040', cream: '#faf8f2' } } } }
+    // 🌟 ระบบ Tailwind จะสวมทับสีที่เราตั้งไว้ด้านบนให้เข้ากับคลาส navy โดยอัตโนมัติ
+    tailwind.config = { theme: { extend: { colors: { navy: '<?= tPrimary ?>', navyLight: '<?= tSecondary ?>', gold: '<?= tAccent ?>', cream: '<?= tBg ?>' } } } }
     const PSSMS_DATA = <?!= JSON.stringify(data) ?>;
   </script>
 </head>
@@ -99,6 +115,7 @@
             <p id="header-subtitle" class="text-xs opacity-80 text-gold"><?= data.subName ?> — <?= data.className ?> — ภาคเรียน <?= data.user.currentTerm ?>/<?= data.user.currentYear ?></p>
           </div>
         </div>
+        
         <div class="flex items-center gap-2 no-print">
             <button type="button" onclick="event.preventDefault(); window.focus(); window.print();" class="flex items-center gap-2 px-4 py-2 rounded-lg bg-gold text-navy font-bold hover:bg-yellow-400 shadow-md transition"> 
                 <i data-lucide="printer" style="width:18px;height:18px;"></i> สั่งพิมพ์
@@ -453,7 +470,7 @@
                 });
                 if (count > 0) weekColspans.push({ week: currentW, span: count });
                 
-                let weekHeaderHtml = weekColspans.map(w => `<th colspan="${w.span}" class="bg-[#f8f9fa] text-[#1e3a5f] border-l border-b font-bold">สัปดาห์ ${w.week}</th>`).join('');
+                let weekHeaderHtml = weekColspans.map(w => `<th colspan="${w.span}" class="bg-[#f8f9fa] text-navy border-l border-b font-bold">สัปดาห์ ${w.week}</th>`).join('');
                 let monthHtml = chkSessions.map(s => `<th class="bg-[#f8f9fa] text-gray-500 font-normal p-1 border-l text-[10px]">${s.month}</th>`).join('');
                 let dateHtml = chkSessions.map(s => `<th class="bg-[#f8f9fa] p-1 border-l"><div class="font-bold">${s.date}</div><div class="text-gray-500 text-[10px]">ค.${s.period}</div></th>`).join('');
                 
@@ -586,7 +603,6 @@
     }
 
     window.onload = () => { renderTables(); };
-    
   </script>
 </body>
 </html>
