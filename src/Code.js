@@ -1916,87 +1916,57 @@ function updateDetailedLessonRecord(timestampStr, record) {
 // ==========================================
 
 // ==========================================
-// ปรับปรุงฟังก์ชันดึงโครงสร้างวิชา (รองรับการดึงข้อมูลจากปีเก่าอัตโนมัติ)
+// ปรับปรุงฟังก์ชันดึงโครงสร้างวิชา (เพิ่มบันทึกตัวชี้วัดกลางภาค/ปลายภาค)
 // ==========================================
 function getSubjectConfig(subjectCode, className, term, year) {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Subject_Config");
   if(!sheet) return null;
+  const data = sheet.getDataRange().getValues(); 
+  const targetSubj = String(subjectCode).trim(); const targetClass = String(className).trim();
+  const targetTerm = String(term).trim(); const targetYear = String(year).trim();
+  let exactMatch = null; let historyMatch = null;
   
-  const data = sheet.getDataRange().getDisplayValues(); 
-  
-  const targetSubj = String(subjectCode).trim();
-  const targetClass = String(className).trim();
-  const targetTerm = String(term).trim();
-  const targetYear = String(year).trim();
-  
-  let exactMatch = null;
-  let historyMatch = null;
-  
-  // วนลูปจาก "ล่างขึ้นบน" (เพื่อให้เจอข้อมูลล่าสุดก่อนเสมอ)
   for(let i = data.length - 1; i >= 1; i--) {
-    const rSubj = String(data[i][1]).trim();
-    const rClass = String(data[i][2]).trim();
-    const rTerm = String(data[i][3]).trim();
-    const rYear = String(data[i][4]).trim();
+    if (String(data[i][1]).trim() === targetSubj) {
+      let parsedIndicators = [];
+      try { parsedIndicators = typeof data[i][6] === 'string' ? JSON.parse(data[i][6] || '[]') : data[i][6]; } catch(e) { parsedIndicators = []; }
 
-    // ถ้ารหัสวิชาตรงกัน (ไม่สนปีการศึกษา) ให้เก็บไว้เป็น "แม่แบบสำรอง" 
-    // เผื่อปีปัจจุบันยังไม่มีการตั้งค่า
-    if (rSubj === targetSubj) {
-      if (!historyMatch) {
-        historyMatch = {
-          ratio: data[i][5], 
-          indicators: JSON.parse(data[i][6] || '[]')
-        };
-      }
-      
-      // แต่ถ้าเจอข้อมูลที่ "ตรงเป๊ะ" ทั้งวิชา ห้อง เทอม และปี ให้ยึดอันนี้เป็นหลักแล้วหยุดค้นหา
-      if (rClass === targetClass && rTerm === targetTerm && rYear === targetYear) {
-        exactMatch = {
-          ratio: data[i][5], 
-          indicators: JSON.parse(data[i][6] || '[]')
-        };
-        break; 
+      // ดึงข้อมูลตัวชี้วัด กลางภาค/ปลายภาค จากคอลัมน์ I (index 8)
+      let examInds = null;
+      try { examInds = typeof data[i][8] === 'string' ? JSON.parse(data[i][8] || 'null') : data[i][8]; } catch(e) {}
+
+      let rawRatio = data[i][5]; let safeRatio = "70:10:20";
+      if (rawRatio instanceof Date) { safeRatio = `${rawRatio.getHours()}:${rawRatio.getMinutes()}:${rawRatio.getSeconds()}`; if (safeRatio === "22:10:20") safeRatio = "70:10:20"; } else if (String(rawRatio).includes(':')) { safeRatio = String(rawRatio).replace(/'/g, '').trim(); }
+
+      if (!historyMatch) historyMatch = { ratio: safeRatio, indicators: parsedIndicators, examIndicators: examInds };
+      if (String(data[i][2]).trim() === targetClass && String(data[i][3]).trim() === targetTerm && String(data[i][4]).trim() === targetYear) {
+        exactMatch = { ratio: safeRatio, indicators: parsedIndicators, examIndicators: examInds }; break; 
       }
     }
   }
-  
-  // ส่งคืนข้อมูลที่ตรงเป๊ะก่อน ถ้าไม่มีให้ส่งคืนแม่แบบสำรองจากปีเก่า ถ้าไม่มีเลยส่ง null
   return exactMatch || historyMatch || null; 
 }
 
 function saveSubjectConfig(configData) {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Subject_Config");
   if(!sheet) return {status: 'error', message: 'ไม่พบ Database: Subject_Config'};
-  
-  const data = sheet.getDataRange().getDisplayValues();
-  
-  const targetSubj = String(configData.subjectCode).trim();
-  const targetClass = String(configData.className).trim();
-  const targetTerm = String(configData.term).trim();
-  const targetYear = String(configData.year).trim();
-  
+  const data = sheet.getDataRange().getValues();
+  const targetSubj = String(configData.subjectCode).trim(); const targetClass = String(configData.className).trim();
+  const targetTerm = String(configData.term).trim(); const targetYear = String(configData.year).trim();
   const subjectId = `${targetSubj}_${targetClass}_${targetTerm}_${targetYear}`;
-  const ratioStr = `${configData.formative}:${configData.midterm}:${configData.final}`;
+  const ratioStr = `'${configData.formative}:${configData.midterm}:${configData.final}`;
   
   const rowData = [
     subjectId, targetSubj, targetClass, targetTerm, targetYear,
-    ratioStr, JSON.stringify(configData.indicators), configData.teacherId
+    ratioStr, JSON.stringify(configData.indicators), configData.teacherId, JSON.stringify(configData.examIndicators || null)
   ];
 
   for(let i = 1; i < data.length; i++) {
-    const rSubj = String(data[i][1]).trim();
-    const rClass = String(data[i][2]).trim();
-    const rTerm = String(data[i][3]).trim();
-    const rYear = String(data[i][4]).trim();
-
-    if(rSubj === targetSubj && rClass === targetClass && rTerm === targetTerm && rYear === targetYear) {
-      sheet.getRange(i + 1, 1, 1, 8).setValues([rowData]);
-      return {status: 'success', message: 'อัปเดตโครงสร้างวิชาเรียบร้อยแล้ว!'};
+    if(String(data[i][1]).trim() === targetSubj && String(data[i][2]).trim() === targetClass && String(data[i][3]).trim() === targetTerm && String(data[i][4]).trim() === targetYear) {
+      sheet.getRange(i + 1, 1, 1, 9).setValues([rowData]); return {status: 'success', message: 'อัปเดตโครงสร้างวิชาเรียบร้อยแล้ว!'};
     }
   }
-  
-  sheet.appendRow(rowData);
-  return {status: 'success', message: 'บันทึกโครงสร้างวิชาใหม่เรียบร้อยแล้ว!'};
+  sheet.appendRow(rowData); return {status: 'success', message: 'บันทึกโครงสร้างวิชาใหม่เรียบร้อยแล้ว!'};
 }
 
 // ==========================================
@@ -2146,26 +2116,28 @@ function saveAllInOneWithConfig(payload) {
          if (configSheet.getLastRow() === 0) configSheet.appendRow(["subject_id", "subject_code", "class_name", "term", "year", "score_ratio", "indicators_json", "teacher_id"]);
          const configData = configSheet.getDataRange().getValues();
          let configUpdated = false;
-         const ratioStr = `${newConfig.formative || 70}:${newConfig.midterm || 10}:${newConfig.final || 20}`;
+         
+         // 🛡️ บังคับเป็นข้อความ ป้องกันแปลงเป็นเวลา
+         const ratioStr = `'${newConfig.formative || 70}:${newConfig.midterm || 10}:${newConfig.final || 20}`;
          const subjectId = `${subjectCode}_${className}_${term}_${year}`;
+         const indicatorsJson = JSON.stringify(newConfig.indicators || []);
 
          for (let i = 1; i < configData.length; i++) {
-           if (String(configData[i][1]) === String(subjectCode) && String(configData[i][2]) === String(className) && String(configData[i][3]) === String(term) && String(configData[i][4]) === String(year)) {
-               configData[i][5] = ratioStr; 
-               configData[i][6] = JSON.stringify(newConfig.indicators || []);
-               configUpdated = true; break;
+           if (String(configData[i][1]).trim() === String(subjectCode).trim() && 
+               String(configData[i][2]).trim() === String(className).trim() && 
+               String(configData[i][3]).trim() === String(term).trim() && 
+               String(configData[i][4]).trim() === String(year).trim()) {
+               
+               // 🛡️ ท่าไม้ตาย: เซฟทับเฉพาะช่อง ป้องกันข้อมูลทั้งชีตพัง
+               configSheet.getRange(i + 1, 6).setValue(ratioStr);
+               configSheet.getRange(i + 1, 7).setValue(indicatorsJson);
+               configUpdated = true; 
+               break;
            }
          }
          
-         if (configUpdated) {
-             const uniformData = configData.map(row => {
-                 let r = row.slice(0, 8);
-                 while(r.length < 8) r.push("");
-                 return r;
-             });
-             configSheet.getRange(1, 1, uniformData.length, 8).setValues(uniformData);
-         } else {
-             configSheet.appendRow([subjectId, subjectCode, className, term, year, ratioStr, JSON.stringify(newConfig.indicators || []), teacherId]);
+         if (!configUpdated) {
+             configSheet.appendRow([subjectId, subjectCode, className, term, year, ratioStr, indicatorsJson, teacherId]);
          }
     }
 
@@ -3043,4 +3015,112 @@ function uploadSarabunFile(id, base64Data, filename, docNumber) {
   } finally {
     lock.releaseLock();
   }
+}
+
+// ==========================================
+// 📚 คลังตัวชี้วัดและผลการเรียนรู้ (Curriculum Database)
+// ==========================================
+
+// 1. สร้างตารางฐานข้อมูลอัตโนมัติ
+function setupCurriculumDatabase() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName("Curriculum_Database");
+  
+  if (!sheet) {
+    sheet = ss.insertSheet("Curriculum_Database");
+    // หัวตาราง 5 คอลัมน์
+    sheet.appendRow(["SubjectCode", "SubjectType", "StandardCode", "Description", "EvalType"]);
+    sheet.getRange("A1:E1").setFontWeight("bold").setBackground("#4A86E8").setFontColor("white");
+    sheet.setFrozenRows(1);
+    return "✅ สร้างฐานข้อมูล Curriculum_Database เรียบร้อยแล้ว!";
+  }
+  return "ฐานข้อมูล Curriculum_Database มีอยู่แล้วครับ";
+}
+
+// 2. ดึงข้อมูลคลังตัวชี้วัดทั้งหมดมาแสดง
+function getCurriculumData() {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Curriculum_Database");
+  if (!sheet) return [];
+  
+  const data = sheet.getDataRange().getDisplayValues();
+  if (data.length <= 1) return [];
+  
+  return data.slice(1).map(row => ({
+    subjectCode: row[0],
+    subjectType: row[1],
+    standardCode: row[2],
+    description: row[3],
+    evalType: row[4]
+  }));
+}
+
+// 3. นำเข้าข้อมูลจากไฟล์ CSV
+function importCurriculumCSV(base64Data, clearOldData) {
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(15000);
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    let sheet = ss.getSheetByName("Curriculum_Database");
+    if (!sheet) return { status: 'error', message: 'ไม่พบชีต Curriculum_Database กรุณากดปุ่มสร้างฐานข้อมูลก่อนครับ' };
+
+    // แปลงไฟล์ CSV
+    const decoded = Utilities.base64Decode(base64Data);
+    const csvText = Utilities.newBlob(decoded).getDataAsString('UTF-8');
+    const csv = Utilities.parseCsv(csvText);
+
+    // ถ้าเลือกล้างข้อมูลเก่า ให้ลบแถวตั้งแต่บรรทัดที่ 2 ลงมา
+    if (clearOldData && sheet.getLastRow() > 1) {
+      sheet.getRange(2, 1, sheet.getLastRow() - 1, sheet.getMaxColumns()).clearContent();
+    }
+
+    let newRows = [];
+    // ข้ามบรรทัดแรก (หัวตาราง) เริ่มดึงบรรทัดที่ 2
+    for (let i = 1; i < csv.length; i++) {
+      if (!csv[i][0]) continue; // ข้ามบรรทัดว่าง
+      newRows.push([
+        String(csv[i][0]).trim(), // รหัสวิชา
+        String(csv[i][1]).trim(), // ประเภทวิชา
+        String(csv[i][2]).trim(), // รหัสตัวชี้วัด
+        String(csv[i][3]).trim(), // คำอธิบาย
+        String(csv[i][4] || "-").trim()  // ประเภทการประเมิน (ถ้าไม่มีให้ใส่ -)
+      ]);
+    }
+
+    if (newRows.length > 0) {
+      sheet.getRange(sheet.getLastRow() + 1, 1, newRows.length, 5).setValues(newRows);
+    }
+    
+    return { status: 'success', message: `✅ นำเข้าข้อมูลตัวชี้วัด/ผลการเรียนรู้ สำเร็จ ${newRows.length} รายการ` };
+
+  } catch (e) {
+    return { status: 'error', message: '❌ ข้อผิดพลาด: ' + e.message };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// ==========================================
+// 📚 ดึงตัวชี้วัดตามรหัสวิชา (สำหรับหน้า Subject Config)
+// ==========================================
+function getCurriculumBySubject(subjectCode) {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Curriculum_Database");
+  if (!sheet) return [];
+  
+  const data = sheet.getDataRange().getDisplayValues();
+  const results = [];
+  const cleanCode = String(subjectCode).trim().toLowerCase();
+
+  for (let i = 1; i < data.length; i++) {
+    // เทียบรหัสวิชาตรงกัน (ไม่สนพิมพ์เล็กพิมพ์ใหญ่)
+    if (String(data[i][0]).trim().toLowerCase() === cleanCode) {
+      results.push({
+        subjectCode: data[i][0],
+        subjectType: data[i][1],
+        standardCode: data[i][2],
+        description: data[i][3],
+        evalType: data[i][4]
+      });
+    }
+  }
+  return results;
 }

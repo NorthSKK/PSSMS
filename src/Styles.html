@@ -1,328 +1,308 @@
 <style>
-  /* --- สไตล์เดิมที่คุณครูมีอยู่แล้ว --- */
-  body { font-family: 'Kanit', sans-serif; background-color: #f4f7f6; }
-  .wrapper { display: flex; width: 100%; align-items: stretch; }
-  #sidebar { min-width: 250px; max-width: 250px; min-height: 100vh; transition: all 0.3s; z-index: 999; background: #1a1a1a; }
-  #sidebar.active { margin-left: -250px; }
-  #sidebar .sidebar-header { background: #1a1a1a; padding: 20px; }
-  
-  /* ปรับแต่งลิงก์เมนูทั่วไป */
-  #sidebar ul li a { padding: 12px 20px; display: block; color: #bbb; text-decoration: none; transition: 0.3s; font-size: 0.95rem; }
-  #sidebar ul li a:hover { background: rgba(255,255,255,0.1); color: white; }
+/* ==========================================
+   🌐 1. BASE & TYPOGRAPHY (ตั้งค่าพื้นฐาน)
+========================================== */
+body { 
+    font-family: 'Kanit', sans-serif; 
+    background-color: #f4f7f6; 
+    overflow-x: hidden !important; /* กันจอโยกซ้ายขวา */
+}
+.wrapper { display: flex; width: 100%; align-items: stretch; }
 
-  .card { border: none; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
-  .stat-card { transition: transform 0.2s; }
-  .stat-card:hover { transform: translateY(-5px); }
-  .loader-container { position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(255,255,255,0.8); z-index:2000; display:flex; align-items:center; justify-content:center; }
+/* 🚨 CRITICAL FIX: ป้องกันตารางดันขอบจอทะลุ (Flexbox Bug Fix) */
+#page-content, .container-fluid, .tab-content, .tab-pane, .card {
+    min-width: 0 !important; /* บังคับให้ Flexbox ยอมหดตัว */
+    max-width: 100% !important;
+}
 
-  /* --- ส่วนที่เพิ่มใหม่: ปุ่ม 4 ฝ่ายให้สวยงามและเท่ากัน --- */
+/* ==========================================
+   🗂️ 2. SIDEBAR & MENU (เมนูซ้ายมือ)
+========================================== */
+#sidebar { 
+    min-width: 250px; max-width: 250px; min-height: 100vh; 
+    transition: all 0.3s ease; z-index: 999; background: #1a1a1a; 
+}
+#sidebar.active { margin-left: -250px; }
+#sidebar .sidebar-header { background: #1a1a1a; padding: 20px; }
+#sidebar ul li a { 
+    padding: 12px 20px; display: block; color: #bbb; 
+    text-decoration: none; transition: 0.3s; font-size: 0.95rem; 
+}
+#sidebar ul li a:hover { background: rgba(255,255,255,0.1); color: white; }
 
-  /* ตัวแบ่งหมวดหมู่เมนู */
-  .menu-divider {
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    color: #666;
-    margin: 20px 20px 10px 20px;
-    letter-spacing: 1.5px;
-    border-bottom: 1px solid #333;
-    padding-bottom: 5px;
-  }
+.menu-divider {
+    font-size: 0.75rem; text-transform: uppercase; color: #666;
+    margin: 20px 20px 10px 20px; letter-spacing: 1.5px;
+    border-bottom: 1px solid #333; padding-bottom: 5px;
+}
+.dept-btn {
+    display: flex !important; align-items: center; margin: 5px 15px;
+    padding: 12px 15px !important; border-radius: 10px !important;
+    border-left: 4px solid transparent !important; background: rgba(255,255,255,0.03) !important;
+    color: #ddd !important; border-bottom: none !important; transition: all 0.3s;
+}
+.dept-btn i { width: 25px; font-size: 1.1rem; margin-right: 12px; text-align: center; }
+.dept-btn:hover { background: rgba(255,255,255,0.1) !important; transform: translateX(5px); color: #fff !important; }
+.academic { border-left-color: #3498db !important; } .academic i { color: #3498db; }
+.budget { border-left-color: #2ecc71 !important; } .budget i { color: #2ecc71; }
+.personnel { border-left-color: #17a2b8 !important; } .personnel i { color: #17a2b8; }
+.general { border-left-color: #f39c12 !important; } .general i { color: #f39c12; }
+.nav-link-sub { font-size: 0.85rem !important; padding-left: 45px !important; color: #888 !important; }
 
-  /* ปรับแต่งปุ่ม 4 ฝ่าย */
-  .dept-btn {
-    display: flex !important;
-    align-items: center;
-    margin: 5px 15px;
-    padding: 12px 15px !important;
-    border-radius: 10px !important;
-    border-left: 4px solid transparent !important;
-    background: rgba(255,255,255,0.03) !important;
-    color: #ddd !important;
-    border-bottom: none !important; /* ลบเส้นคั่นแบบเดิมออก */
-  }
+/* ==========================================
+   📦 3. UI COMPONENTS (การ์ด & ปุ่ม & อื่นๆ)
+========================================== */
+.card { border: none; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+.stat-card { transition: transform 0.2s; }
+.stat-card:hover { transform: translateY(-5px); }
 
-  .dept-btn i {
-    width: 25px;
-    font-size: 1.1rem;
-    margin-right: 12px;
-    text-align: center;
-  }
+.nav-pills .nav-link { color: #6c757d; border-radius: 50rem; transition: all 0.3s; }
+.nav-pills .nav-link.active { background-color: #0d6efd; color: #fff; box-shadow: 0 4px 10px rgba(13,110,253,0.3); }
 
-  .dept-btn:hover {
-    background: rgba(255,255,255,0.1) !important;
-    transform: translateX(5px);
-    color: #fff !important;
-  }
+/* ==========================================
+   📊 4. SCORE TABLE (ตาราง ปพ.5 Notion Style)
+========================================== */
+.grid-wrapper {
+  position: relative; width: 100%; height: 60vh; 
+  border: 1px solid #dee2e6; border-radius: 0 0 12px 12px;
+  background: #fff; overflow: hidden;
+}
 
-  /* สีประจำฝ่าย (Border และ Icon) */
-  .academic { border-left-color: #3498db !important; } /* ฟ้า - วิชาการ */
-  .academic i { color: #3498db; }
-  
-  .budget { border-left-color: #2ecc71 !important; } /* เขียว - งบประมาณ */
-  .budget i { color: #2ecc71; }
-  
-  .personnel { border-left-color: #17a2b8 !important; } /* ฟ้าอ่อน - บุคคล */
-  .personnel i { color: #17a2b8; }
-  
-  .general { border-left-color: #f39c12 !important; } /* ส้ม - ทั่วไป */
-  .general i { color: #f39c12; }
+.grid-scroll-container {
+  position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+  overflow: auto; -webkit-overflow-scrolling: touch;
+}
 
-  /* ลิงก์ย่อยสำหรับ Admin */
-  .nav-link-sub {
-    font-size: 0.85rem !important;
-    padding-left: 45px !important;
-    color: #888 !important;
-  }
+.grid-scroll-container table {
+  width: max-content !important; min-width: 100%;
+  border-collapse: separate !important; border-spacing: 0; margin-bottom: 0;
+}
 
-  @media (max-width: 768px) {
-    #sidebar { margin-left: -250px; }
-    #sidebar.active { margin-left: 0; }
-  }
-</style>
+.grid-scroll-container::-webkit-scrollbar { width: 14px; height: 14px; }
+.grid-scroll-container::-webkit-scrollbar-track { background: #f8f9fa; }
+.grid-scroll-container::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; border: 3px solid #f8f9fa; }
+.grid-scroll-container::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 
-<style>
-  /* 🌟 สไตล์ตารางแบบ Minimalist (Notion/Airtable Style) */
-  #allInOneTable { border-collapse: separate; border-spacing: 0; }
-  #allInOneTable th { 
-    border-bottom: 2px solid #e2e8f0; font-weight: 600; color: #475569; 
-    background: #f8fafc; padding: 12px 8px; font-size: 0.8rem; letter-spacing: 0.3px;
-  }
-  #allInOneTable td { border-bottom: 1px solid #f1f5f9; vertical-align: middle; padding: 6px; }
-  
-  /* ช่องกรอกคะแนนแบบคลีนๆ */
-  .score-cell-input {
+#allInOneTable th { border-bottom: 2px solid #e2e8f0; font-weight: 600; color: #475569; padding: 8px; }
+#allInOneTable td { border-bottom: 1px solid #f1f5f9; vertical-align: middle; padding: 4px; }
+
+/* ==========================================
+   🌟 5. การตรึงหัวตาราง 2 ชั้น (Multi-row Sticky Header)
+========================================== */
+/* แถวที่ 1: รหัสตัวชี้วัด / ชื่อชิ้นงาน */
+#scoreTableHeader tr:nth-child(1) th, .eval-header tr:nth-child(1) th { 
+    position: sticky; top: 0; z-index: 10; 
+    background: #f8fafc; box-shadow: inset 0 -1px 0 #dee2e6; 
+    height: 60px; /* ล็อกความสูงแถวแรกให้คงที่ */
+    vertical-align: middle;
+}
+
+/* แถวที่ 2: คะแนนเต็ม */
+#scoreTableHeader tr:nth-child(2) th, .eval-header tr:nth-child(2) th { 
+    position: sticky; top: 60px; z-index: 10; /* ตรึงต่อจากแถวแรกพอดีเป๊ะ */
+    background: #f8fafc; box-shadow: inset 0 -1px 0 #dee2e6; 
+    vertical-align: middle;
+}
+
+/* ตรึงคอลัมน์ซ้ายสุด (เลขที่ และ ชื่อ-สกุล) */
+.sticky-col-1, .sticky-head-1 { position: sticky !important; left: 0; min-width: 45px; max-width: 45px; z-index: 11; background: #fff !important; box-shadow: inset -1px 0 0 #e2e8f0; }
+.sticky-col-2, .sticky-head-2 { position: sticky !important; left: 45px; min-width: 180px; max-width: 180px; z-index: 11; background: #fff !important; box-shadow: inset -1px 0 0 #e2e8f0, 4px 0 6px -2px rgba(0,0,0,0.05) !important; }
+
+/* มุมบนซ้ายต้องอยู่บนสุดเสมอ (กันการทับซ้อน) */
+.sticky-head-1, .sticky-head-2 { z-index: 15 !important; background: #f8fafc !important; }
+
+/* ==========================================
+   ช่องกรอกคะแนน & ไฮไลท์สี
+========================================== */
+.score-cell-input, .eval-input {
     width: 50px; height: 32px; border-radius: 6px; background-color: #f8fafc;
     border: 1px solid transparent; text-align: center; font-size: 0.85rem; font-weight: 600;
     color: #334155; transition: all 0.2s ease;
-  }
-  .score-cell-input:hover { background-color: #e2e8f0; cursor: text; }
-  .score-cell-input:focus { 
-    background-color: #ffffff; border-color: #3b82f6; 
-    box-shadow: 0 0 0 3px rgba(59,130,246,0.15); outline: none; 
-  }
-  
-  /* ล็อกคอลัมน์ซ้ายแบบไร้ขอบแข็ง ใช้เงาบางๆ แทน */
-  .sticky-col-1 { position: sticky !important; left: 0; background-color: #ffffff; z-index: 2; }
-  .sticky-col-2 { 
-    position: sticky !important; left: 45px; background-color: #ffffff; z-index: 2; 
-    border-right: 1px solid #e2e8f0; box-shadow: 2px 0 5px rgba(0,0,0,0.02); 
-  }
-  .sticky-head-1 { position: sticky !important; left: 0; z-index: 5 !important; background-color: #f8fafc;}
-  .sticky-head-2 { 
-    position: sticky !important; left: 45px; z-index: 5 !important; 
-    background-color: #f8fafc; border-right: 1px solid #e2e8f0;
-  }
-  
-  /* ซ่อนลูกศรในช่องตัวเลข */
-  input[type=number]::-webkit-inner-spin-button, 
-  input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+}
+.score-cell-input:hover, .eval-input:hover { background-color: #e2e8f0; cursor: text; }
+.score-cell-input:focus, .eval-input:focus { background-color: #ffffff; border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.15); outline: none; }
+.eval-input { width: 45px !important; border-color: #ced4da; }
+input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 
-  /* Dropdown ประเมินแบบมินิมอล */
-  .qual-select {
-    width: 60px; text-align: center; border: 1px solid transparent; background: #f8fafc;
-    border-radius: 6px; padding: 4px; font-weight: 600; font-size: 0.8rem; color: #475569;
-    transition: all 0.2s ease; cursor: pointer;
-  }
-  .qual-select:hover { background: #e2e8f0; }
-  .qual-select:focus { background: #ffffff; border-color: #0dcaf0; outline: none; box-shadow: 0 0 0 3px rgba(13,202,240,0.15); }
+.qual-select { width: 60px; text-align: center; border: 1px solid transparent; background: #f8fafc; border-radius: 6px; font-weight: 600; font-size: 0.8rem; color: #475569; transition: all 0.2s; cursor: pointer; }
+.qual-select:hover { background: #e2e8f0; }
+.qual-select:focus { background: #ffffff; box-shadow: 0 0 0 3px rgba(13,202,240,0.15); outline: none; }
 
-  /* CSS สำหรับพิมพ์ (PDF) */
-  @media print {
+.col-highlight-f { background-color: #f0f9ff !important; } 
+.col-highlight-m { background-color: #fffbeb !important; } 
+.col-highlight-mr { background-color: #fef2f2 !important; } 
+.col-highlight-e { background-color: #fff1f2 !important; } 
+.col-highlight-total { background-color: #f8fafc !important; } 
+.col-highlight-grade { background-color: #f0fdf4 !important; } 
+
+/* ==========================================
+   🌙 6. DARK MODE (โหมดมืด สมบูรณ์แบบ)
+========================================== */
+body.dark-mode { background-color: #121212 !important; color: #e0e0e0 !important; }
+.dark-mode #sidebar { background-color: #1a1a1a !important; border-right: 1px solid #2a2a2a !important; }
+.dark-mode .nav-link-custom, .dark-mode .nav-link-sub { color: #b0b0b0 !important; }
+.dark-mode .nav-link-custom:hover { background-color: #2d2d2d !important; color: #fff !important; }
+
+/* Cards & Modals */
+.dark-mode .card, .dark-mode .modal-content { background-color: #1e1e1e !important; border: 1px solid #333 !important; }
+.dark-mode .card-header, .dark-mode .modal-header { border-bottom: 1px solid #333 !important; }
+.dark-mode .modal-footer { border-top: 1px solid #333 !important; }
+.dark-mode .bg-white, .dark-mode .bg-light { background-color: #1e1e1e !important; color: #e0e0e0 !important; border-color: #333 !important; }
+.dark-mode .btn-close { filter: invert(1) grayscale(100%) brightness(200%); }
+
+/* Tabs */
+.dark-mode .nav-pills .nav-link { color: #a0a0a0; }
+.dark-mode .nav-pills .nav-link:hover { background-color: #2d2d2d; color: #fff; }
+.dark-mode .nav-pills .nav-link.active { background-color: #0d6efd; color: #fff; }
+
+/* Inputs & Forms */
+.dark-mode input, .dark-mode select, .dark-mode textarea { background-color: #2d2d2d !important; color: #fff !important; border-color: #444 !important; }
+.dark-mode input:focus, .dark-mode select:focus, .dark-mode textarea:focus { background-color: #222 !important; border-color: #0d6efd !important; }
+
+/* 🌟 ตารางในโหมดมืด (Dark Mode Tables & Sticky) */
+.dark-mode .table { color: #e0e0e0 !important; border-color: #333 !important; }
+.dark-mode .table th, .dark-mode .table td { border-color: #333 !important; background-color: transparent !important; }
+.dark-mode .table-hover tbody tr:hover { background-color: #2a2a2a !important; }
+
+.dark-mode .grid-wrapper { border-color: #333; background: #1e1e1e; }
+.dark-mode .grid-scroll-container::-webkit-scrollbar-track { background: #1a1a1a; border-top: 1px solid #333; }
+.dark-mode .grid-scroll-container::-webkit-scrollbar-thumb { background: #444; border: 3px solid #1a1a1a; }
+.dark-mode .grid-scroll-container::-webkit-scrollbar-thumb:hover { background: #666; }
+
+/* ล็อกคอลัมน์และหัวตารางโหมดมืด 2 ชั้น */
+.dark-mode .sticky-col-1, .dark-mode .sticky-col-2, .dark-mode .sticky-head-1, .dark-mode .sticky-head-2 { background: #1e1e1e !important; box-shadow: inset -1px 0 0 #333, inset 0 -1px 0 #333 !important; }
+.dark-mode .sticky-col-2, .dark-mode .sticky-head-2 { box-shadow: inset -1px 0 0 #333, inset 0 -1px 0 #333, 4px 0 6px -2px rgba(0,0,0,0.5) !important; }
+
+.dark-mode #scoreTableHeader tr:nth-child(1) th, .dark-mode .eval-header tr:nth-child(1) th,
+.dark-mode #scoreTableHeader tr:nth-child(2) th, .dark-mode .eval-header tr:nth-child(2) th { 
+    background: #1e1e1e !important; box-shadow: inset 0 -1px 0 #333; border-color: #333 !important; 
+}
+
+/* ช่องกรอกคะแนนโหมดมืด */
+.dark-mode .score-cell-input, .dark-mode .eval-input, .dark-mode .qual-select { background-color: #2d2d2d !important; color: #fff !important; border-color: #444 !important; }
+.dark-mode .score-cell-input:focus, .dark-mode .eval-input:focus { background-color: #1a1a1a !important; color: #fff !important; }
+.dark-mode input:disabled, .dark-mode input[readonly] { background-color: transparent !important; color: #8bb9fe !important; }
+
+/* ไฮไลท์ตารางโหมดมืด */
+.dark-mode .col-highlight-f { background-color: #0b151f !important; } 
+.dark-mode .col-highlight-m { background-color: #1a1607 !important; } 
+.dark-mode .col-highlight-mr { background-color: #1a0b0b !important; } 
+.dark-mode .col-highlight-e { background-color: #1f0f15 !important; } 
+.dark-mode .col-highlight-total { background-color: #1e1e1e !important; } 
+.dark-mode .col-highlight-grade { background-color: #0a1a10 !important; } 
+
+/* สีอักษรโหมดมืด */
+.dark-mode .text-dark, .dark-mode .fw-bold.text-dark { color: #f8f9fa !important; } 
+.dark-mode .text-primary { color: #8bb9fe !important; }
+.dark-mode .text-success { color: #86c4a3 !important; }
+.dark-mode .text-danger { color: #f29b9b !important; }
+.dark-mode .text-warning { color: #ffea8c !important; }
+.dark-mode .text-info { color: #7de1f7 !important; }
+.dark-mode .text-muted, .dark-mode .text-secondary { color: #adb5bd !important; }
+.dark-mode h1, .dark-mode h2, .dark-mode h3, .dark-mode h4, .dark-mode h5, .dark-mode h6, .dark-mode label { color: #e0e0e0 !important; }
+
+/* ==========================================
+   📱 7. RESPONSIVE (มือถือ)
+========================================== */
+@media (max-width: 768px) {
+    #sidebar { margin-left: -250px; }
+    #sidebar.active { margin-left: 0; }
+    .score-cell-input { width: 50px !important; padding: 2px !important; font-size: 0.85rem !important; }
+    .sticky-col-1, .sticky-head-1 { min-width: 40px !important; max-width: 40px !important; }
+    .sticky-col-2, .sticky-head-2 { min-width: 140px !important; max-width: 140px !important; left: 40px !important; }
+    .grid-wrapper { height: 70vh; }
+}
+
+/* ==========================================
+   🖨️ 8. PRINT STYLES
+========================================== */
+@media print {
     body * { visibility: hidden; }
     #scoreGridCard, #scoreGridCard * { visibility: visible; }
     #scoreGridCard { position: absolute; left: 0; top: 0; width: 100%; box-shadow: none !important; }
     .d-print-none { display: none !important; }
-    .table-responsive { overflow: visible !important; max-height: none !important; }
+    .grid-wrapper, .grid-scroll-container { position: static !important; overflow: visible !important; height: auto !important; border: none !important; }
     table { border-collapse: collapse !important; }
     th, td { border: 1px solid #000 !important; }
     .sticky-col-1, .sticky-col-2, .sticky-head-1, .sticky-head-2 { position: static !important; box-shadow: none !important; }
     .score-cell-input, .qual-select { border: none !important; background: transparent !important; }
-  }
-  /* 🌟 สีไฮไลท์คอลัมน์สำคัญ (พาสเทลสบายตา แยกโซนชัดเจน) */
-  .col-highlight-f { background-color: #f0f9ff !important; } /* ฟ้าอ่อน: รวมเก็บ */
-  .col-highlight-m { background-color: #fffbeb !important; } /* เหลืองอ่อน: กลางภาค */
-  .col-highlight-mr { background-color: #fef2f2 !important; } /* แดงอ่อนมาก: ซ่อม */
-  .col-highlight-e { background-color: #fff1f2 !important; } /* ชมพูอ่อน: ปลายภาค */
-  .col-highlight-total { background-color: #f8fafc !important; } /* เทาอ่อน: รวม 100 */
-  .col-highlight-grade { background-color: #f0fdf4 !important; } /* เขียวอ่อน: เกรด */
-
-/* ==========================================
-   🚫 ปลดล็อค Scrollbar ด้านในตารางคะแนน
-========================================= */
-#scoreGridCard .table-responsive,
-#scoreGridCard div[style*="max-height"] {
-    max-height: none !important;
-    overflow-y: visible !important;
 }
 
 /* ==========================================
-   ✨ ปรับแต่งกระชับตารางคะแนน (Compact Score Grid)
-========================================= */
-/* บีบหัวตารางให้ชิดกัน */
-#scoreTableHeader tr:first-child th {
-    padding-bottom: 0px !important;
-    vertical-align: bottom !important;
-    font-size: 0.85rem;
-}
-#scoreTableHeader tr:last-child th {
-    padding-top: 0px !important;
-    vertical-align: top !important;
-}
-
-/* ลดขนาดความสูงของแถวข้อมูลนักเรียน */
-#scoreTableBody td {
-    padding-top: 4px !important;
-    padding-bottom: 4px !important;
-}
-
-/* ปรับฟอนต์อินพุตให้พอดีช่อง */
-.score-cell-input {
-    font-size: 0.9rem !important;
-    text-align: center;
-    padding: 2px !important;
-    min-height: 28px;
-}
-
-/* ==========================================
-   🌙 DARK MODE STYLES
-========================================= */
-body.dark-mode {
-  background-color: #121212 !important;
-  color: #e0e0e0 !important;
-}
-
-/* พื้นหลังเมนูและแถบด้านบน */
-.dark-mode #sidebar { background-color: #1e1e1e !important; border-right: 1px solid #333 !important; }
-.dark-mode .nav-link-custom, .dark-mode .nav-link-sub { color: #b0b0b0 !important; }
-.dark-mode .nav-link-custom:hover { background-color: #2d2d2d !important; color: #fff !important; }
-
-/* การ์ด (Cards) */
-.dark-mode .card { background-color: #1e1e1e !important; border: 1px solid #333 !important; }
-.dark-mode .card-header { border-bottom: 1px solid #333 !important; }
-.dark-mode .bg-white { background-color: #1e1e1e !important; }
-.dark-mode .bg-light { background-color: #2d2d2d !important; color: #e0e0e0 !important;}
-
-/* ตัวหนังสือ */
-.dark-mode .text-dark, .dark-mode .theme-text { color: #f8f9fa !important; }
-.dark-mode .text-muted { color: #a0a0a0 !important; }
-
-/* Input & Select & Textarea */
-.dark-mode input, .dark-mode select, .dark-mode textarea {
-  background-color: #2d2d2d !important;
-  color: #fff !important;
-  border-color: #444 !important;
-}
-.dark-mode input:focus, .dark-mode select:focus {
-  background-color: #333 !important;
-  border-color: #0d6efd !important;
-}
-
-/* ตาราง (Tables) */
-.dark-mode .table { color: #e0e0e0 !important; border-color: #444 !important; }
-.dark-mode .table th, .dark-mode .table td { border-color: #444 !important; background-color: transparent !important; }
-.dark-mode .table-hover tbody tr:hover { background-color: #2a2a2a !important; }
-
-/* ช่องกรอกคะแนน (Score Inputs) */
-.dark-mode .score-cell-input { background-color: #2d2d2d !important; color: #fff !important; }
-.dark-mode .score-cell-input:focus { background-color: #3a3a3a !important; color: #fff !important; }
-.dark-mode .qual-select { background-color: #2d2d2d !important; color: #fff !important; }
-
-/* Sticky Columns (ล็อกคอลัมน์) ในโหมดมืด */
-.dark-mode .sticky-col-1, .dark-mode .sticky-col-2, 
-.dark-mode .sticky-head-1, .dark-mode .sticky-head-2 {
-  background-color: #1e1e1e !important;
-  border-color: #444 !important;
-}
-
-/* สีพาสเทลไฮไลท์ตารางในโหมดมืด (ปรับให้ทึบลง ไม่แยงตา) */
-.dark-mode .col-highlight-f { background-color: #101c26 !important; } /* ฟ้าเข้ม */
-.dark-mode .col-highlight-m { background-color: #26200c !important; } /* เหลืองเข้ม */
-.dark-mode .col-highlight-mr { background-color: #261212 !important; } /* แดงเข้ม */
-.dark-mode .col-highlight-e { background-color: #26151a !important; } /* ชมพูเข้ม */
-.dark-mode .col-highlight-total { background-color: #1a1a1a !important; } /* เทาเข้ม */
-.dark-mode .col-highlight-grade { background-color: #112117 !important; } /* เขียวเข้ม */
-
-/* Modal (Popup หน้าต่าง) */
-.dark-mode .modal-content { background-color: #1e1e1e !important; border: 1px solid #444; }
-.dark-mode .modal-header { border-bottom: 1px solid #444; }
-.dark-mode .modal-footer { border-top: 1px solid #444; }
-.dark-mode .btn-close { filter: invert(1) grayscale(100%) brightness(200%); }
-
-/* List Group (รายการ) */
-.dark-mode .list-group-item { background-color: #1e1e1e; border-color: #444; color: #e0e0e0; }
-
-/* ==========================================
-   🌟 อัปเกรด: เรืองแสงสีตัวอักษรใน Dark Mode ให้เด่นชัด ไม่จม
-========================================= */
-
-/* ปรับสีตัวอักษรเฉพาะกลุ่ม (Utility Classes) ให้เป็นโทนสว่าง (Pastel/Light) */
-.dark-mode .text-primary { color: #8bb9fe !important; } /* ฟ้าสว่าง */
-.dark-mode .text-success { color: #86c4a3 !important; } /* เขียวสว่าง */
-.dark-mode .text-danger { color: #f29b9b !important; } /* ชมพู/แดงสว่าง */
-.dark-mode .text-warning { color: #ffea8c !important; } /* เหลืองสว่าง */
-.dark-mode .text-info { color: #7de1f7 !important; } /* ฟ้าอ่อนสว่าง */
-.dark-mode .text-secondary { color: #adb5bd !important; } /* เทาสว่าง */
-
-/* เปลี่ยน text-dark ให้กลายเป็นสีขาว (เพราะพื้นหลังมันดำแล้ว) */
-.dark-mode .text-dark, .dark-mode .fw-bold.text-dark { color: #f8f9fa !important; } 
-
-/* บังคับสีข้อความทั่วไปที่อาจจะหลุดรอดไปให้เป็นสีเทาสว่าง */
-.dark-mode h1, .dark-mode h2, .dark-mode h3, .dark-mode h4, .dark-mode h5, .dark-mode h6, 
-.dark-mode label {
-    color: #e0e0e0 !important;
-}
-
-/* ปรับป้ายกำกับ (Badge) ไม่ให้สีเพี้ยน */
-.dark-mode .badge.bg-light { background-color: #333 !important; color: #f8f9fa !important; border: 1px solid #555 !important; }
-.dark-mode .badge.bg-warning { color: #000 !important; } /* พื้นเหลือง ตัวอักษรต้องดำถึงจะอ่านออก */
-.dark-mode .badge.bg-info { color: #000 !important; } 
-
-/* ปรับปุ่มกรอบใส (Outline Buttons) ให้สว่างขึ้น */
-.dark-mode .btn-outline-primary { color: #8bb9fe; border-color: #8bb9fe; }
-.dark-mode .btn-outline-success { color: #86c4a3; border-color: #86c4a3; }
-.dark-mode .btn-outline-danger { color: #f29b9b; border-color: #f29b9b; }
-.dark-mode .btn-outline-primary:hover, .dark-mode .btn-outline-success:hover, .dark-mode .btn-outline-danger:hover {
-    color: #000 !important; /* เวลากดปุ่มให้ตัวอักษรเปลี่ยนเป็นสีดำ */
-}
-
-/* แก้ไขช่อง input ตอนที่ disabled (เช่น ช่องคะแนนรวม) ให้ตัวอักษรยังสว่างอยู่ */
-.dark-mode input:disabled, .dark-mode input[readonly] {
-    background-color: transparent !important;
-    color: #8bb9fe !important;
-}
-
-/* ==========================================
-   🦴 Skeleton Loading Animation (UX Upgrade)
-   ========================================== */
-.skeleton-box {
-  display: inline-block;
-  position: relative;
-  overflow: hidden;
-  background-color: #e9ecef;
-  border-radius: 4px;
-}
-
+   🦴 9. SKELETON ANIMATION
+========================================== */
+.skeleton-box { display: inline-block; position: relative; overflow: hidden; background-color: #e9ecef; border-radius: 4px; }
+.dark-mode .skeleton-box { background-color: #333; }
 .skeleton-box::after {
-  position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  transform: translateX(-100%);
-  background-image: linear-gradient(
-    90deg,
-    rgba(255, 255, 255, 0) 0,
-    rgba(255, 255, 255, 0.4) 20%,
-    rgba(255, 255, 255, 0.8) 60%,
-    rgba(255, 255, 255, 0)
-  );
-  animation: shimmer 1.5s infinite;
-  content: '';
+    position: absolute; top: 0; right: 0; bottom: 0; left: 0; transform: translateX(-100%);
+    background-image: linear-gradient(90deg, rgba(255,255,255,0) 0, rgba(255,255,255,0.4) 20%, rgba(255,255,255,0.8) 60%, rgba(255,255,255,0));
+    animation: shimmer 1.5s infinite; content: '';
+}
+.dark-mode .skeleton-box::after { background-image: linear-gradient(90deg, rgba(255,255,255,0) 0, rgba(255,255,255,0.1) 20%, rgba(255,255,255,0.2) 60%, rgba(255,255,255,0)); }
+@keyframes shimmer { 100% { transform: translateX(100%); } }
+
+/* ==========================================
+   🚀 PROFESSIONAL TOP PROGRESS BAR (YouTube Style Loader)
+========================================== */
+/* ซ่อนกล่องโหลดแบบเก่าที่บังเต็มจอ และเปลี่ยนเป็นแถบบางๆ ติดขอบบน */
+.loader-container, #loader {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 3px !important; /* เส้นโหลดหนา 3px */
+    background: transparent !important;
+    z-index: 9999 !important;
+    display: block !important;
+    pointer-events: none !important;
 }
 
-@keyframes shimmer {
-  100% {
-    transform: translateX(100%);
-  }
+/* ซ่อนไอคอนหรือข้อความโหลดเดิมที่อยู่ข้างใน */
+.loader-container *, #loader * {
+    display: none !important;
 }
+
+/* สร้างเส้นวิ่ง (Progress Bar) */
+#loader:not(.d-none)::before,
+.loader-container:not(.d-none)::before {
+    content: '';
+    display: block;
+    position: absolute;
+    top: 0;
+    left: -30%;
+    height: 100%;
+    width: 30%;
+    background-color: #0d6efd;
+    box-shadow: 0 0 10px rgba(13, 110, 253, 0.8), 0 0 5px rgba(13, 110, 253, 0.4);
+    border-radius: 0 3px 3px 0;
+    animation: topProgressBar 1.2s infinite ease-in-out;
+}
+
+/* แอนิเมชันให้เส้นวิ่งจากซ้ายไปขวาอย่างสมูท */
+@keyframes topProgressBar {
+    0% { left: -30%; width: 30%; }
+    50% { left: 30%; width: 70%; }
+    100% { left: 100%; width: 30%; }
+}
+
+/* 🌙 รองรับ Dark Mode (เปลี่ยนเส้นเป็นสีฟ้าเรืองแสง) */
+.dark-mode #loader:not(.d-none)::before,
+.dark-mode .loader-container:not(.d-none)::before {
+    background-color: #8bb9fe;
+    box-shadow: 0 0 10px rgba(139, 185, 254, 0.8), 0 0 5px rgba(139, 185, 254, 0.4);
+}
+
+/* ==========================================
+   ✨ SKELETON FADE EFFECT (ทำให้หน้าเว็บดูนุ่มนวลตอนเปลี่ยนหน้า)
+========================================== */
+#page-content {
+    transition: opacity 0.3s ease, filter 0.3s ease;
+}
+
+#page-content.page-loading {
+    opacity: 0.5; /* จางลงนิดหน่อย */
+    filter: blur(1px); /* เบลอนิดๆ ให้รู้สึกว่ากำลังสลับหน้า */
+    pointer-events: none; /* ล็อกการกดปุ่มมั่วขณะโหลด */
+}
+
 </style>

@@ -535,4 +535,97 @@ setTimeout(() => {
     }
 }, 500);
 
+// ==========================================
+// 📚 ระบบจัดการคลังตัวชี้วัด (Curriculum Management)
+// ==========================================
+
+let allCurriculumData = [];
+
+function loadCurriculumData() {
+  google.script.run.withSuccessHandler(data => {
+    allCurriculumData = data;
+    const badge = document.getElementById('curriculumCountBadge');
+    if(badge) badge.innerText = `${data.length} รายการ`;
+    renderCurriculumTable(data);
+  }).getCurriculumData();
+}
+
+function renderCurriculumTable(data) {
+  const tbody = document.getElementById('curriculumTableBody');
+  if(!tbody) return;
+
+  if (data.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="4" class="text-center p-5 text-muted"><i class="fas fa-folder-open fa-2x mb-2 opacity-50"></i><br>ยังไม่มีข้อมูลหลักสูตรในระบบ</td></tr>`;
+    return;
+  }
+  
+  let html = '';
+  data.forEach(item => {
+    let typeBadge = String(item.subjectType).includes('เพิ่ม') ? 'bg-info text-dark' : 'bg-primary';
+    let evalBadge = String(item.evalType).includes('ปลาย') ? 'badge bg-danger' : 'badge bg-warning text-dark';
+    
+    html += `<tr>
+      <td class="fw-bold text-dark">
+        ${item.subjectCode}<br>
+        <span class="badge ${typeBadge} mt-1" style="font-size: 0.65rem;">${item.subjectType}</span>
+      </td>
+      <td class="fw-bold text-success">${item.standardCode}</td>
+      <td style="white-space: pre-wrap; line-height: 1.4;">${item.description}</td>
+      <td class="text-center"><span class="${evalBadge}">${item.evalType}</span></td>
+    </tr>`;
+  });
+  tbody.innerHTML = html;
+}
+
+function filterCurriculumTable() {
+  const keyword = document.getElementById('searchCurriculum').value.toLowerCase();
+  const filtered = allCurriculumData.filter(item => 
+    String(item.subjectCode).toLowerCase().includes(keyword) || 
+    String(item.standardCode).toLowerCase().includes(keyword) || 
+    String(item.description).toLowerCase().includes(keyword)
+  );
+  renderCurriculumTable(filtered);
+}
+
+function uploadCurriculumCSV() {
+  const fileInput = document.getElementById('csvCurriculumFile');
+  if (!fileInput || !fileInput.files.length) return showToast('⚠️ กรุณาเลือกไฟล์ CSV ก่อนครับ', 'warning');
+  
+  const clearOld = document.getElementById('clearOldCurriculum').checked;
+  const file = fileInput.files[0];
+  const btn = document.getElementById('btnImportCurriculum');
+  const oldText = btn.innerHTML;
+  
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>กำลังประมวลผล...';
+  btn.disabled = true;
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const base64Data = e.target.result.split(',')[1];
+    google.script.run
+      .withFailureHandler(err => {
+        btn.innerHTML = oldText; btn.disabled = false;
+        showToast('❌ Error: ' + err.message, 'danger');
+      })
+      .withSuccessHandler(res => {
+        btn.innerHTML = oldText; btn.disabled = false;
+        if(res.status === 'success') {
+           showToast(res.message, 'success');
+           fileInput.value = '';
+           loadCurriculumData();
+        } else {
+           showToast(res.message, 'danger');
+        }
+      }).importCurriculumCSV(base64Data, clearOld);
+  };
+  reader.readAsDataURL(file);
+}
+
+function initCurriculumDB() {
+  if(!confirm("ต้องการสร้างตารางฐานข้อมูล Curriculum_Database ใช่หรือไม่?")) return;
+  google.script.run.withSuccessHandler(res => {
+    showToast(res, 'info');
+  }).setupCurriculumDatabase();
+}
+
 </script>

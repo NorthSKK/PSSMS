@@ -46,24 +46,58 @@
         </div>
         <div class="card-body bg-light">
           
-          <div class="row g-2 mb-4">
+          <div class="row g-2 mb-3">
             <div class="col-md-4">
-              <label class="form-label small fw-bold text-success">คะแนนเก็บระหว่างเรียน</label>
-              <input type="number" id="scoreFormative" class="form-control text-center shadow-sm score-input" value="0" onkeyup="calculateTotalConfigScore()">
+              <label class="form-label small fw-bold text-success">รวมคะแนนเก็บ</label>
+              <input type="number" id="scoreFormative" class="form-control text-center shadow-sm bg-light" value="0" readonly>
             </div>
             <div class="col-md-4">
               <label class="form-label small fw-bold text-warning text-dark">สอบกลางภาค</label>
-              <input type="number" id="scoreMidterm" class="form-control text-center shadow-sm score-input" value="0" onkeyup="calculateTotalConfigScore()">
+              <input type="number" id="scoreMidterm" class="form-control text-center shadow-sm" value="0" onkeyup="calculateTotalConfigScore()">
             </div>
             <div class="col-md-4">
               <label class="form-label small fw-bold text-danger">สอบปลายภาค</label>
-              <input type="number" id="scoreFinal" class="form-control text-center shadow-sm score-input" value="0" onkeyup="calculateTotalConfigScore()">
+              <input type="number" id="scoreFinal" class="form-control text-center shadow-sm" value="0" onkeyup="calculateTotalConfigScore()">
             </div>
           </div>
 
-          <div class="d-flex justify-content-between align-items-center mb-2">
+          <div class="row g-2 mb-4">
+            <div class="col-md-6">
+              <div class="p-2 border border-warning rounded bg-warning bg-opacity-10 shadow-sm">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                  <span class="small fw-bold text-warning text-dark"><i class="fas fa-file-alt me-1"></i>ตัวชี้วัด กลางภาค</span>
+                  <select class="form-select form-select-sm border-warning w-50" style="font-size: 0.75rem;" id="selectMidtermInd" onchange="appendExamIndicator(this, 'midterm')">
+                     <option value="">+ เลือกตัวชี้วัด...</option>
+                  </select>
+                </div>
+                <input type="text" id="midtermCode" class="form-control form-control-sm mb-1 bg-white" placeholder="รหัสตัวชี้วัด (ถ้ามี)">
+                <textarea id="midtermDesc" class="form-control form-control-sm bg-white" rows="2" placeholder="รายละเอียด/จุดประสงค์..."></textarea>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="p-2 border border-danger rounded bg-danger bg-opacity-10 shadow-sm">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                  <span class="small fw-bold text-danger"><i class="fas fa-file-alt me-1"></i>ตัวชี้วัด ปลายภาค</span>
+                  <select class="form-select form-select-sm border-danger w-50" style="font-size: 0.75rem;" id="selectFinalInd" onchange="appendExamIndicator(this, 'final')">
+                     <option value="">+ เลือกตัวชี้วัด...</option>
+                  </select>
+                </div>
+                <input type="text" id="finalCode" class="form-control form-control-sm mb-1 bg-white" placeholder="รหัสตัวชี้วัด (ถ้ามี)">
+                <textarea id="finalDesc" class="form-control form-control-sm bg-white" rows="2" placeholder="รายละเอียด/จุดประสงค์..."></textarea>
+              </div>
+            </div>
+          </div>
+
+          <div class="d-flex flex-wrap justify-content-between align-items-center mb-2 gap-2">
             <label class="form-label small fw-bold text-dark m-0"><i class="fas fa-tasks me-1"></i>รายละเอียดตัวชี้วัด / ชิ้นงาน (คะแนนเก็บ)</label>
-            <button class="btn btn-sm btn-outline-primary" onclick="addIndicatorRow()"><i class="fas fa-plus me-1"></i>เพิ่มช่องคะแนน</button>
+            <div class="d-flex gap-2">
+              <button class="btn btn-sm btn-success fw-bold shadow-sm" onclick="loadCurriculumToTable()" id="btnLoadCurriculum">
+                <i class="fas fa-cloud-download-alt me-1"></i>ดึงตัวชี้วัดจากหลักสูตร
+              </button>
+              <button class="btn btn-sm btn-outline-primary" onclick="addIndicatorRow()">
+                <i class="fas fa-plus me-1"></i>เพิ่มช่องคะแนน
+              </button>
+            </div>
           </div>
           
           <div class="table-responsive bg-white rounded shadow-sm border mb-3">
@@ -71,8 +105,9 @@
               <thead class="table-light text-muted small">
                 <tr>
                    <th class="text-center" style="width: 50px;">#</th>
-                    <th style="width: 250px;">ชื่อตัวชี้วัด/ชิ้นงาน (ย่อ)</th>
-                    <th>รายละเอียดฉบับเต็ม / จุดประสงค์การเรียนรู้</th> <th class="text-center" style="width: 100px;">คะแนนเต็ม</th>
+                    <th style="width: 250px;">รหัสตัวชี้วัด / ชื่อชิ้นงาน</th>
+                    <th>รายละเอียดฉบับเต็ม / จุดประสงค์การเรียนรู้</th> 
+                    <th class="text-center" style="width: 100px;">คะแนนเต็ม</th>
                   <th class="text-center" style="width: 50px;">ลบ</th>
                 </tr>
               </thead>

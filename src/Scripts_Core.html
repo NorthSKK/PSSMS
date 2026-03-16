@@ -24,7 +24,17 @@ if (collapseBtn) {
 
 function showLoader(status) {
   const loader = document.getElementById('loader');
-  if (loader) status ? loader.classList.remove('d-none') : loader.classList.add('d-none');
+  const pageContent = document.getElementById('page-content');
+  
+  if (status) {
+    if (loader) loader.classList.remove('d-none');
+    // เพิ่มเอฟเฟกต์เบลอและจางลงให้กับเนื้อหา
+    if (pageContent) pageContent.classList.add('page-loading'); 
+  } else {
+    if (loader) loader.classList.add('d-none');
+    // เอาเอฟเฟกต์เบลอออกเมื่อโหลดเสร็จ
+    if (pageContent) pageContent.classList.remove('page-loading'); 
+  }
 }
 
 // ==========================================
@@ -148,6 +158,7 @@ function renderApp(user) {
       <div class="menu-divider">การจัดการระบบ</div>
       <li class="mb-1"><a href="javascript:void(0)" class="nav-link-sub text-warning" onclick="loadPage('Page_Admin_Users')"><i class="fas fa-users-cog me-2"></i>จัดการผู้ใช้งาน</a></li>
       <li class="mb-1"><a href="javascript:void(0)" class="nav-link-sub text-info" onclick="loadPage('Page_Admin_Timetable')"><i class="fas fa-calendar-alt me-2"></i>จัดการตารางสอน</a></li>
+      <li class="mb-1"><a href="javascript:void(0)" class="nav-link-sub text-success" onclick="loadPage('Page_Admin_Curriculum')"><i class="fas fa-layer-group me-2"></i>คลังตัวชี้วัด/ผลการเรียนรู้</a></li>
       <li class="mb-3"><a href="javascript:void(0)" class="nav-link-sub text-light" onclick="loadPage('Page_Admin_Settings')"><i class="fas fa-cogs me-2"></i>ตั้งค่าระบบ</a></li>
     `;
   }
@@ -164,6 +175,7 @@ function renderApp(user) {
     } else {
         // ของครู: เห็นครบทุกอันตามปกติ
         menuHTML += `<li class="mb-1"><a href="javascript:void(0)" class="dept-btn academic" onclick="loadPage('Page_Academic')"><i class="fas fa-graduation-cap"></i> <span>ฝ่ายวิชาการ</span></a></li>`;
+        menuHTML += `<li class="mb-1 ms-3"><a href="javascript:void(0)" class="nav-link-sub text-primary py-1" style="font-size: 0.85rem;" onclick="loadPage('Page_Subject_Config')"><i class="fas fa-cogs me-2" style="font-size: 0.7rem;"></i>ตั้งค่าโครงสร้างวิชา</a></li>`;
         menuHTML += `<li class="mb-1 ms-3"><a href="javascript:void(0)" class="nav-link-sub text-success py-1" style="font-size: 0.85rem;" onclick="loadPage('Page_Score_Entry')"><i class="fas fa-edit me-2" style="font-size: 0.7rem;"></i>บันทึกคะแนน (ปพ.5)</a></li>`;
         menuHTML += `<li class="mb-1 ms-3"><a href="javascript:void(0)" class="nav-link-sub text-info py-1" style="font-size: 0.85rem;" onclick="loadPage('Page_Academic_Report')"><i class="fas fa-chart-pie me-2" style="font-size: 0.7rem;"></i>รายงานสถิติ (มส.)</a></li>`;
         menuHTML += `<li class="mb-2 ms-3"><a href="javascript:void(0)" class="nav-link-sub text-success py-1" style="font-size: 0.85rem;" onclick="loadPage('Page_Lesson_History')"><i class="fas fa-book-reader me-2" style="font-size: 0.7rem;"></i>แฟ้มบันทึกหลังสอน</a></li>`;

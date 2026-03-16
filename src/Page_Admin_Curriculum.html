@@ -1,0 +1,85 @@
+<div class="container-fluid py-4 animate__animated animate__fadeIn">
+  <div class="card shadow-sm border-0 mb-4 bg-primary text-white">
+    <div class="card-body p-3 d-flex justify-content-between align-items-center">
+      <div>
+        <h5 class="mb-1"><i class="fas fa-layer-group me-2"></i>จัดการคลังตัวชี้วัด / ผลการเรียนรู้</h5>
+        <p class="mb-0 small opacity-75">นำเข้าหลักสูตรจากส่วนกลาง เพื่อให้ครูผู้สอนดึงไปใช้ใน ปพ.5 อัตโนมัติ</p>
+      </div>
+      <i class="fas fa-database fa-2x opacity-25"></i>
+    </div>
+  </div>
+
+  <div class="row g-3">
+    <div class="col-md-4">
+      <div class="card shadow-sm border-0 h-100">
+        <div class="card-header bg-white fw-bold py-3 text-primary border-bottom">
+          <i class="fas fa-file-import me-2"></i>นำเข้าหลักสูตร (CSV)
+        </div>
+        <div class="card-body">
+          <div class="alert alert-info small border-0 shadow-sm mb-3">
+            <b>รูปแบบคอลัมน์ Excel (Save เป็น .csv UTF-8):</b><br>
+            A: รหัสวิชา (เช่น พ22103)<br>
+            B: ประเภท (พื้นฐาน / เพิ่มเติม)<br>
+            C: รหัสตัวชี้วัด (เช่น พ 4.1 ม.2/2)<br>
+            D: คำอธิบาย/จุดประสงค์<br>
+            E: ประเมิน (ระหว่างทาง / ปลายทาง)
+          </div>
+
+          <div class="mb-3">
+            <input type="file" id="csvCurriculumFile" class="form-control" accept=".csv">
+          </div>
+          
+          <div class="form-check form-switch mb-4">
+            <input class="form-check-input" type="checkbox" id="clearOldCurriculum" checked>
+            <label class="form-check-label small fw-bold text-danger" for="clearOldCurriculum">ล้างข้อมูลตัวชี้วัดเดิมทั้งหมดก่อนนำเข้า</label>
+          </div>
+
+          <button class="btn btn-success w-100 fw-bold shadow-sm py-2 mb-2" id="btnImportCurriculum" onclick="uploadCurriculumCSV()">
+            <i class="fas fa-cloud-upload-alt me-2"></i>อัปโหลดเข้าระบบ
+          </button>
+
+          <hr class="text-muted opacity-25">
+          <button class="btn btn-outline-primary w-100 btn-sm shadow-sm" onclick="initCurriculumDB()">
+            <i class="fas fa-tools me-1"></i>สร้างฐานข้อมูลครั้งแรก (Setup DB)
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-8">
+      <div class="card shadow-sm border-0 h-100">
+        <div class="card-header bg-white fw-bold py-3 text-dark border-bottom d-flex justify-content-between align-items-center">
+          <div><i class="fas fa-list me-2 text-primary"></i>ข้อมูลคลังตัวชี้วัดในระบบ</div>
+          <span class="badge bg-primary rounded-pill" id="curriculumCountBadge">0 รายการ</span>
+        </div>
+        <div class="card-body p-0">
+          <div class="p-3 bg-light border-bottom">
+            <div class="input-group shadow-sm">
+              <span class="input-group-text bg-white text-muted border-end-0"><i class="fas fa-search"></i></span>
+              <input type="text" id="searchCurriculum" class="form-control border-start-0 ps-0" placeholder="ค้นหา รหัสวิชา, ตัวชี้วัด..." onkeyup="filterCurriculumTable()">
+            </div>
+          </div>
+          <div class="table-responsive" style="max-height: 450px; overflow-y: auto;">
+            <table class="table table-hover align-middle mb-0" style="font-size: 0.85rem;">
+              <thead class="table-light sticky-top shadow-sm">
+                <tr>
+                  <th style="width: 100px;">รหัสวิชา</th>
+                  <th style="width: 120px;">รหัสตัวชี้วัด/ข้อ</th>
+                  <th>รายละเอียดคำอธิบาย</th>
+                  <th style="width: 100px;">การประเมิน</th>
+                </tr>
+              </thead>
+              <tbody id="curriculumTableBody">
+                <tr><td colspan="4" class="text-center p-4 text-muted"><div class="spinner-border spinner-border-sm me-2"></div>กำลังโหลดข้อมูล...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  setTimeout(loadCurriculumData, 300);
+</script>
