@@ -43,13 +43,15 @@
 
   .result-pass { color: #2e7d32; font-weight: 600; }
   .result-fail { color: #c62828; font-weight: 600; }
-  .sign-box { border-bottom: 1px dotted #333; display: inline-block; width: 130px; text-align: center; }
+  
+  /* 🌟 ลดขนาดเส้นประพื้นฐานลงนิดหน่อย */
+  .sign-box { border-bottom: 1px dotted #333; display: inline-block; width: 100px; text-align: center; }
 
   /* ==========================================
-     🖨️ โหมดการพิมพ์ (A4 Print Settings)
+     🖨️ โหมดการพิมพ์ (A4 Print Settings แนวนอน)
      ========================================== */
   @media print {
-    @page { size: A4 portrait; margin: 10mm 10mm; }
+    @page { size: A4 landscape; margin: 12mm 15mm; }
     
     html, body, #app-wrapper, main {
         height: auto !important; min-height: auto !important; overflow: visible !important;
@@ -58,7 +60,6 @@
     body { font-size: 12pt; }
     .no-print { display: none !important; }
     
-    /* 🌟 แก้ไข: บังคับปลดล็อคทุกแท็บให้เรียงต่อกันตอนสั่งพิมพ์ */
     .tab-content, .tab-content.hidden { 
         display: block !important; 
         visibility: visible !important; 
@@ -77,8 +78,11 @@
     .max-w-7xl { max-width: 100% !important; padding: 0 !important; }
     .shadow-sm { box-shadow: none !important; border: none !important; }
 
-    #tab-cover .data-table th, #tab-cover .data-table td { padding: 3px 2px !important; font-size: 11pt !important; }
-    .print-table-sm th, .print-table-sm td { padding: 2px 2px !important; font-size: 8pt !important; }
+    #tab-cover .data-table th, #tab-cover .data-table td { padding: 4px !important; font-size: 10pt !important; }
+    .print-table-sm th, .print-table-sm td { padding: 4px 4px !important; font-size: 10pt !important; }
+    
+    /* 🌟 บีบเส้นประให้พอดีหน้ากระดาษเฉพาะตอนพิมพ์ */
+    .sign-box { width: 80px !important; }
   }
   </style>
   <script>
@@ -87,7 +91,7 @@
   </script>
 </head>
 
-<body class="h-full bg-cream print:h-auto print:overflow-visible">
+<body class="h-full bg-cream print:h-auto print:overflow-visible print:bg-white">
   <div id="app-wrapper" class="h-full w-full overflow-auto print:h-auto print:overflow-visible print:block">
     
     <header class="bg-navy text-white px-4 py-3 no-print">
@@ -117,9 +121,10 @@
       </div>
     </div>
 
-    <nav class="bg-white border-b border-gray-200 px-4 no-print pt-2 shadow-sm">
-      <div class="max-w-7xl mx-auto flex gap-1 overflow-x-auto" id="tab-bar">
+    <nav class="bg-white border-b border-gray-200 px-4 no-print pt-2 shadow-sm overflow-x-auto">
+      <div class="max-w-7xl mx-auto flex gap-1" id="tab-bar">
         <button onclick="switchTab('cover')" data-tab="cover" class="tab-active px-5 py-3 rounded-t-lg text-sm font-bold transition whitespace-nowrap"> <i data-lucide="file-text" class="inline w-4 h-4 mr-1"></i> ปก/ข้อมูลวิชา </button> 
+        <button onclick="switchTab('indicators')" data-tab="indicators" class="tab-inactive px-5 py-3 rounded-t-lg text-sm font-bold transition whitespace-nowrap"> <i data-lucide="list-checks" class="inline w-4 h-4 mr-1"></i> รายละเอียดตัวชี้วัด </button> 
         <button onclick="switchTab('scores')" data-tab="scores" class="tab-inactive px-5 py-3 rounded-t-lg text-sm font-bold transition whitespace-nowrap"> <i data-lucide="bar-chart-3" class="inline w-4 h-4 mr-1"></i> ผลการเรียนรู้ </button> 
         <button onclick="switchTab('attendance')" data-tab="attendance" class="tab-inactive px-5 py-3 rounded-t-lg text-sm font-bold transition whitespace-nowrap"> <i data-lucide="calendar-check" class="inline w-4 h-4 mr-1"></i> เวลาเรียน </button> 
         <button onclick="switchTab('evaluation')" data-tab="evaluation" class="tab-inactive px-5 py-3 rounded-t-lg text-sm font-bold transition whitespace-nowrap"> <i data-lucide="clipboard-check" class="inline w-4 h-4 mr-1"></i> การประเมิน </button>
@@ -129,88 +134,151 @@
     <main class="max-w-7xl mx-auto px-4 py-6 pb-20 print:p-0">
       
       <section id="tab-cover" class="tab-content">
-        <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-4 print:border-none print:shadow-none print:p-0 max-w-3xl mx-auto">
-          <div class="text-center mb-4">
-            <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-navy bg-opacity-10 mb-2 print:hidden"><span class="text-navy font-bold text-2xl">ปพ.5</span></div>
-            <div class="text-right font-bold text-lg mb-1 hidden print:block">ปพ.๕</div>
-            <h2 class="text-xl font-bold text-navy print:text-black">แบบบันทึกผลการพัฒนาคุณภาพผู้เรียน</h2>
-            <p class="text-sm text-gray-600 mt-1 print:text-black">ตามหลักสูตรแกนกลางการศึกษาขั้นพื้นฐาน พุทธศักราช 2551</p>
-            <p class="text-md font-bold text-gray-800 mt-2 print:text-black"><?= data.sys.school_name || 'โรงเรียนภูพระบาทวิทยา' ?></p>
-            <p class="text-sm text-gray-600 print:text-black">อำเภอบ้านผือ จังหวัดอุดรธานี</p>
+        <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-4 print:border-none print:shadow-none print:p-0 w-full mx-auto relative">
+          <div class="absolute top-0 right-0 font-bold text-xl hidden print:block text-gray-800">ปพ.๕</div>
+
+          <div class="text-center mb-4 print:mb-4">
+            <svg class="h-16 print:h-16 mx-auto mb-2 text-navy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 2L2 7l10 5 10-5-10-5Z"/>
+                <path d="M2 17l10 5 10-5"/>
+                <path d="M2 12l10 5 10-5"/>
+            </svg>
+            <h2 class="text-xl font-bold text-navy print:text-black print:text-xl">แบบบันทึกผลการพัฒนาคุณภาพผู้เรียน</h2>
+            <p class="text-sm text-gray-600 mt-1 print:text-black print:text-sm">ตามหลักสูตรแกนกลางการศึกษาขั้นพื้นฐาน พุทธศักราช 2551</p>
+            <p class="text-lg font-bold text-gray-800 mt-2 print:text-black print:text-lg"><?= data.sys.school_name || 'โรงเรียนภูพระบาทวิทยา' ?></p>
+            <p class="text-sm text-gray-600 print:text-black print:text-sm">อำเภอบ้านผือ จังหวัดอุดรธานี</p>
           </div>
 
-          <div class="space-y-1.5 text-sm text-gray-800 px-2 print:text-black print:px-6">
-            <div class="flex border-b border-dashed border-gray-300 pb-1"><span class="font-semibold w-40 shrink-0">รายวิชา:</span> <span class="font-bold text-navy print:text-black"><?= data.subName ?></span></div>
-            <div class="flex border-b border-dashed border-gray-300 pb-1"><span class="font-semibold w-40 shrink-0">รหัสวิชา:</span> <span class="font-bold"><?= data.subCode ?></span></div>
-            <div class="flex border-b border-dashed border-gray-300 pb-1"><span class="font-semibold w-40 shrink-0">กลุ่มสาระการเรียนรู้:</span> <span><?= data.deptName ?></span></div>
-            <div class="flex border-b border-dashed border-gray-300 pb-1"><span class="font-semibold w-40 shrink-0">ชั้นมัธยมศึกษาปีที่:</span> <span class="font-bold text-navy print:text-black"><?= data.classNum ?></span></div>
-            <div class="flex border-b border-dashed border-gray-300 pb-1"><span class="font-semibold w-40 shrink-0">ภาคเรียนที่ / ปีการศึกษา:</span> <span class="font-bold"><?= data.user.currentTerm ?> / <?= data.user.currentYear ?></span></div>
-            <div class="flex border-b border-dashed border-gray-300 pb-1"><span class="font-semibold w-40 shrink-0">ครูผู้สอน:</span> <span class="font-bold"><?= data.user.name ?></span></div>
-            <div class="flex border-b border-dashed border-gray-300 pb-1"><span class="font-semibold w-40 shrink-0">ครูที่ปรึกษา:</span> 
-                <div class="flex flex-col"><span>1. <?= data.t1 ?></span><span>2. <?= data.t2 ?></span></div>
+          <div class="grid grid-cols-1 md:grid-cols-12 gap-6 print:grid-cols-12 print:gap-8">
+            <div class="col-span-1 md:col-span-5 print:col-span-5 space-y-2 text-sm text-gray-800 print:text-black print:text-[11pt]">
+                <div class="flex border-b border-dashed border-gray-300 pb-1.5 print:pb-1"><span class="font-semibold w-48 shrink-0">รายวิชา:</span> <span class="font-bold text-navy print:text-black"><?= data.subName ?></span></div>
+                <div class="flex border-b border-dashed border-gray-300 pb-1.5 print:pb-1"><span class="font-semibold w-48 shrink-0">รหัสวิชา:</span> <span class="font-bold"><?= data.subCode ?></span></div>
+                <div class="flex border-b border-dashed border-gray-300 pb-1.5 print:pb-1"><span class="font-semibold w-48 shrink-0">กลุ่มสาระการเรียนรู้:</span> <span><?= data.deptName ?></span></div>
+                <div class="flex border-b border-dashed border-gray-300 pb-1.5 print:pb-1"><span class="font-semibold w-48 shrink-0">ชั้นมัธยมศึกษาปีที่:</span> <span class="font-bold text-navy print:text-black"><?= data.classNum ?></span></div>
+                <div class="flex border-b border-dashed border-gray-300 pb-1.5 print:pb-1"><span class="font-semibold w-48 shrink-0 whitespace-nowrap">ภาคเรียนที่/ปีการศึกษา:</span> <span class="font-bold"><?= data.user.currentTerm ?> / <?= data.user.currentYear ?></span></div>
+                <div class="flex border-b border-dashed border-gray-300 pb-1.5 print:pb-1"><span class="font-semibold w-48 shrink-0">ครูผู้สอน:</span> <span class="font-bold"><?= data.user.name ?></span></div>
+                <div class="flex border-b border-dashed border-gray-300 pb-1.5 print:pb-1"><span class="font-semibold w-48 shrink-0">ครูที่ปรึกษาคนที่ 1:</span> <span><?= data.t1 ?></span></div>
+                <div class="flex border-b border-dashed border-gray-300 pb-1.5 print:pb-1"><span class="font-semibold w-48 shrink-0">ครูที่ปรึกษาคนที่ 2:</span> <span><?= data.t2 ?></span></div>
+            </div>
+
+            <div class="col-span-1 md:col-span-7 print:col-span-7">
+                <h3 class="text-sm font-bold text-navy mb-2 print:text-black print:text-[11pt]"><i data-lucide="pie-chart" class="inline w-4 h-4 mr-1 print:hidden"></i> สรุปผลสัมฤทธิ์ทางการเรียน</h3>
+                <table class="data-table mb-4 print:mb-4" style="width: 100%;">
+                <thead>
+                    <tr>
+                    <th rowspan="2" class="bg-navy text-white" style="width: 15%;">นร. ทั้งหมด</th>
+                    <th colspan="10" class="bg-navy text-white">จำนวนนักเรียนที่ได้รับระดับผลการเรียน</th>
+                    </tr>
+                    <tr>
+                    <th class="sub-header">4</th><th class="sub-header">3.5</th><th class="sub-header">3</th><th class="sub-header">2.5</th><th class="sub-header">2</th>
+                    <th class="sub-header">1.5</th><th class="sub-header">1</th><th class="sub-header">0</th><th class="sub-header">ร</th><th class="sub-header">มส</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                    <td class="font-bold text-md" id="sum-total">0</td>
+                    <td id="sum-4" class="font-semibold">0</td><td id="sum-35" class="font-semibold">0</td><td id="sum-3" class="font-semibold">0</td>
+                    <td id="sum-25" class="font-semibold">0</td><td id="sum-2" class="font-semibold">0</td><td id="sum-15" class="font-semibold">0</td>
+                    <td id="sum-1" class="font-semibold">0</td><td id="sum-0" class="font-semibold text-red-600">0</td><td id="sum-r" class="font-semibold text-red-600">0</td>
+                    <td id="sum-ms" class="font-semibold text-red-600">0</td>
+                    </tr>
+                </tbody>
+                </table>
+
+                <h3 class="text-sm font-bold text-navy mb-2 print:text-black print:text-[11pt]"><i data-lucide="clipboard-check" class="inline w-4 h-4 mr-1 print:hidden"></i> สรุปการประเมินคุณลักษณะฯ และ อ่านคิดวิเคราะห์เขียน</h3>
+                <table class="data-table" style="width: 100%;">
+                <thead>
+                    <tr>
+                    <th rowspan="2" class="bg-navy text-white" style="width: 15%;">นร. ทั้งหมด</th>
+                    <th colspan="4" class="bg-blue-800 text-white">คุณลักษณะอันพึงประสงค์</th>
+                    <th colspan="4" class="bg-teal-700 text-white">อ่าน คิดวิเคราะห์ เขียน</th>
+                    </tr>
+                    <tr>
+                    <th class="sub-header bg-blue-700">ดีเยี่ยม (3)</th><th class="sub-header bg-blue-700">ดี (2)</th><th class="sub-header bg-blue-700">ผ่าน (1)</th><th class="sub-header bg-blue-700">ปรับปรุง (0)</th>
+                    <th class="sub-header bg-teal-600">ดีเยี่ยม (3)</th><th class="sub-header bg-teal-600">ดี (2)</th><th class="sub-header bg-teal-600">ผ่าน (1)</th><th class="sub-header bg-teal-600">ปรับปรุง (0)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                    <td class="font-bold text-md" id="sum-eval-total">0</td>
+                    <td id="sum-char-3" class="font-semibold text-blue-800">0</td><td id="sum-char-2" class="font-semibold text-blue-800">0</td>
+                    <td id="sum-char-1" class="font-semibold text-blue-800">0</td><td id="sum-char-0" class="font-semibold text-red-600">0</td>
+                    <td id="sum-read-3" class="font-semibold text-teal-800">0</td><td id="sum-read-2" class="font-semibold text-teal-800">0</td>
+                    <td id="sum-read-1" class="font-semibold text-teal-800">0</td><td id="sum-read-0" class="font-semibold text-red-600">0</td>
+                    </tr>
+                </tbody>
+                </table>
             </div>
           </div>
 
-          <div class="mt-4 px-2 print:px-6">
-            <h3 class="text-sm font-bold text-navy mb-2 print:text-black"><i data-lucide="pie-chart" class="inline w-4 h-4 mr-1 print:hidden"></i> สรุปผลสัมฤทธิ์ทางการเรียน</h3>
-            <table class="data-table mb-3" style="width: 100%;">
-              <thead>
-                <tr>
-                  <th rowspan="2" class="bg-navy text-white" style="width: 16%;">จำนวนนักเรียน<br>ทั้งหมด</th>
-                  <th colspan="10" class="bg-navy text-white">จำนวนนักเรียนที่ได้รับระดับผลการเรียน</th>
-                </tr>
-                <tr>
-                  <th class="sub-header">4</th><th class="sub-header">3.5</th><th class="sub-header">3</th><th class="sub-header">2.5</th><th class="sub-header">2</th>
-                  <th class="sub-header">1.5</th><th class="sub-header">1</th><th class="sub-header">0</th><th class="sub-header">ร</th><th class="sub-header">มส</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td class="font-bold text-md" id="sum-total">0</td>
-                  <td id="sum-4" class="font-semibold">0</td><td id="sum-35" class="font-semibold">0</td><td id="sum-3" class="font-semibold">0</td>
-                  <td id="sum-25" class="font-semibold">0</td><td id="sum-2" class="font-semibold">0</td><td id="sum-15" class="font-semibold">0</td>
-                  <td id="sum-1" class="font-semibold">0</td><td id="sum-0" class="font-semibold text-red-600">0</td><td id="sum-r" class="font-semibold text-red-600">0</td>
-                  <td id="sum-ms" class="font-semibold text-red-600">0</td>
-                </tr>
-              </tbody>
-            </table>
-
-            <h3 class="text-sm font-bold text-navy mb-2 print:text-black"><i data-lucide="clipboard-check" class="inline w-4 h-4 mr-1 print:hidden"></i> สรุปการประเมินคุณลักษณะฯ และ อ่านคิดวิเคราะห์เขียน</h3>
-            <table class="data-table" style="width: 100%;">
-              <thead>
-                <tr>
-                  <th rowspan="2" class="bg-navy text-white" style="width: 16%;">จำนวนนักเรียน<br>ทั้งหมด</th>
-                  <th colspan="4" class="bg-blue-800 text-white">คุณลักษณะอันพึงประสงค์</th>
-                  <th colspan="4" class="bg-teal-700 text-white">อ่าน คิดวิเคราะห์ เขียน</th>
-                </tr>
-                <tr>
-                  <th class="sub-header bg-blue-700">ดีเยี่ยม (3)</th><th class="sub-header bg-blue-700">ดี (2)</th><th class="sub-header bg-blue-700">ผ่าน (1)</th><th class="sub-header bg-blue-700">ปรับปรุง (0)</th>
-                  <th class="sub-header bg-teal-600">ดีเยี่ยม (3)</th><th class="sub-header bg-teal-600">ดี (2)</th><th class="sub-header bg-teal-600">ผ่าน (1)</th><th class="sub-header bg-teal-600">ปรับปรุง (0)</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td class="font-bold text-md" id="sum-eval-total">0</td>
-                  <td id="sum-char-3" class="font-semibold text-blue-800">0</td><td id="sum-char-2" class="font-semibold text-blue-800">0</td>
-                  <td id="sum-char-1" class="font-semibold text-blue-800">0</td><td id="sum-char-0" class="font-semibold text-red-600">0</td>
-                  <td id="sum-read-3" class="font-semibold text-teal-800">0</td><td id="sum-read-2" class="font-semibold text-teal-800">0</td>
-                  <td id="sum-read-1" class="font-semibold text-teal-800">0</td><td id="sum-read-0" class="font-semibold text-red-600">0</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <div class="hidden print:block mt-6 px-6 text-sm">
-             <div class="font-bold mb-3 underline">การอนุมัติผลการเรียน</div>
-             <div class="flex justify-between px-2 mb-4">
-                <div class="text-center"><div>ลงชื่อ <span class="sign-box"></span> ครูผู้สอน</div><div class="mt-1">( <?= data.user.name ?> )</div></div>
-                <div class="text-center"><div>ลงชื่อ <span class="sign-box"></span> หัวหน้ากลุ่มสาระฯ</div><div class="mt-1">( <?= data.headName ?> )</div></div>
-             </div>
-             <div class="flex justify-between px-2">
-                <div class="text-center"><div>ลงชื่อ <span class="sign-box"></span> หัวหน้างานวัดผลฯ</div><div class="mt-1">( <?= data.m_head ?> )</div></div>
-                <div class="text-center"><div>ลงชื่อ <span class="sign-box"></span> ผู้อำนวยการโรงเรียน</div><div class="mt-1">( <?= data.p_name ?> )</div></div>
+          <div class="hidden print:block mt-8 text-sm print:text-[10pt] w-full">
+             <div class="font-bold mb-3 underline text-center">การอนุมัติผลการเรียน</div>
+             <div class="flex justify-between items-end text-center whitespace-nowrap w-full">
+                <div class="flex-1"><div>ลงชื่อ <span class="sign-box"></span> ครูผู้สอน</div><div class="mt-1">( <?= data.user.name ?> )</div></div>
+                <div class="flex-1"><div>ลงชื่อ <span class="sign-box"></span> หัวหน้ากลุ่มสาระฯ</div><div class="mt-1">( <?= data.headName ?> )</div></div>
+                <div class="flex-1"><div>ลงชื่อ <span class="sign-box"></span> หัวหน้างานวัดผลฯ</div><div class="mt-1">( <?= data.m_head ?> )</div></div>
+                <div class="flex-1"><div>ลงชื่อ <span class="sign-box"></span> ผู้อำนวยการโรงเรียน</div><div class="mt-1">( <?= data.p_name ?> )</div></div>
              </div>
           </div>
+        </div>
+      </section>
+
+      <section id="tab-indicators" class="tab-content hidden">
+        <div class="flex items-center justify-between mb-4 no-print">
+          <h2 class="text-xl font-bold text-navy"><i data-lucide="list-checks" class="inline w-6 h-6 mr-2"></i> รายละเอียดตัวชี้วัด / จุดประสงค์การเรียนรู้</h2>
+        </div>
+        
+        <div class="hidden print:block text-center font-bold text-lg mb-4">รายละเอียดตัวชี้วัดและจุดประสงค์การเรียนรู้ รายวิชา <?= data.subName ?> (<?= data.className ?>)</div>
+        
+        <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden print:border-none print:shadow-none mb-8">
+          <table class="data-table print-table-sm" style="width: 100%;">
+            <thead>
+              <tr>
+                <th style="width: 50px;">ที่</th>
+                <th style="width: 150px;">รหัสตัวชี้วัด</th>
+                <th style="width: 250px;">ชื่อชิ้นงาน / หน่วยการเรียนรู้</th>
+                <th>คำอธิบาย / จุดประสงค์การเรียนรู้</th>
+                <th style="width: 80px;">คะแนน</th>
+              </tr>
+            </thead>
+            <tbody>
+              <? if(data.config && data.config.indicators && data.config.indicators.length > 0) { 
+                  data.config.indicators.forEach((ind, idx) => { ?>
+                    <tr>
+                      <td class="text-center font-medium"><?= idx + 1 ?></td>
+                      <td class="text-center font-bold text-navy"><?= ind.code || '-' ?></td>
+                      <td class="text-left font-semibold"><?= ind.name || '-' ?></td>
+                      <td style="text-align: left !important; white-space: pre-wrap; padding: 8px 12px; font-size: 11px;"><?= ind.description || '-' ?></td>
+                      <td class="text-center font-bold text-green-700"><?= ind.score || '0' ?></td>
+                    </tr>
+              <?  }); } else { ?>
+                    <tr>
+                      <td colspan="5" class="text-center text-gray-500 py-4">ไม่มีข้อมูลตัวชี้วัดระหว่างเรียน</td>
+                    </tr>
+              <? } ?>
+              
+              <? if(data.config && data.config.examIndicators) { ?>
+                  <? if(data.config.examIndicators.midterm && data.config.examIndicators.midterm.code) { ?>
+                    <tr class="bg-yellow-50">
+                      <td class="text-center font-bold text-yellow-700">สอบ</td>
+                      <td class="text-center font-bold text-navy"><?= data.config.examIndicators.midterm.code ?></td>
+                      <td class="text-left font-bold text-yellow-700">สอบกลางภาค</td>
+                      <td style="text-align: left !important; white-space: pre-wrap; padding: 8px 12px; font-size: 11px;"><?= data.config.examIndicators.midterm.description || '-' ?></td>
+                      <td class="text-center font-bold text-yellow-700"><?= data.config.ratio ? data.config.ratio.split(':')[1] : '0' ?></td>
+                    </tr>
+                  <? } ?>
+                  <? if(data.config.examIndicators.final && data.config.examIndicators.final.code) { ?>
+                    <tr class="bg-red-50">
+                      <td class="text-center font-bold text-red-700">สอบ</td>
+                      <td class="text-center font-bold text-navy"><?= data.config.examIndicators.final.code ?></td>
+                      <td class="text-left font-bold text-red-700">สอบปลายภาค</td>
+                      <td style="text-align: left !important; white-space: pre-wrap; padding: 8px 12px; font-size: 11px;"><?= data.config.examIndicators.final.description || '-' ?></td>
+                      <td class="text-center font-bold text-red-700"><?= data.config.ratio ? data.config.ratio.split(':')[2] : '0' ?></td>
+                    </tr>
+                  <? } ?>
+              <? } ?>
+            </tbody>
+          </table>
         </div>
       </section>
 
@@ -219,23 +287,31 @@
           <h2 class="text-xl font-bold text-navy"><i data-lucide="bar-chart-3" class="inline w-6 h-6 mr-2"></i> บันทึกผลการเรียนรู้ (คะแนนดิบ)</h2>
         </div>
         <div class="hidden print:block text-center font-bold text-lg mb-4">ตารางบันทึกผลการเรียนรู้รายวิชา <?= data.subName ?> (<?= data.className ?>)</div>
-        <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-x-auto print:border-none print:shadow-none">
-          <table class="data-table" id="scores-table">
+        <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-x-auto print:border-none print:shadow-none mb-8">
+          <table class="data-table print-table-sm" id="scores-table">
             <thead>
+              <? 
+                 let mCode = (data.config && data.config.examIndicators && data.config.examIndicators.midterm && data.config.examIndicators.midterm.code) ? '<div class="text-[9px] text-yellow-300 font-normal leading-tight mt-1">' + data.config.examIndicators.midterm.code + '</div>' : '';
+                 let fCode = (data.config && data.config.examIndicators && data.config.examIndicators.final && data.config.examIndicators.final.code) ? '<div class="text-[9px] text-yellow-300 font-normal leading-tight mt-1">' + data.config.examIndicators.final.code + '</div>' : '';
+              ?>
               <tr>
-                <th rowspan="2" style="width:40px;">ที่</th><th rowspan="2" style="width:90px;">รหัส</th><th rowspan="2" class="name-cell">ชื่อ-สกุล</th>
+                <th rowspan="2" style="width:30px;">ที่</th><th rowspan="2" style="width:80px;">รหัส</th><th rowspan="2" class="name-cell">ชื่อ-สกุล</th>
                 <? if(data.config && data.config.indicators) { ?>
                     <th colspan="<?= data.config.indicators.length ?>">คะแนนระหว่างเรียน (<?= data.config.ratio.split(':')[0] ?>)</th>
                 <? } ?>
-                <th rowspan="2">กลางภาค<br><span class="font-normal text-xs">(<?= data.config ? data.config.ratio.split(':')[1] : '0' ?>)</span></th>
-                <th rowspan="2">ปลายภาค<br><span class="font-normal text-xs">(<?= data.config ? data.config.ratio.split(':')[2] : '0' ?>)</span></th>
-                <th rowspan="2" class="bg-green-700">รวม<br><span class="font-normal text-xs">(100)</span></th>
-                <th rowspan="2" class="bg-yellow-600">เกรด</th>
+                <th rowspan="2" style="min-width: 55px;">กลางภาค<br><span class="font-normal text-xs">(<?= data.config ? data.config.ratio.split(':')[1] : '0' ?>)</span><?!= mCode ?></th>
+                <th rowspan="2" style="min-width: 55px;">ปลายภาค<br><span class="font-normal text-xs">(<?= data.config ? data.config.ratio.split(':')[2] : '0' ?>)</span><?!= fCode ?></th>
+                <th rowspan="2" class="bg-green-700" style="width: 50px;">รวม<br><span class="font-normal text-xs">(100)</span></th>
+                <th rowspan="2" class="bg-yellow-600 text-navy" style="width: 45px;">เกรด</th>
               </tr>
               <tr>
                 <? if(data.config && data.config.indicators) { 
                     data.config.indicators.forEach(ind => { ?>
-                        <th class="sub-header"><?= ind.name ?><br>(<?= ind.score ?>)</th>
+                        <th class="sub-header" style="min-width: 40px; max-width: 70px; padding: 4px 2px;">
+                            <div class="text-[9px] text-yellow-300 font-normal leading-tight mb-1" style="word-break: break-word;"><?= ind.code || '-' ?></div>
+                            <div class="leading-tight"><?= ind.name ?></div>
+                            <div class="font-normal text-[10px] mt-0.5">(<?= ind.score ?>)</div>
+                        </th>
                 <?  }); } ?>
               </tr>
             </thead>
@@ -248,10 +324,6 @@
         <div class="flex items-center justify-between mb-4 no-print">
           <h2 class="text-xl font-bold text-navy"><i data-lucide="calendar-check" class="inline w-6 h-6 mr-2"></i> สรุปเวลาเรียน</h2>
         </div>
-        <div class="alert alert-light border-start border-4 border-success mb-3 shadow-sm d-print-none text-muted small">
-            <i class="fas fa-info-circle me-1"></i> <b>สัญลักษณ์:</b> (/) = มาเรียน, (ส) = สาย, (ล) = ลา, (ข) = ขาด <br>
-            <i>*เวลาสั่งพิมพ์ ระบบจะตัดแบ่งตารางออกเป็นหน้าละ 5 สัปดาห์อัตโนมัติ เพื่อไม่ให้ช่องเบียดกันครับ</i>
-        </div>
         <div id="attendance-container"></div>
       </section>
 
@@ -261,46 +333,60 @@
         </div>
         
         <div class="hidden print:block text-center font-bold text-lg mb-4">แบบบันทึกการประเมินคุณลักษณะอันพึงประสงค์ รายวิชา <?= data.subName ?> (<?= data.className ?>)</div>
-        <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-x-auto print:border-none print:shadow-none mb-8 print:mb-0">
-          <table class="data-table" id="eval-char-table">
+        <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-x-auto print:border-none print:shadow-none mb-2 print:mb-2">
+          <table class="data-table print-table-sm" id="eval-char-table">
             <thead>
               <tr>
                 <th rowspan="2" style="width:40px;">ที่</th><th rowspan="2" style="width:90px;">รหัส</th><th rowspan="2" class="name-cell" style="width:200px;">ชื่อ-สกุล</th>
                 <th colspan="4" class="bg-blue-800 text-white">คะแนนแต่ละช่วง</th>
-                <th rowspan="2" class="bg-blue-700 text-white" style="width:60px;">รวม<br>(100)</th><th rowspan="2" class="bg-blue-700 text-white" style="width:60px;">ระดับ<br>(0-3)</th><th rowspan="2" class="bg-blue-700 text-white" style="width:80px;">แปลผล</th>
+                <th rowspan="2" class="bg-blue-700 text-white" style="width:50px;">รวม<br>(100)</th><th rowspan="2" class="bg-blue-700 text-white" style="width:50px;">ระดับ<br>(0-3)</th><th rowspan="2" class="bg-blue-700 text-white" style="width:70px;">แปลผล</th>
               </tr>
               <tr>
-                <th class="sub-header bg-blue-600" style="width:45px;">1(25)</th><th class="sub-header bg-blue-600" style="width:45px;">2(25)</th>
-                <th class="sub-header bg-blue-600" style="width:45px;">3(25)</th><th class="sub-header bg-blue-600" style="width:45px;">4(25)</th>
+                <th class="sub-header bg-blue-600" style="width:40px;">1(25)</th><th class="sub-header bg-blue-600" style="width:40px;">2(25)</th>
+                <th class="sub-header bg-blue-600" style="width:40px;">3(25)</th><th class="sub-header bg-blue-600" style="width:40px;">4(25)</th>
               </tr>
             </thead>
             <tbody id="eval-char-body"></tbody>
           </table>
         </div>
+        
+        <div class="text-sm text-gray-700 print:text-black print:text-[10pt] mb-8">
+            <b>หมายเหตุ (การประเมินคุณลักษณะอันพึงประสงค์):</b><br>
+            - ประเมินรวมทั้ง 8 ข้อ หรือเฉพาะคุณลักษณะที่ระบุไว้ในหลักสูตรระดับแผน ตามแบบสังเกตพฤติกรรมในแผนการจัดการเรียนรู้รายวิชา<br>
+            - โดยแบ่งประเมินเป็น 4 ช่วง ทุก 5 สัปดาห์ ครั้งละ 25 คะแนน จึงรวมคะแนน และตัดสินระดับคะแนน เป็น<br>
+            <span class="inline-block ml-4 font-semibold">ระดับ 0 ไม่ผ่าน (0-49 คะแนน) &nbsp;&nbsp;&nbsp; ระดับ 1 ผ่าน (50-69 คะแนน) &nbsp;&nbsp;&nbsp; ระดับ 2 ดี (70-79 คะแนน) &nbsp;&nbsp;&nbsp; ระดับ 3 ดีเยี่ยม (80-100 คะแนน)</span>
+        </div>
 
         <div class="print-page-break"></div> 
 
         <div class="hidden print:block text-center font-bold text-lg mb-4 mt-8 print:mt-0">แบบบันทึกการประเมินอ่าน คิดวิเคราะห์ เขียน รายวิชา <?= data.subName ?> (<?= data.className ?>)</div>
-        <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-x-auto print:border-none print:shadow-none">
-          <table class="data-table" id="eval-read-table">
+        <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-x-auto print:border-none print:shadow-none mb-2 print:mb-2">
+          <table class="data-table print-table-sm" id="eval-read-table">
             <thead>
               <tr>
                 <th rowspan="2" style="width:40px;">ที่</th><th rowspan="2" style="width:90px;">รหัส</th><th rowspan="2" class="name-cell" style="width:200px;">ชื่อ-สกุล</th>
                 <th colspan="4" class="bg-teal-700 text-white">คะแนนแต่ละช่วง</th>
-                <th rowspan="2" class="bg-teal-600 text-white" style="width:60px;">รวม<br>(100)</th><th rowspan="2" class="bg-teal-600 text-white" style="width:60px;">ระดับ<br>(0-3)</th><th rowspan="2" class="bg-teal-600 text-white" style="width:80px;">แปลผล</th>
+                <th rowspan="2" class="bg-teal-600 text-white" style="width:50px;">รวม<br>(100)</th><th rowspan="2" class="bg-teal-600 text-white" style="width:50px;">ระดับ<br>(0-3)</th><th rowspan="2" class="bg-teal-600 text-white" style="width:70px;">แปลผล</th>
               </tr>
               <tr>
-                <th class="sub-header bg-teal-500" style="width:45px;">1(25)</th><th class="sub-header bg-teal-500" style="width:45px;">2(25)</th>
-                <th class="sub-header bg-teal-500" style="width:45px;">3(25)</th><th class="sub-header bg-teal-500" style="width:45px;">4(25)</th>
+                <th class="sub-header bg-teal-500" style="width:40px;">1(25)</th><th class="sub-header bg-teal-500" style="width:40px;">2(25)</th>
+                <th class="sub-header bg-teal-500" style="width:40px;">3(25)</th><th class="sub-header bg-teal-500" style="width:40px;">4(25)</th>
               </tr>
             </thead>
             <tbody id="eval-read-body"></tbody>
           </table>
         </div>
+        
+        <div class="text-sm text-gray-700 print:text-black print:text-[10pt] mb-8">
+            <b>หมายเหตุ (การประเมินการอ่าน คิดวิเคราะห์ และเขียน):</b><br>
+            - ประเมินรวมทั้ง 3 ด้าน โดยให้ระบุไว้ในหลักสูตรระดับแผน ตามแบบประเมินการอ่าน คิดวิเคราะห์ และเขียน ในแผนการจัดการเรียนรู้รายวิชา<br>
+            - โดยแบ่งประเมินเป็น 4 ช่วง ทุก 5 สัปดาห์ ครั้งละ 25 คะแนน จึงรวมคะแนน และตัดสินระดับคะแนน เป็น<br>
+            <span class="inline-block ml-4 font-semibold">ระดับ 0 ไม่ผ่าน (0-49 คะแนน) &nbsp;&nbsp;&nbsp; ระดับ 1 ผ่าน (50-69 คะแนน) &nbsp;&nbsp;&nbsp; ระดับ 2 ดี (70-79 คะแนน) &nbsp;&nbsp;&nbsp; ระดับ 3 ดีเยี่ยม (80-100 คะแนน)</span>
+        </div>
       </section>
 
     </main>
-    <footer class="text-center text-xs text-gray-400 py-4 no-print border-t">
+    <footer class="text-center text-xs text-gray-400 py-4 no-print border-t bg-white">
       ระบบงานวิชาการ PSSMS — โรงเรียนภูพระบาทวิทยา
     </footer>
   </div>
@@ -341,12 +427,9 @@
             if(val === '1') return 'ผ่าน'; if(val === '0') return 'ควรปรับปรุง'; return '-';
         };
 
-        // ==========================================
-        // 🌟 สร้างตารางเวลาเรียน (หั่นชิ้นละ 5 สัปดาห์)
-        // ==========================================
         let aHtml = '';
         if (!sessions || sessions.length === 0) {
-            aHtml = `<div class="text-center p-4 text-muted border rounded shadow-sm bg-white"><i class="fas fa-folder-open mb-2 fa-2x"></i><br>ยังไม่มีข้อมูลการเช็คชื่อรายคาบ</div>`;
+            aHtml = `<div class="text-center p-8 text-gray-400 border rounded shadow-sm bg-white">ยังไม่มีข้อมูลการเช็คชื่อรายคาบ</div>`;
         } else {
             const maxWeek = Math.max(...sessions.map(s => s.week), 0);
             const weeksPerChunk = 5; 
@@ -371,26 +454,26 @@
                 });
                 if (count > 0) weekColspans.push({ week: currentW, span: count });
                 
-                let weekHeaderHtml = weekColspans.map(w => `<th colspan="${w.span}" class="table-light text-primary border-start border-bottom fw-bold">สัปดาห์ ${w.week}</th>`).join('');
-                let monthHtml = chkSessions.map(s => `<th class="table-light text-muted fw-normal p-1 border-start" style="font-size:0.75rem;">${s.month}</th>`).join('');
-                let dateHtml = chkSessions.map(s => `<th class="table-light p-1 border-start"><div class="fw-bold">${s.date}</div><div class="text-muted" style="font-size:0.7rem;">ค.${s.period}</div></th>`).join('');
+                let weekHeaderHtml = weekColspans.map(w => `<th colspan="${w.span}" class="bg-[#f8f9fa] text-[#1e3a5f] border-l border-b font-bold">สัปดาห์ ${w.week}</th>`).join('');
+                let monthHtml = chkSessions.map(s => `<th class="bg-[#f8f9fa] text-gray-500 font-normal p-1 border-l text-[10px]">${s.month}</th>`).join('');
+                let dateHtml = chkSessions.map(s => `<th class="bg-[#f8f9fa] p-1 border-l"><div class="font-bold">${s.date}</div><div class="text-gray-500 text-[10px]">ค.${s.period}</div></th>`).join('');
                 
                 let headHtml = `
                   <tr>
                     <th rowspan="4" style="width:30px;">ที่</th>
-                    <th rowspan="4" style="width:70px;">รหัส</th>
-                    <th rowspan="4" class="name-cell" style="min-width: 150px; position: sticky; left: 0; z-index: 10;">ชื่อ-สกุล</th>
-                    <th colspan="${chkSessions.length}" class="bg-gray-100 text-dark border-bottom">รายละเอียดการเข้าเรียน (สัปดาห์ที่ ${chk.start}-${chk.end})</th>
-                    ${isLastChunk ? `<th colspan="4" class="bg-gray-100 text-dark border-bottom border-start">สรุป (ครั้ง)</th>
-                    <th rowspan="4" style="width:50px;" class="border-start">ร้อยละ<br><span class="font-normal text-xs">(%)</span></th>
-                    <th rowspan="4" style="width:60px;">สิทธิ์สอบ</th>` : ''}
+                    <th rowspan="4" style="width:60px;">รหัส</th>
+                    <th rowspan="4" class="name-cell" style="min-width: 150px;">ชื่อ-สกุล</th>
+                    <th colspan="${chkSessions.length}" class="bg-gray-200 text-black border-b">รายละเอียดเข้าเรียน (สัปดาห์ที่ ${chk.start}-${chk.end})</th>
+                    ${isLastChunk ? `<th colspan="4" class="bg-gray-200 text-black border-b border-l">สรุป (ครั้ง)</th>
+                    <th rowspan="4" style="width:45px;" class="border-l">ร้อยละ<br><span class="font-normal text-[10px]">(%)</span></th>
+                    <th rowspan="4" style="width:55px;">สิทธิ์สอบ</th>` : ''}
                   </tr>
                   <tr>
                     ${weekHeaderHtml}
-                    ${isLastChunk ? `<th rowspan="3" class="sub-header bg-success text-white border-start" style="width: 30px;">มา</th>
-                    <th rowspan="3" class="sub-header bg-warning text-dark" style="width: 30px;">สาย</th>
-                    <th rowspan="3" class="sub-header bg-info text-white" style="width: 30px;">ลา</th>
-                    <th rowspan="3" class="sub-header bg-danger text-white" style="width: 30px;">ขาด</th>` : ''}
+                    ${isLastChunk ? `<th rowspan="3" class="sub-header bg-green-600 text-white border-l" style="width: 25px;">มา</th>
+                    <th rowspan="3" class="sub-header bg-yellow-400 text-black" style="width: 25px;">สาย</th>
+                    <th rowspan="3" class="sub-header bg-cyan-600 text-white" style="width: 25px;">ลา</th>
+                    <th rowspan="3" class="sub-header bg-red-600 text-white" style="width: 25px;">ขาด</th>` : ''}
                   </tr>
                   <tr>${monthHtml}</tr>
                   <tr>${dateHtml}</tr>
@@ -402,11 +485,11 @@
                     chkSessions.forEach(sess => {
                         let status = s.attRecords ? s.attRecords[sess.id] : null;
                         let mark = ''; let color = '';
-                        if(status === 'มา') { mark = '/'; color = 'text-success'; }
-                        else if(status === 'สาย') { mark = 'ส'; color = 'text-warning'; }
-                        else if(status === 'ลา') { mark = 'ล'; color = 'text-info'; }
-                        else if(status === 'ขาด') { mark = 'ข'; color = 'text-danger'; }
-                        sessHtml += `<td class="text-center fw-bold ${color} p-1 border-start" style="font-size: 0.85rem;">${mark}</td>`;
+                        if(status === 'มา') { mark = '/'; color = 'text-black'; }
+                        else if(status === 'สาย') { mark = 'ส'; color = 'text-yellow-600'; }
+                        else if(status === 'ลา') { mark = 'ล'; color = 'text-cyan-600'; }
+                        else if(status === 'ขาด') { mark = 'ข'; color = 'text-red-600'; }
+                        sessHtml += `<td class="text-center font-bold ${color} p-1 border-l text-[11px]">${mark}</td>`;
                     });
                     
                     const pct = parseFloat(s.attPct) || 0;
@@ -415,34 +498,34 @@
                     bodyHtml += `
                     <tr>
                         <td>${s.no}</td><td>${s.id}</td>
-                        <td class="name-cell" style="position: sticky; left: 0; background: #fff; z-index: 5;">${s.name}</td>
+                        <td class="name-cell">${s.name}</td>
                         ${sessHtml}
-                        ${isLastChunk ? `<td class="text-success fw-bold border-start bg-light">${safeVal(s.attPresent)}</td>
-                        <td class="text-warning text-dark fw-bold bg-light">${safeVal(s.attLate)}</td>
-                        <td class="text-info text-dark fw-bold bg-light">${safeVal(s.attLeave)}</td>
-                        <td class="text-danger fw-bold bg-light">${safeVal(s.attAbsent)}</td>
-                        <td class="font-bold text-lg bg-light border-start">${s.attPct}</td>
-                        <td class="${isPassAttn ? 'result-pass' : 'result-fail'} bg-light">${isPassAttn ? 'มีสิทธิ์' : 'หมดสิทธิ์'}</td>` : ''}
+                        ${isLastChunk ? `<td class="text-green-700 font-bold border-l bg-gray-50">${safeVal(s.attPresent)}</td>
+                        <td class="text-yellow-600 font-bold bg-gray-50">${safeVal(s.attLate)}</td>
+                        <td class="text-cyan-700 font-bold bg-gray-50">${safeVal(s.attLeave)}</td>
+                        <td class="text-red-600 font-bold bg-gray-50">${safeVal(s.attAbsent)}</td>
+                        <td class="font-bold text-sm bg-gray-50 border-l">${s.attPct}</td>
+                        <td class="${isPassAttn ? 'result-pass' : 'result-fail'} bg-gray-50">${isPassAttn ? 'มีสิทธิ์' : 'หมดสิทธิ์'}</td>` : ''}
                     </tr>`;
                 });
                 
                 if (chunkIndex > 0) aHtml += `<div class="print-page-break"></div>`;
                 aHtml += `<div class="hidden print:block text-center font-bold text-lg mb-4 mt-8 print:mt-0">ตารางบันทึกเวลาเรียนรายวิชา ${PSSMS_DATA.subName} (${PSSMS_DATA.className}) - แผ่นที่ ${chunkIndex + 1}</div>`;
                 aHtml += `
-                  <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-x-auto print:border-none print:shadow-none mx-auto mb-8">
+                  <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-x-auto print:border-none print:shadow-none mx-auto mb-2">
                     <table class="data-table print-table-sm" style="min-width: max-content;">
                       <thead>${headHtml}</thead>
                       <tbody>${bodyHtml}</tbody>
                     </table>
+                  </div>
+                  <div class="text-sm text-gray-700 print:text-black print:text-[10pt] mb-8">
+                      <b>หมายเหตุ (สัญลักษณ์):</b> (/) = มาเรียน, (ส) = สาย, (ล) = ลา, (ข) = ขาด
                   </div>
                 `;
             });
         }
         document.getElementById('attendance-container').innerHTML = aHtml;
 
-        // ==========================================
-        // 🌟 สร้างตารางอื่นๆ ปกติ
-        // ==========================================
         students.forEach(s => {
             let g = String(s.grade).trim();
             if (gradeCounts[g] !== undefined) gradeCounts[g]++;
@@ -451,7 +534,6 @@
             let rg = String(s.readGrd).trim();
             if (readCounts[rg] !== undefined) readCounts[rg]++;
 
-            // 1. ตารางคะแนน
             let formHtml = '';
             if (s.formativeScores) {
                 s.formativeScores.forEach(score => { formHtml += `<td>${score !== '' ? score : '-'}</td>`; });
@@ -465,7 +547,6 @@
                 <td><span class="grade-badge ${gradeClass(s.grade)}">${s.grade !== '' ? s.grade : '-'}</span></td>
             </tr>`;
 
-            // 3. ตารางคุณลักษณะฯ
             eCharHtml += `
             <tr>
                 <td>${s.no}</td><td>${s.id}</td><td class="name-cell">${s.name}</td>
@@ -478,7 +559,6 @@
                 <td class="${s.charGrd === '0' ? 'result-fail' : 'result-pass'}">${s.charGrd !== '' ? evalText(s.charGrd) : '-'}</td>
             </tr>`;
 
-            // 4. ตารางอ่านคิดวิเคราะห์ฯ
             eReadHtml += `
             <tr>
                 <td>${s.no}</td><td>${s.id}</td><td class="name-cell">${s.name}</td>
@@ -492,31 +572,18 @@
             </tr>`;
         });
 
-        sBody.innerHTML = sHtml;
-        eCharBody.innerHTML = eCharHtml;
-        eReadBody.innerHTML = eReadHtml;
+        sBody.innerHTML = sHtml; eCharBody.innerHTML = eCharHtml; eReadBody.innerHTML = eReadHtml;
 
-        // อัปเดตตารางสรุป
-        document.getElementById('sum-total').innerText = students.length;
-        document.getElementById('sum-4').innerText = gradeCounts['4'];
-        document.getElementById('sum-35').innerText = gradeCounts['3.5'];
-        document.getElementById('sum-3').innerText = gradeCounts['3'];
-        document.getElementById('sum-25').innerText = gradeCounts['2.5'];
-        document.getElementById('sum-2').innerText = gradeCounts['2'];
-        document.getElementById('sum-15').innerText = gradeCounts['1.5'];
-        document.getElementById('sum-1').innerText = gradeCounts['1'];
-        document.getElementById('sum-0').innerText = gradeCounts['0'];
-        document.getElementById('sum-r').innerText = gradeCounts['ร'];
-        document.getElementById('sum-ms').innerText = gradeCounts['มส'];
+        ['total','4','35','3','25','2','15','1','0','r','ms'].forEach(k => {
+            const el = document.getElementById(`sum-${k}`);
+            if(el) el.innerText = k === 'total' ? students.length : gradeCounts[k.replace('35','3.5').replace('25','2.5').replace('15','1.5').replace('r','ร').replace('ms','มส')];
+        });
+        
         document.getElementById('sum-eval-total').innerText = students.length;
-        document.getElementById('sum-char-3').innerText = charCounts['3'];
-        document.getElementById('sum-char-2').innerText = charCounts['2'];
-        document.getElementById('sum-char-1').innerText = charCounts['1'];
-        document.getElementById('sum-char-0').innerText = charCounts['0'];
-        document.getElementById('sum-read-3').innerText = readCounts['3'];
-        document.getElementById('sum-read-2').innerText = readCounts['2'];
-        document.getElementById('sum-read-1').innerText = readCounts['1'];
-        document.getElementById('sum-read-0').innerText = readCounts['0'];
+        ['3','2','1','0'].forEach(k => {
+            document.getElementById(`sum-char-${k}`).innerText = charCounts[k];
+            document.getElementById(`sum-read-${k}`).innerText = readCounts[k];
+        });
     }
 
     window.onload = () => { renderTables(); };
