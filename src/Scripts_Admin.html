@@ -246,11 +246,54 @@ function handleFileUpload(input, type) {
 var currentTimetableData = []; 
 var editModalInstance = null;
 
-function handleTimetableUpload(input) {
-  const file = input.files[0];
+// ==========================================
+// 📥 ระบบนำเข้าตารางสอนผ่าน CSV (แก้บัค SweetAlert2 ใช้งานได้ 100%)
+// ==========================================
+function handleTimetableUpload(inputElement) {
+  const file = inputElement.files[0];
   if (!file) return;
-  alert("ฟังก์ชัน Import CSV กำลังปรับปรุงให้รองรับโครงสร้างใหม่ (โปรดใช้การเพิ่ม/แก้ไขทีละรายการไปก่อนครับ)");
-  input.value = '';
+
+  // 1. ถามยืนยันด้วยระบบพื้นฐานของเบราว์เซอร์
+  const clearOldData = confirm(
+    "⚠️ นำเข้าตารางสอน (CSV)\n\nคุณต้องการ ล้างตารางสอนเก่า ของเทอมนี้ก่อนนำเข้าหรือไม่?\n\n- กด OK (ตกลง) = ล้างของเก่าแล้วนำเข้าใหม่\n- กด Cancel (ยกเลิก) = นำเข้าต่อท้ายข้อมูลเดิม"
+  );
+
+  // 2. เปลี่ยนปุ่มเป็นสถานะกำลังโหลด
+  const labelBtn = inputElement.parentElement;
+  const originalHTML = labelBtn.innerHTML;
+  labelBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> กำลังประมวลผล...';
+  labelBtn.style.pointerEvents = 'none'; // ป้องกันกดซ้ำ
+
+  // 3. แปลงไฟล์และส่งไปหลังบ้าน
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const base64Data = e.target.result.split(',')[1] || e.target.result; 
+    
+    google.script.run
+      .withSuccessHandler(res => {
+        // คืนค่าปุ่มกลับมา
+        labelBtn.innerHTML = originalHTML;
+        labelBtn.style.pointerEvents = 'auto';
+        inputElement.value = ''; // เคลียร์ไฟล์ที่เลือก
+        
+        if (res.status === 'success') {
+          alert(res.message);
+          // รีเฟรชตารางโชว์ทันที
+          if (typeof viewTimetable === 'function') viewTimetable(); 
+        } else {
+          alert('❌ เกิดข้อผิดพลาด: ' + res.message);
+        }
+      })
+      .withFailureHandler(err => {
+        labelBtn.innerHTML = originalHTML;
+        labelBtn.style.pointerEvents = 'auto';
+        inputElement.value = '';
+        alert('❌ Error ระบบหลังบ้าน: ' + err.message);
+      })
+      .importTimetableCSV(base64Data, clearOldData); // ส่งไปฟังก์ชัน Code.js
+  };
+  
+  reader.readAsDataURL(file);
 }
 
 function initTimetablePage() {
@@ -278,38 +321,79 @@ function viewTimetable() {
   }).getFilteredTimetables(tid, term, year);
 }
 
+// ==========================================
+// 🎨 วาดตารางสอนแบบ Grid (แก้ไขช่องพักเที่ยง & พัก 10 นาทีแบบสมบูรณ์)
+// ==========================================
+// ==========================================
+// 🎨 วาดตารางสอนแบบ Grid (แก้ไขช่องพักเที่ยง & พัก 10 นาที แบบไม่ให้เบี้ยว 100%)
+// ==========================================
 function renderTimetableGrid() {
   const days = ['จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์'];
   const tbody = document.getElementById('timetableGridBody');
   let html = '';
+  
   days.forEach(day => {
     html += `<tr><td class="bg-light fw-bold" style="vertical-align: middle;">${day}</td>`;
+    
     for(let p = 1; p <= 8; p++) {
-      if (p === 5) html += `<td class="bg-warning-subtle align-middle fw-bold text-muted" style="width: 60px; font-size: 12px;">พัก</td>`;
+      
+      // 🌟 วาดช่องพัก 10 นาที ลงในทุกๆ บรรทัด (ป้องกันตารางเบี้ยว)
+      if (p === 3) {
+         html += `<td class="bg-warning-subtle align-middle text-muted fw-bold" style="width: 50px; font-size: 11px;">พัก</td>`;
+      }
+      
+      // 🌟 วาดช่องพักกลางวัน ลงในทุกๆ บรรทัด (ป้องกันตารางเบี้ยว)
+      if (p === 5) {
+         html += `<td class="bg-warning-subtle align-middle text-dark fw-bold" style="width: 60px; font-size: 12px;">พักกลางวัน</td>`;
+      }
+      
+      // ค้นหาข้อมูลคาบเรียน
       const match = currentTimetableData.find(item => item.data[6] === day && parseInt(item.data[7]) === p);
+      
       if(match) {
         const r = match.data;
-        html += `<td class="p-1" onclick="openEditTimetable(${match.rowIndex})" style="cursor:pointer; background-color: #e7f1ff; min-width: 110px; border: 1px solid #dee2e6;"><div class="text-primary fw-bold small">${r[0]}</div><div class="text-dark truncate-text" style="font-size: 11px; line-height: 1.2;">${r[1]}</div><div class="badge bg-secondary mt-1" style="font-size: 10px;">${r[2]}/${r[3]} (${r[4]})</div></td>`;
-      } else { html += `<td class="text-muted align-middle" style="background-color: #fafafa; border: 1px solid #dee2e6;">-</td>`; }
+        html += `<td class="p-2" onclick="openEditTimetable(${match.rowIndex})" style="cursor:pointer; background-color: #e7f1ff; min-width: 110px; border: 1px solid #dee2e6; transition: 0.2s;" title="คลิกเพื่อแก้ไข">
+                    <div class="text-primary fw-bold" style="font-size: 13px;">${r[0]}</div>
+                    <div class="text-dark truncate-text my-1" style="font-size: 12px; line-height: 1.2;">${r[1]}</div>
+                    <span class="badge bg-secondary shadow-sm" style="font-size: 11px;">${r[2]}/${r[3]} (${r[4]})</span>
+                 </td>`;
+      } else { 
+        html += `<td class="text-muted align-middle" style="background-color: #fafafa; border: 1px solid #dee2e6;">-</td>`; 
+      }
     }
     html += `</tr>`;
   });
   tbody.innerHTML = html;
 }
 
+// ==========================================
+// 🎨 วาดตารางสอนแบบรายการ (List) จัดคอลัมน์ให้ตรงเป๊ะ
+// ==========================================
 function renderTimetableList() {
   const tbody = document.getElementById('timetableDisplayBody');
   let html = '';
-  if(currentTimetableData.length === 0) html = '<tr><td colspan="5" class="text-center p-4">ไม่มีข้อมูลตารางสอน</td></tr>';
-  else {
+  if(currentTimetableData.length === 0) {
+      html = '<tr><td colspan="8" class="text-center p-5 text-muted">ไม่มีข้อมูลตารางสอน</td></tr>';
+  } else {
     const dayOrder = {'จันทร์':1, 'อังคาร':2, 'พุธ':3, 'พฤหัสบดี':4, 'ศุกร์':5};
+    // เรียงตามวัน และคาบเรียน
     currentTimetableData.sort((a,b) => {
       if(dayOrder[a.data[6]] !== dayOrder[b.data[6]]) return dayOrder[a.data[6]] - dayOrder[b.data[6]];
       return a.data[7] - b.data[7];
     });
+    
     currentTimetableData.forEach(item => {
       const r = item.data;
-      html += `<tr><td><span class="badge bg-light text-dark border">${r[6]}</span></td><td>คาบ ${r[7]}</td><td><div class="fw-bold text-primary">${r[0]}</div><div class="small text-muted">${r[1]}</div></td><td>${r[2]}/${r[3]} (${r[4]})</td><td class="text-end"><button class="btn btn-sm btn-outline-primary" onclick="openEditTimetable(${item.rowIndex})"><i class="fas fa-edit"></i></button></td></tr>`;
+      html += `<tr>
+        <td class="ps-4"><span class="badge bg-light text-dark border shadow-sm">${r[6]}</span></td>
+        <td class="text-center fw-bold">คาบ ${r[7]}</td>
+        <td class="fw-bold text-primary">${r[0]}</td>
+        <td>${r[1]}</td>
+        <td>${r[2]}</td>
+        <td>${r[3]}</td>
+        <td>${r[4]}</td>
+        <td class="text-end pe-4"><button class="btn btn-sm btn-outline-primary" onclick="openEditTimetable(${item.rowIndex})"><i class="fas fa-edit"></i></button></td>
+      </tr>`;
     });
   }
   tbody.innerHTML = html;
@@ -626,6 +710,77 @@ function initCurriculumDB() {
   google.script.run.withSuccessHandler(res => {
     showToast(res, 'info');
   }).setupCurriculumDatabase();
+}
+
+// ==========================================
+// 🚀 ระบบเลื่อนชั้นประจำปี (Annual Student Promotion)
+// ==========================================
+
+function openPromotionModal() {
+  const input = document.getElementById('confirmPromoteInput');
+  const btn = document.getElementById('btnExecutePromotion');
+  
+  // ล้างค่าเก่าและปิดปุ่มไว้ก่อน
+  if(input) input.value = '';
+  if(btn) {
+    btn.disabled = true;
+    btn.classList.remove('btn-success');
+    btn.classList.add('btn-danger');
+  }
+
+  // ผูก Event ดักจับการพิมพ์
+  if(input) {
+    input.oninput = function() {
+      // ต้องพิมพ์ CONFIRM พิมพ์ใหญ่เป๊ะๆ เท่านั้น
+      if (this.value === 'CONFIRM') {
+        btn.disabled = false;
+        btn.classList.remove('btn-danger');
+        btn.classList.add('btn-success');
+      } else {
+        btn.disabled = true;
+        btn.classList.add('btn-danger');
+        btn.classList.remove('btn-success');
+      }
+    };
+  }
+
+  const modal = new bootstrap.Modal(document.getElementById('promotionModal'));
+  modal.show();
+}
+
+function executePromotion() {
+  const btn = document.getElementById('btnExecutePromotion');
+  const originalText = btn.innerHTML;
+
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>กำลังประมวลผลทั้งโรงเรียน...';
+  btn.disabled = true;
+
+  google.script.run
+    .withFailureHandler(err => {
+      btn.innerHTML = originalText;
+      btn.disabled = false;
+      showToast('❌ ขัดข้อง: ' + err.message, 'danger');
+    })
+    .withSuccessHandler(res => {
+      btn.innerHTML = originalText;
+      if (res.status === 'success') {
+        // ปิด Modal
+        const modalEl = document.getElementById('promotionModal');
+        const modalObj = bootstrap.Modal.getInstance(modalEl);
+        if (modalObj) modalObj.hide();
+        
+        // 🌟 โชว์สรุปผลให้แอดมินดูแบบชัดเจน
+        alert(res.message); 
+        
+        // โหลดข้อมูลตารางนักเรียนมาแสดงใหม่
+        loadUserData(); 
+      } else {
+        btn.disabled = false;
+        // ถ้าขึ้น Error จากหลังบ้าน (เช่น ลืมเปลี่ยนปีการศึกษา) จะเด้ง Alert
+        alert(res.message);
+      }
+    })
+    .promoteStudentsToNextYear();
 }
 
 </script>
