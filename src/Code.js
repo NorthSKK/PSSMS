@@ -2119,7 +2119,7 @@ function getTodayMorningSummary(teacherId, term, year) {
 }
 
 // ==========================================
-// 🚨 ดึงข้อมูล Dashboard กลุ่มเสี่ยง (0, ร, มส.) สำหรับครู (Ultimate Fix: กวาดจากล่างขึ้นบน)
+// 🚨 ดึงข้อมูล Dashboard กลุ่มเสี่ยง (0, ร, มส.) สำหรับครู (Ultimate Fix: ดึงชั้นเรียนตามปีที่แอดมินตั้งค่า)
 // ==========================================
 function getTeacherRiskDashboard(teacherId, term, year) {
   try {
@@ -2145,18 +2145,52 @@ function getTeacherRiskDashboard(teacherId, term, year) {
 
     if (Object.keys(teacherSubjects).length === 0) return { status: 'success', summary: { zero: 0, r: 0, ms: 0 }, details: [] };
 
-    const userSheet = ss.getSheetByName("User_Database");
+    // 🌟 ระบบค้นหาระดับชั้นตาม "ปีการศึกษาที่แอดมินเลือก"
+    const targetYear = String(year).trim();
     const studentMap = {};
+    
+    const userSheet = ss.getSheetByName("User_Database");
+    if (userSheet) {
+        const userData = userSheet.getDataRange().getDisplayValues();
+        // 1. ค้นหาในฐานข้อมูลปัจจุบันก่อน ว่ามีเด็กที่ปีตรงกับที่แอดมินเลือกหรือไม่
+        for(let i = 1; i < userData.length; i++) {
+            if (String(userData[i][3]).toLowerCase() === 'student' || String(userData[i][3]) === 'นักเรียน') {
+                let stdYear = String(userData[i][6]).trim();
+                if (stdYear === targetYear) {
+                    let rawId = String(userData[i][0]).replace(/'/g, '').trim(); 
+                    studentMap[normID(rawId)] = { displayId: rawId, name: String(userData[i][2]).trim(), cls: String(userData[i][4]).trim() };
+                }
+            }
+        }
+    }
+
+    const histSheet = ss.getSheetByName("User_History_Database");
+    if (histSheet) {
+        const histData = histSheet.getDataRange().getDisplayValues();
+        // 2. ถ้าค้นในฐานข้อมูลปัจจุบันไม่เจอ ให้ไปงัดจาก "คลังประวัติ" ที่มีปีตรงกับที่แอดมินเลือก
+        for(let i = 1; i < histData.length; i++) {
+            if (String(histData[i][3]).toLowerCase() === 'student' || String(histData[i][3]) === 'นักเรียน') {
+                let histYear = String(histData[i][6]).trim();
+                let rawId = String(histData[i][0]).replace(/'/g, '').trim(); 
+                let nId = normID(rawId);
+                
+                if (!studentMap[nId] && histYear === targetYear) {
+                    studentMap[nId] = { displayId: rawId, name: String(histData[i][2]).trim(), cls: String(histData[i][4]).trim() };
+                }
+            }
+        }
+    }
+
+    // 3. ท่าไม้ตาย: ถ้าหาไม่เจอจริงๆ ให้ดึงข้อมูลล่าสุดเท่าที่มีมาโชว์ (เพื่อไม่ให้ช่องชื่อ/ชั้นเรียนว่างเปล่า)
     if (userSheet) {
         const userData = userSheet.getDataRange().getDisplayValues();
         for(let i = 1; i < userData.length; i++) {
             if (String(userData[i][3]).toLowerCase() === 'student' || String(userData[i][3]) === 'นักเรียน') {
                 let rawId = String(userData[i][0]).replace(/'/g, '').trim(); 
-                studentMap[normID(rawId)] = {
-                    displayId: rawId,
-                    name: String(userData[i][2]).trim(),
-                    cls: String(userData[i][4]).trim()
-                };
+                let nId = normID(rawId);
+                if (!studentMap[nId]) {
+                    studentMap[nId] = { displayId: rawId, name: String(userData[i][2]).trim(), cls: String(userData[i][4]).trim() };
+                }
             }
         }
     }
@@ -2169,7 +2203,6 @@ function getTeacherRiskDashboard(teacherId, term, year) {
     if (gradeSheet) {
         const gradeData = gradeSheet.getDataRange().getDisplayValues();
         
-        // หาระดับคะแนนสูงสุดของแต่ละวิชา
         const subjectMaxScore = {};
         for (let i = 1; i < gradeData.length; i++) {
             let subCode = String(gradeData[i][1]).trim();
@@ -2177,18 +2210,17 @@ function getTeacherRiskDashboard(teacherId, term, year) {
             let rTerm = String(gradeData[i][6]).trim();
             let rYear = String(gradeData[i][7]).trim();
             
-            if ((rTerm === String(term).trim() || rTerm === '') && (rYear === String(year).trim() || rYear === '')) {
+            if ((rTerm === String(term).trim() || rTerm === '') && (rYear === targetYear || rYear === '')) {
                 if (!subjectMaxScore[subCode]) subjectMaxScore[subCode] = 0;
                 if (totalScore > subjectMaxScore[subCode]) subjectMaxScore[subCode] = totalScore;
             }
         }
 
-        // 🌟 ท่าไม้ตาย: อ่านข้อมูลจากล่างขึ้นบน (แถวล่าสุด/อัปเดตล่าสุด จะถูกอ่านก่อนเสมอ)
         for (let i = gradeData.length - 1; i >= 1; i--) {
            let rTerm = String(gradeData[i][6]).trim();
            let rYear = String(gradeData[i][7]).trim();
 
-           if ((rTerm === String(term).trim() || rTerm === '') && (rYear === String(year).trim() || rYear === '')) {
+           if ((rTerm === String(term).trim() || rTerm === '') && (rYear === targetYear || rYear === '')) {
                let safeId = normID(gradeData[i][0]); 
                let subCode = String(gradeData[i][1]).trim();
                let grade = String(gradeData[i][3]).trim();   
@@ -2197,7 +2229,6 @@ function getTeacherRiskDashboard(teacherId, term, year) {
                if (teacherSubjects[subCode]) {
                    let key = `${safeId}_${subCode}`;
                    
-                   // 🌟 ถ้าเช็คเด็กคนนี้ในวิชานี้ไปแล้ว (จากข้อมูลแถวล่างที่สดใหม่กว่า) ให้ข้ามเลย (แก้บัคข้อมูลผี)
                    if (!riskCheckMap[key]) {
                        riskCheckMap[key] = true;
 
@@ -2218,7 +2249,7 @@ function getTeacherRiskDashboard(teacherId, term, year) {
                            riskList.push({
                                stdId: studentMap[safeId] ? studentMap[safeId].displayId : safeId,
                                stdName: studentMap[safeId] ? studentMap[safeId].name : "ไม่ทราบชื่อ",
-                               className: studentMap[safeId] ? studentMap[safeId].cls : "-",
+                               className: studentMap[safeId] ? studentMap[safeId].cls : "ไม่ทราบชั้น",
                                subjectCode: subCode,
                                subjectName: teacherSubjects[subCode],
                                type: riskType
