@@ -186,6 +186,7 @@ function renderApp(user) {
       <li class="mb-2"><a href="javascript:void(0)" class="dept-btn budget" onclick="loadPage('Page_Budget')"><i class="fas fa-wallet"></i> <span>ฝ่ายงบประมาณ</span></a></li>
       <li class="mb-2"><a href="javascript:void(0)" class="dept-btn personnel" onclick="loadPage('Page_Personnel')"><i class="fas fa-users"></i> <span>ฝ่ายบุคคล</span></a></li>
       <li class="mb-2"><a href="javascript:void(0)" class="dept-btn general" onclick="loadPage('Page_General')"><i class="fas fa-building"></i> <span>ฝ่ายทั่วไป</span></a></li>
+      <li class="mb-2"><a href="javascript:void(0)" class="dept-btn general" style="border-left-color: #e83e8c !important;" onclick="loadPage('Page_Calendar')"><i class="fas fa-calendar-alt" style="color: #e83e8c;"></i> <span>ปฏิทินปฏิบัติงาน</span></a></li>
     `;
   }
 
@@ -270,6 +271,9 @@ function setupPageContent(pageName, html) {
   if(pageName === 'Page_Score_Entry') initScoreEntryPage();
   if(pageName === 'Page_Grade_Summary') initGradeSummaryPage();
   if(pageName === 'Page_General') initSarabunPage();
+  if(pageName === 'Page_Calendar') {
+      if(typeof initCalendarPage === 'function') initCalendarPage();
+  }
 }
 
 // ==========================================

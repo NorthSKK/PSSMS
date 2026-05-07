@@ -2316,7 +2316,7 @@ function saveStudentRemarkDirectly(studentId, subjectCode, term, year, remarkVal
 }
 
 // ==========================================
-// 📚 15. ระบบงานสารบรรณ (Sarabun System)
+// 📚 15. ระบบงานสารบรรณ (Sarabun System - อัปเกรดอิงตาม ปี พ.ศ. ปฏิทิน)
 // ==========================================
 
 function requestSarabunNumber(payload) {
@@ -2333,16 +2333,21 @@ function requestSarabunNumber(payload) {
         sheet.setFrozenRows(1);
     }
 
-    const config = getSystemConfig();
-    const currentYear = String(config.year).trim(); 
+    // 🌟 เปลี่ยนจากการใช้ "ปีการศึกษา" มาเป็น "ปี พ.ศ. ตามปฏิทินปัจจุบัน" ทันที
+    const currentYearBE = new Date().getFullYear() + 543;
+    const currentYearStr = String(currentYearBE); 
+    
     const docType = String(payload.docType).trim(); 
     const amount = parseInt(payload.amount) || 1; 
 
     const data = sheet.getDataRange().getDisplayValues();
     let lastNumber = 0;
+    
+    // 🌟 ย้อนหาเลขล่าสุด "เฉพาะของปี พ.ศ. ปัจจุบัน"
     for (let i = data.length - 1; i >= 1; i--) {
-        if (String(data[i][1]).trim() === docType && String(data[i][15]).trim() === currentYear) {
-            lastNumber = parseInt(String(data[i][2]).split('/')[0]) || 0; break; 
+        if (String(data[i][1]).trim() === docType && String(data[i][15]).trim() === currentYearStr) {
+            lastNumber = parseInt(String(data[i][2]).split('/')[0]) || 0; 
+            break; 
         }
     }
 
@@ -2352,13 +2357,13 @@ function requestSarabunNumber(payload) {
     let rowsToAppend = [];
 
     for(let i = 0; i < amount; i++) {
-        rowsToAppend.push([timestamp, docType, `${lastNumber + 1 + i}/${currentYear}`, payload.subject || "-", payload.targetDate || "-", payload.docTime || "-", payload.actionDate || "-", payload.docRefNo || "-", payload.refDocDate || "-", payload.docFrom || "-", payload.docTo || "-", payload.assignee || "-", payload.requester || "Unknown", "ใช้งาน", "", currentYear]);
+        rowsToAppend.push([timestamp, docType, `${lastNumber + 1 + i}/${currentYearStr}`, payload.subject || "-", payload.targetDate || "-", payload.docTime || "-", payload.actionDate || "-", payload.docRefNo || "-", payload.refDocDate || "-", payload.docFrom || "-", payload.docTo || "-", payload.assignee || "-", payload.requester || "Unknown", "ใช้งาน", "", currentYearStr]);
     }
 
     if(rowsToAppend.length > 0) sheet.getRange(sheet.getLastRow() + 1, 1, rowsToAppend.length, 16).setValues(rowsToAppend);
     SpreadsheetApp.flush(); 
 
-    return { status: "success", message: `✅ สำเร็จ! ดำเนินการออกเลข ${amount} รายการ`, docNumber: amount > 1 ? `${startNumber}/${currentYear} ถึง ${endNumber}/${currentYear}` : `${startNumber}/${currentYear}` };
+    return { status: "success", message: `✅ สำเร็จ! ดำเนินการออกเลข ${amount} รายการ`, docNumber: amount > 1 ? `${startNumber}/${currentYearStr} ถึง ${endNumber}/${currentYearStr}` : `${startNumber}/${currentYearStr}` };
   } catch (e) { return { status: "error", message: "คิวเต็ม กรุณากดขอเลขใหม่อีกครั้งครับ" }; } finally { lock.releaseLock(); }
 }
 
@@ -2367,14 +2372,21 @@ function getSarabunHistory(requesterName, role) {
   const sheet = ss.getSheetByName("Sarabun_Database");
   if (!sheet) return [];
 
-  const config = getSystemConfig();
   const data = sheet.getDataRange().getDisplayValues();
   const results = [];
 
+  // 🌟 ยกเลิกการกรองตาม "ปีการศึกษา" เพื่อให้เห็นประวัติย้อนหลังของปี พ.ศ. เก่าๆ ด้วย
   for (let i = data.length - 1; i >= 1; i--) {
      const row = data[i];
-     if ((role.toUpperCase() === 'ADMIN' || String(row[12]).trim() === requesterName) && String(row[15]).trim() === String(config.year)) {
-        results.push({ id: i + 1, timestamp: row[0], docType: row[1], docNumber: row[2], subject: row[3], targetDate: row[4], docTime: row[5], actionDate: row[6], docRefNo: row[7], refDocDate: row[8], docFrom: row[9], docTo: row[10], assignee: row[11], requester: row[12], status: row[13], fileUrl: row[14] });
+     // ถ้าเป็น Admin ให้เห็นทั้งหมด / ถ้าเป็นครูให้เห็นเฉพาะของตัวเอง
+     if (role.toUpperCase() === 'ADMIN' || String(row[12]).trim() === requesterName) {
+        results.push({ 
+            id: i + 1, timestamp: row[0], docType: row[1], docNumber: row[2], 
+            subject: row[3], targetDate: row[4], docTime: row[5], actionDate: row[6], 
+            docRefNo: row[7], refDocDate: row[8], docFrom: row[9], docTo: row[10], 
+            assignee: row[11], requester: row[12], status: row[13], fileUrl: row[14],
+            year: row[15] // ส่งเลขปี พ.ศ. กลับไปเผื่อหน้าเว็บใช้ประโยชน์
+        });
      }
   }
   return results;
@@ -2575,6 +2587,205 @@ function promoteStudentsToNextYear() {
 
   } catch (e) {
     return { status: "error", message: e.message };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// ==========================================
+// 📅 16. ระบบปฏิทินปฏิบัติงานโรงเรียน (School Calendar)
+// ==========================================
+
+function setupCalendarDatabase() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName("Calendar_Database");
+  if (!sheet) {
+      sheet = ss.insertSheet("Calendar_Database");
+      sheet.appendRow(["ID", "Title", "Start", "End", "Color", "Description", "CreatedBy", "Timestamp"]);
+      sheet.getRange("A1:H1").setFontWeight("bold").setBackground("#e83e8c").setFontColor("white");
+      sheet.setFrozenRows(1);
+      return "✅ สร้างฐานข้อมูล Calendar_Database เรียบร้อยแล้ว!";
+  }
+  return "ฐานข้อมูล Calendar_Database มีอยู่แล้วครับ";
+}
+
+function getCalendarEvents() {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Calendar_Database");
+  if (!sheet) return [];
+  const data = sheet.getDataRange().getDisplayValues();
+  if (data.length <= 1) return [];
+
+  const events = [];
+  for (let i = 1; i < data.length; i++) {
+      if (!data[i][0]) continue;
+      events.push({
+          id: data[i][0],
+          title: data[i][1],
+          start: data[i][2],
+          end: data[i][3] !== "" ? data[i][3] : null,
+          backgroundColor: data[i][4],
+          borderColor: data[i][4],
+          description: data[i][5],
+          createdBy: data[i][6]
+      });
+  }
+  return events;
+}
+
+function saveCalendarEvent(payload) {
+  const lock = LockService.getScriptLock();
+  try {
+      lock.waitLock(10000);
+      const ss = SpreadsheetApp.getActiveSpreadsheet();
+      const sheet = ss.getSheetByName("Calendar_Database");
+      if (!sheet) throw new Error("ไม่พบชีตปฏิทิน กรุณากด Setup DB ก่อน");
+
+      const data = sheet.getDataRange().getValues();
+      const timestamp = new Date();
+
+      // ถ้ามีการส่ง ID มา แปลว่าอัปเดตของเดิม
+      if (payload.id && payload.id !== "") {
+          for (let i = 1; i < data.length; i++) {
+              if (String(data[i][0]) === payload.id) {
+                  sheet.getRange(i + 1, 2, 1, 7).setValues([[
+                      payload.title, payload.start, payload.end, payload.color, 
+                      payload.description, payload.createdBy, timestamp
+                  ]]);
+                  return { status: "success", message: "อัปเดตกิจกรรมเรียบร้อย" };
+              }
+          }
+      }
+
+      // ถ้าไม่มี ID แปลว่าสร้างใหม่ สร้าง ID โดยใช้วันที่เวลาชนกัน
+      const newId = "EVT" + timestamp.getTime();
+      sheet.appendRow([newId, payload.title, payload.start, payload.end, payload.color, payload.description, payload.createdBy, timestamp]);
+      return { status: "success", message: "เพิ่มกิจกรรมเรียบร้อย" };
+
+  } catch(e) {
+      return { status: "error", message: e.message };
+  } finally {
+      lock.releaseLock();
+  }
+}
+
+function deleteCalendarEvent(id) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName("Calendar_Database");
+  if (!sheet) return { status: "error", message: "ไม่พบชีตปฏิทิน" };
+
+  const data = sheet.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+      if (String(data[i][0]) === String(id)) {
+          sheet.deleteRow(i + 1);
+          return { status: "success", message: "ลบสำเร็จ" };
+      }
+  }
+  return { status: "error", message: "ไม่พบกิจกรรมที่ต้องการลบ" };
+}
+
+function importCalendarCSV(base64Data) {
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(15000);
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName("Calendar_Database");
+    if (!sheet) throw new Error("ไม่พบชีตปฏิทิน กรุณากด Setup DB ก่อน");
+
+    const decoded = Utilities.base64Decode(base64Data);
+    const csv = Utilities.parseCsv(Utilities.newBlob(decoded).getDataAsString('UTF-8'));
+
+    const thaiMonths = {
+      'ม.ค.': 1, 'ก.พ.': 2, 'มี.ค.': 3, 'เม.ย.': 4,
+      'พ.ค.': 5, 'มิ.ย.': 6, 'ก.ค.': 7, 'ส.ค.': 8,
+      'ก.ย.': 9, 'ต.ค.': 10, 'พ.ย.': 11, 'ธ.ค.': 12
+    };
+
+    function parseThaiDate(str) {
+      str = String(str || '').trim();
+      if (!str) return null;
+      if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return { start: str, end: null };
+
+      for (const abbr in thaiMonths) {
+        const idx = str.indexOf(abbr);
+        if (idx === -1) continue;
+
+        const month = thaiMonths[abbr];
+        const afterMonth = str.substring(idx + abbr.length).trim();
+        const yearMatch = afterMonth.match(/^(\d{2,4})/);
+        if (!yearMatch) continue;
+
+        const y = parseInt(yearMatch[1]);
+        const year = (y < 100 ? 2500 + y : y) - 543;
+
+        const beforeMonth = str.substring(0, idx).trim();
+        const dayMatch = beforeMonth.match(/^(\d{1,2})(?:-(\d{1,2}))?/);
+        if (!dayMatch) continue;
+
+        const mm = String(month).padStart(2, '0');
+        const startDay = String(dayMatch[1]).padStart(2, '0');
+        const startStr = `${year}-${mm}-${startDay}`;
+
+        if (dayMatch[2]) {
+          const endDay = String(dayMatch[2]).padStart(2, '0');
+          return { start: startStr, end: `${year}-${mm}-${endDay}` };
+        }
+        return { start: startStr, end: null };
+      }
+      return null;
+    }
+
+    function autoColor(text) {
+      const t = String(text || '').toLowerCase();
+      if (/หยุด|วิสาข|มาฆ|อาสาฬห|เข้าพรรษา|ออกพรรษา/.test(t)) return '#dc3545';
+      if (/สอบ|ทดสอบ|วัดผล|ประเมิน|นิเทศ/.test(t)) return '#198754';
+      if (/ประชุม|สัมมนา|อบรม/.test(t)) return '#ffc107';
+      return '#0d6efd';
+    }
+
+    // ข้ามแถว header ถ้ามี
+    let startRow = 0;
+    if (csv.length > 0 && /วันที่|วันเดือน|date/i.test(String(csv[0][0] || ''))) startRow = 1;
+
+    const rows = [];
+    let skipped = 0;
+    const now = new Date();
+
+    for (let i = startRow; i < csv.length; i++) {
+      const row = csv[i];
+      const dateStr = String(row[0] || '').trim();
+      const title = String(row[1] || '').trim();
+      if (!dateStr || !title) continue;
+
+      const description = String(row[2] || '').trim();
+      let color = String(row[3] || '').trim();
+      if (!color || !color.startsWith('#')) color = autoColor(title);
+
+      const parsed = parseThaiDate(dateStr);
+      if (!parsed) { skipped++; continue; }
+
+      // FullCalendar ใช้ exclusive end date (+1 วัน)
+      let endDate = '';
+      if (parsed.end) {
+        const e = new Date(parsed.end + 'T00:00:00');
+        e.setDate(e.getDate() + 1);
+        endDate = Utilities.formatDate(e, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+      }
+
+      rows.push(['EVT' + now.getTime() + '_' + i, title, parsed.start, endDate, color, description, 'Import', now]);
+    }
+
+    if (rows.length > 0) {
+      sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, 8).setValues(rows);
+    }
+
+    return {
+      status: 'success',
+      imported: rows.length,
+      skipped,
+      message: `นำเข้าสำเร็จ ${rows.length} รายการ${skipped > 0 ? ` (ข้าม ${skipped} รายการ วันที่ไม่ถูกต้อง)` : ''}`
+    };
+  } catch(e) {
+    return { status: 'error', message: e.message };
   } finally {
     lock.releaseLock();
   }

@@ -1,0 +1,139 @@
+<div class="container-fluid py-4 animate__animated animate__fadeIn">
+  <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
+    <div>
+      <h4 class="fw-bold mb-1" style="color: #e83e8c;"><i class="fas fa-calendar-alt me-2"></i>ปฏิทินปฏิบัติงานโรงเรียน</h4>
+      <p class="text-muted small mb-0">ดูและจัดการแผนปฏิบัติงาน, วันหยุด, และกิจกรรมต่างๆ ภายในโรงเรียน</p>
+    </div>
+    <div class="d-flex gap-2">
+      <button class="btn btn-outline-secondary shadow-sm fw-bold" onclick="initCalendarDB()">
+        <i class="fas fa-tools me-1"></i> Setup DB
+      </button>
+      <button class="btn btn-outline-info shadow-sm fw-bold" onclick="openImportCalendarModal()">
+        <i class="fas fa-file-import me-1"></i> นำเข้าจากไฟล์
+      </button>
+      <button class="btn text-white shadow-sm fw-bold px-4" style="background-color: #e83e8c;" onclick="openCalendarModal('add')">
+        <i class="fas fa-plus-circle me-1"></i> เพิ่มกิจกรรม
+      </button>
+    </div>
+  </div>
+
+  <!-- กล่องแสดงปฏิทิน -->
+  <div class="card border-0 shadow-sm rounded-4">
+    <div class="card-body p-4">
+      <div id="schoolCalendar" style="min-height: 600px;"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 🌟 Modal นำเข้าปฏิทินจากไฟล์ CSV -->
+<div class="modal fade" id="calImportModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content border-0 shadow-lg rounded-4">
+      <div class="modal-header text-white border-0" style="background-color: #0d6efd;">
+        <h5 class="modal-title fw-bold"><i class="fas fa-file-import me-2"></i>นำเข้ากิจกรรมจากไฟล์ CSV</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-4">
+
+        <div class="alert alert-info border-0 d-flex align-items-start gap-2 mb-3">
+          <i class="fas fa-info-circle mt-1 flex-shrink-0"></i>
+          <div>
+            <strong>รูปแบบไฟล์ CSV — 4 คอลัมน์:</strong><br>
+            <code>วันที่, กิจกรรม, ผู้รับผิดชอบ/รายละเอียด, สี (#hex)</code><br>
+            <small class="text-muted">รองรับวันที่แบบไทย เช่น <b>5-8 พ.ค.69</b>, <b>11 พ.ค.69</b> หรือ ISO <b>2026-05-11</b><br>
+            ถ้าไม่ระบุสี ระบบจะเลือกอัตโนมัติตามชื่อกิจกรรม</small>
+          </div>
+        </div>
+
+        <div class="d-flex gap-2 mb-3">
+          <button class="btn btn-outline-success btn-sm" onclick="downloadCalendarTemplate()">
+            <i class="fas fa-download me-1"></i> ดาวน์โหลด Template CSV
+          </button>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label fw-bold small text-muted">เลือกไฟล์ CSV <span class="text-danger">*</span></label>
+          <input type="file" class="form-control" id="calImportFile" accept=".csv" onchange="previewCalendarCSV(this)">
+        </div>
+
+        <div id="calImportPreview" class="d-none">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <span class="fw-bold small text-muted">ตัวอย่างข้อมูลที่จะนำเข้า</span>
+            <span id="calImportCount" class="badge bg-primary rounded-pill"></span>
+          </div>
+          <div class="table-responsive rounded-3 border" style="max-height: 240px; overflow-y: auto;">
+            <table class="table table-sm table-hover mb-0 small">
+              <thead class="table-dark sticky-top">
+                <tr><th>วันที่</th><th>กิจกรรม</th><th>รายละเอียด</th><th>สี</th></tr>
+              </thead>
+              <tbody id="calPreviewBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+      <div class="modal-footer border-0 bg-white">
+        <button type="button" class="btn btn-light" data-bs-dismiss="modal">ยกเลิก</button>
+        <button type="button" class="btn btn-primary fw-bold px-4" id="btnConfirmImport" onclick="confirmCalendarImport()" disabled>
+          <i class="fas fa-file-import me-2"></i>นำเข้าทั้งหมด
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 🌟 Modal สำหรับเพิ่ม/แก้ไขกิจกรรม -->
+<div class="modal fade" id="calendarModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow-lg rounded-4">
+      <div class="modal-header text-white border-0" style="background-color: #e83e8c;" id="calModalHeader">
+        <h5 class="modal-title fw-bold" id="calModalTitle"><i class="fas fa-calendar-plus me-2"></i>เพิ่มกิจกรรมใหม่</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-4 bg-light">
+        <form id="calendarForm">
+          <input type="hidden" id="calEventId">
+          
+          <div class="mb-3">
+            <label class="form-label fw-bold text-muted small">ชื่อกิจกรรม <span class="text-danger">*</span></label>
+            <input type="text" class="form-control fw-bold" id="calTitle" placeholder="เช่น สอบกลางภาค, ประชุมผู้ปกครอง" required>
+          </div>
+          
+          <div class="row g-2 mb-3">
+            <div class="col-6">
+              <label class="form-label fw-bold text-muted small">วันที่เริ่มต้น <span class="text-danger">*</span></label>
+              <input type="date" class="form-control" id="calStart" required>
+            </div>
+            <div class="col-6">
+              <label class="form-label fw-bold text-muted small">วันที่สิ้นสุด (ไม่บังคับ)</label>
+              <input type="date" class="form-control" id="calEnd">
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-bold text-muted small">ประเภท/สีของกิจกรรม <span class="text-danger">*</span></label>
+            <select class="form-select fw-bold" id="calColor" onchange="this.style.color = this.options[this.selectedIndex].dataset.color">
+              <option value="#0d6efd" data-color="#0d6efd" style="color: #0d6efd;" selected>🔵 กิจกรรมทั่วไป (สีฟ้า)</option>
+              <option value="#198754" data-color="#198754" style="color: #198754;">🟢 วิชาการ / สอบ (สีเขียว)</option>
+              <option value="#ffc107" data-color="#ffc107" style="color: #ffc107;">🟠 ประชุม / สัมมนา (สีส้ม)</option>
+              <option value="#dc3545" data-color="#dc3545" style="color: #dc3545;">🔴 วันหยุด / สำคัญ (สีแดง)</option>
+              <option value="#6f42c1" data-color="#6f42c1" style="color: #6f42c1;">🟣 ส่วนตัว / ภายใน (สีม่วง)</option>
+            </select>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-bold text-muted small">รายละเอียดเพิ่มเติม</label>
+            <textarea class="form-control" id="calDesc" rows="3" placeholder="สถานที่ หรือรายละเอียด..."></textarea>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer border-0 bg-white d-flex justify-content-between">
+        <button type="button" class="btn btn-outline-danger fw-bold d-none" id="btnDeleteEvent" onclick="deleteCalendarEvent()"><i class="fas fa-trash-alt me-1"></i>ลบ</button>
+        <div class="ms-auto">
+          <button type="button" class="btn btn-light" data-bs-dismiss="modal">ยกเลิก</button>
+          <button type="button" class="btn text-white fw-bold px-4" style="background-color: #e83e8c;" id="btnSaveEvent" onclick="saveCalendarEvent()"><i class="fas fa-save me-1"></i>บันทึก</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

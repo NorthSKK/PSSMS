@@ -1,0 +1,274 @@
+<script>
+// ==========================================
+// 📅 ระบบควบคุมปฏิทิน (FullCalendar Integration)
+// ==========================================
+
+let calendarInstance = null;
+let _calImportBase64 = null;
+
+window.initCalendarPage = function() {
+    const calendarEl = document.getElementById('schoolCalendar');
+    if (!calendarEl) return;
+
+    // ล้างและวาดใหม่เสมอเมื่อเปิดหน้า
+    calendarEl.innerHTML = '<div class="text-center py-5 text-muted"><div class="spinner-border text-danger mb-3"></div><br>กำลังโหลดปฏิทิน...</div>';
+
+    safeRun().withSuccessHandler(function(events) {
+        calendarEl.innerHTML = ''; // ล้างตัวโหลด
+
+        calendarInstance = new FullCalendar.Calendar(calendarEl, {
+            locale: 'th',
+            initialView: 'dayGridMonth',
+            headerToolbar: {
+                left: 'prev,next today',
+                center: 'title',
+                right: 'dayGridMonth,timeGridWeek,listMonth'
+            },
+            themeSystem: 'bootstrap5',
+            events: events,
+            editable: true,
+            selectable: true,
+            select: function(info) {
+                // เมื่อลากคลุมวันที่ ให้เปิดหน้าต่างเพิ่มข้อมูล
+                openCalendarModal('add', info.startStr, info.endStr);
+            },
+            eventClick: function(info) {
+                // เมื่อคลิกที่กิจกรรม
+                openCalendarModal('edit', null, null, info.event);
+            },
+            eventDrop: function(info) {
+                // เมื่อลากย้ายวัน (Auto Save)
+                quickUpdateEventDates(info.event);
+            }
+        });
+
+        calendarInstance.render();
+    }).getCalendarEvents();
+};
+
+window.openCalendarModal = function(mode, start = '', end = '', eventObj = null) {
+    const form = document.getElementById('calendarForm');
+    form.reset();
+    
+    document.getElementById('calModalHeader').style.backgroundColor = mode === 'add' ? '#e83e8c' : '#343a40';
+    document.getElementById('calModalTitle').innerHTML = mode === 'add' ? '<i class="fas fa-calendar-plus me-2"></i>เพิ่มกิจกรรมใหม่' : '<i class="fas fa-edit me-2"></i>แก้ไข/รายละเอียด';
+    
+    if (mode === 'add') {
+        document.getElementById('calEventId').value = '';
+        if (start) document.getElementById('calStart').value = start;
+        // endStr ของ FullCalendar จะเกินมา 1 วัน เราต้องลบออก 1 วันถ้าไม่ใช่วันเดียวกันเป๊ะๆ
+        if (end) {
+            let endDate = new Date(end);
+            endDate.setDate(endDate.getDate() - 1);
+            document.getElementById('calEnd').value = endDate.toISOString().split('T')[0];
+        }
+        document.getElementById('btnDeleteEvent').classList.add('d-none');
+    } else if (mode === 'edit' && eventObj) {
+        document.getElementById('calEventId').value = eventObj.id;
+        document.getElementById('calTitle').value = eventObj.title;
+        document.getElementById('calStart').value = eventObj.startStr.split('T')[0];
+        
+        if (eventObj.endStr) {
+            let endDate = new Date(eventObj.endStr);
+            endDate.setDate(endDate.getDate() - 1); // หักออก 1 วันสำหรับการแสดงผลใน Input
+            document.getElementById('calEnd').value = endDate.toISOString().split('T')[0];
+        }
+        
+        document.getElementById('calColor').value = eventObj.backgroundColor || '#0d6efd';
+        document.getElementById('calColor').style.color = eventObj.backgroundColor || '#0d6efd';
+        document.getElementById('calDesc').value = eventObj.extendedProps.description || '';
+        
+        document.getElementById('btnDeleteEvent').classList.remove('d-none');
+    }
+
+    new bootstrap.Modal(document.getElementById('calendarModal')).show();
+};
+
+window.saveCalendarEvent = function() {
+    const title = document.getElementById('calTitle').value.trim();
+    const start = document.getElementById('calStart').value;
+    let end = document.getElementById('calEnd').value;
+    
+    if (!title || !start) return showToast('กรุณากรอกชื่อกิจกรรมและวันที่เริ่มต้น', 'warning');
+
+    const user = getSessionUser();
+    
+    // สำหรับ FullCalendar ถ้ามี End Date จะต้องบวกเพิ่มไปอีก 1 วัน (Exclusive End)
+    if (end && end >= start) {
+        let endDateObj = new Date(end);
+        endDateObj.setDate(endDateObj.getDate() + 1);
+        end = endDateObj.toISOString().split('T')[0];
+    } else {
+        end = ''; // ถ้าใส่วันสิ้นสุดน้อยกว่าวันเริ่ม ให้ล้างทิ้ง
+    }
+
+    const payload = {
+        id: document.getElementById('calEventId').value,
+        title: title,
+        start: start,
+        end: end,
+        color: document.getElementById('calColor').value,
+        description: document.getElementById('calDesc').value,
+        createdBy: user ? user.name : 'Unknown'
+    };
+
+    const btn = document.getElementById('btnSaveEvent');
+    const oldText = btn.innerHTML;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>บันทึก...';
+    btn.disabled = true;
+
+    safeRun().withSuccessHandler(res => {
+        btn.innerHTML = oldText; btn.disabled = false;
+        if(res.status === 'success') {
+            bootstrap.Modal.getInstance(document.getElementById('calendarModal')).hide();
+            showToast('บันทึกกิจกรรมเรียบร้อยแล้ว', 'success');
+            initCalendarPage(); // โหลดปฏิทินใหม่
+        } else {
+            showToast(res.message, 'danger');
+        }
+    }).saveCalendarEvent(payload);
+};
+
+window.deleteCalendarEvent = function() {
+    if(!confirm('ยืนยันลบกิจกรรมนี้?')) return;
+    const id = document.getElementById('calEventId').value;
+    
+    safeRun().withSuccessHandler(res => {
+        if(res.status === 'success') {
+            bootstrap.Modal.getInstance(document.getElementById('calendarModal')).hide();
+            showToast('ลบกิจกรรมเรียบร้อยแล้ว', 'success');
+            initCalendarPage();
+        }
+    }).deleteCalendarEvent(id);
+};
+
+window.quickUpdateEventDates = function(eventObj) {
+    const payload = {
+        id: eventObj.id,
+        title: eventObj.title,
+        start: eventObj.startStr.split('T')[0],
+        end: eventObj.endStr ? eventObj.endStr.split('T')[0] : '',
+        color: eventObj.backgroundColor,
+        description: eventObj.extendedProps.description,
+        createdBy: 'Auto-Drag' // หรือใช้ user.name
+    };
+    
+    // บันทึกเงียบๆ หลังบ้าน
+    safeRun().withSuccessHandler(res => {
+        if(res.status === 'success') showToast('อัปเดตวันเรียบร้อย', 'success');
+    }).saveCalendarEvent(payload);
+};
+
+window.initCalendarDB = function() {
+    if(confirm("ต้องการสร้างฐานข้อมูลปฏิทินหรือไม่? (ถ้ามีอยู่แล้วข้อมูลจะไม่หาย)")) {
+        safeRun().withSuccessHandler(res => showToast(res, 'info')).setupCalendarDatabase();
+    }
+};
+
+// ==========================================
+// 📥 ระบบนำเข้าปฏิทินจากไฟล์ CSV
+// ==========================================
+
+window.openImportCalendarModal = function() {
+    document.getElementById('calImportFile').value = '';
+    document.getElementById('calImportPreview').classList.add('d-none');
+    document.getElementById('btnConfirmImport').disabled = true;
+    _calImportBase64 = null;
+    new bootstrap.Modal(document.getElementById('calImportModal')).show();
+};
+
+window.previewCalendarCSV = function(input) {
+    const file = input.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const text = e.target.result;
+        _calImportBase64 = btoa(unescape(encodeURIComponent(text)));
+
+        const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+        const tbody = document.getElementById('calPreviewBody');
+        tbody.innerHTML = '';
+
+        let startIdx = 0;
+        if (lines[0] && /วันที่|วันเดือน|date/i.test(lines[0].split(',')[0])) startIdx = 1;
+
+        let count = 0;
+        for (let i = startIdx; i < lines.length; i++) {
+            // รองรับ comma ใน field ที่มี quotes
+            const parts = lines[i].match(/(".*?"|[^,]+)(?:,|$)/g)?.map(p => p.replace(/^"|"$|,$/g, '').trim()) || [];
+            const dateStr = parts[0] || '';
+            const title = parts[1] || '';
+            if (!dateStr || !title) continue;
+
+            const desc = parts[2] || '';
+            let color = parts[3] || '';
+            if (!color || !color.startsWith('#')) color = _autoColorJS(title);
+
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<td class="text-nowrap">${dateStr}</td><td>${title}</td><td class="text-muted">${desc}</td>` +
+                `<td><span class="badge rounded-pill" style="background:${color};font-size:0.65rem">${color}</span></td>`;
+            tbody.appendChild(tr);
+            count++;
+        }
+
+        document.getElementById('calImportCount').textContent = `${count} รายการ`;
+        document.getElementById('calImportPreview').classList.remove('d-none');
+        document.getElementById('btnConfirmImport').disabled = count === 0;
+    };
+    reader.readAsText(file, 'UTF-8');
+};
+
+function _autoColorJS(text) {
+    const t = text.toLowerCase();
+    if (/หยุด|วิสาข|มาฆ|อาสาฬห|เข้าพรรษา|ออกพรรษา/.test(t)) return '#dc3545';
+    if (/สอบ|ทดสอบ|วัดผล|ประเมิน|นิเทศ/.test(t)) return '#198754';
+    if (/ประชุม|สัมมนา|อบรม/.test(t)) return '#ffc107';
+    return '#0d6efd';
+}
+
+window.downloadCalendarTemplate = function() {
+    const rows = [
+        'วันที่,กิจกรรม,ผู้รับผิดชอบ,สี',
+        '5-8 พ.ค.69,ส่งหลักสูตรระดับแผน แผนการเรียนรู้,ครูผู้สอน,',
+        '11 พ.ค.69,ปฐมนิเทศ มอบตัว นักเรียน ม.1 และม.4,คณะครู,',
+        '11 พ.ค.69,เปิดภาคเรียน 1/69,วิชาการ,#198754',
+        '13-17 ก.ค.69,วัดผลกลางภาค 1/69,ทะเบียนวัดผล,#198754',
+        '28 ก.ค.69,วันเฉลิมพระชนมพรรษา ร.10,คณะครู,#dc3545',
+        '12 ส.ค.69,วันแม่แห่งชาติ,คณะครู,#dc3545',
+        '23-25 ก.ย.69,สอบปลายภาค 1/69,ทะเบียนวัดผล,#198754',
+        '10 ต.ค.69,ปิดภาคเรียน 1/69,วิชาการ,#0d6efd',
+        '2026-05-11,ตัวอย่าง ISO date,ทั่วไป,'
+    ];
+    const blob = new Blob(['﻿' + rows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'template_calendar.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+};
+
+window.confirmCalendarImport = function() {
+    if (!_calImportBase64) return;
+
+    const btn = document.getElementById('btnConfirmImport');
+    const oldHTML = btn.innerHTML;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>กำลังนำเข้า...';
+    btn.disabled = true;
+
+    safeRun().withSuccessHandler(function(res) {
+        btn.innerHTML = oldHTML;
+        if (res.status === 'success') {
+            bootstrap.Modal.getInstance(document.getElementById('calImportModal')).hide();
+            showToast(res.message, 'success');
+            initCalendarPage();
+        } else {
+            btn.disabled = false;
+            showToast(res.message, 'danger');
+        }
+    }).importCalendarCSV(_calImportBase64);
+};
+</script>
