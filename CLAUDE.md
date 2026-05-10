@@ -1,0 +1,251 @@
+# PSSMS — Phuphrabat Smart School Management System
+
+ระบบบริหารจัดการสถานศึกษา 4 ฝ่าย สำหรับโรงเรียนภูพระบาทวิทยา  
+พัฒนาโดย: ครูน๊อต ศิกษก เดินรีบรัมย์
+
+---
+
+## Platform & Deploy
+
+- **Runtime**: Google Apps Script (GAS) V8, Timezone: Asia/Bangkok
+- **Script ID**: `1fOZg9_N5LrsOMHPozhgf09SOW_x-2os7biXZ_-De4DIgsyvig2bDktrW`
+- **Deploy as**: Web App — `executeAs: USER_DEPLOYING`, `access: ANYONE_ANONYMOUS`
+- **Tool**: [clasp](https://github.com/google/clasp) (Local → GAS)
+
+### คำสั่ง Deploy
+
+```bash
+# push โค้ดขึ้น GAS
+npx clasp push
+
+# ดู log ใน GAS
+npx clasp logs
+
+# เปิด GAS Editor
+npx clasp open
+```
+
+> **หมายเหตุ:** `clasp push` จะดูด **ทุกไฟล์ใน `src/`** รวมถึงไฟล์ backup (`Scripts_Backup.html`, `Scripts_Score_Backup.html`, `Scripts_backup_2.html`, `Code_Backup/`) — ระวังไฟล์เหล่านี้เพิ่ม execution time และ quota
+
+---
+
+## Architecture
+
+```
+Local (src/)  →  clasp push  →  Google Apps Script
+                                      │
+                        ┌─────────────┼──────────────┐
+                   Code.js         Sheets DB      Drive
+                 (Backend)     (ข้อมูลทั้งหมด)  (ไฟล์แนบ)
+                        └─────────────┼──────────────┘
+                                      │
+                              Index.html (SPA)
+                           (Bootstrap 5.3 + JS)
+```
+
+- **Backend**: `Code.js` (~2791 บรรทัด) — GAS server-side, ฟังก์ชันทั้งหมดเรียกผ่าน `google.script.run`
+- **Database**: Google Sheets (`SpreadsheetApp.getActiveSpreadsheet()`)
+- **Frontend**: SPA ใน `Index.html` — routing ด้วย `loadPage()` + `google.script.run.getPage()`
+- **File Storage**: Google Drive (`DriveApp`)
+
+---
+
+## โครงสร้างไฟล์ (`src/`)
+
+### Backend
+| ไฟล์ | หน้าที่ |
+|---|---|
+| `Code.js` | Server-side ทั้งหมด |
+| `appsscript.json` | GAS manifest (timezone, webapp config) |
+
+### Frontend — Shell & Shared
+| ไฟล์ | หน้าที่ |
+|---|---|
+| `Index.html` | SPA shell: sidebar nav, navbar, `<div id="page-content">` |
+| `Login.html` | หน้า login (แยกออกมาก่อน auth) |
+| `Styles.html` | CSS ทั้งหมด (include ใน Index.html) |
+
+### Frontend — Scripts (แยกตาม role/feature)
+| ไฟล์ | หน้าที่ |
+|---|---|
+| `Scripts_Core.html` | Auth, routing (`loadPage`), UI core, `syncSystemTerm()` |
+| `Scripts_Admin.html` | ฟังก์ชัน Admin |
+| `Scripts_Teacher.html` | ฟังก์ชันครู (เช็คชื่อ, บันทึกการสอน) |
+| `Scripts_Academic.html` | วิชาการ (ตารางสอน, กลุ่มเสี่ยง) |
+| `Scripts_Score.html` | บันทึกคะแนน All-in-One |
+| `Scripts_General.html` | สารบรรณ, ทั่วไป |
+| `Scripts_Calendar.html` | ปฏิทิน FullCalendar 6 |
+
+### Frontend — Pages
+| ไฟล์ | ชื่อใช้ใน `loadPage()` | หน้าที่ |
+|---|---|---|
+| `Page_Dashboard_Admin.html.html` | `Page_Dashboard_Admin` | Dashboard Admin |
+| `Page_Dashboard_Teacher.html.html` | `Page_Dashboard_Teacher` | Dashboard ครู |
+| `Page_Dashboard_Student.html.html` | `Page_Dashboard_Student` | Dashboard นักเรียน |
+| `Page_Admin_Users.html` | `Page_Admin_Users` | จัดการผู้ใช้ |
+| `Page_Admin_Timetable.html` | `Page_Admin_Timetable` | จัดการตารางสอน |
+| `Page_Admin_Settings.html` | `Page_Admin_Settings` | ตั้งค่าระบบ |
+| `Page_Admin_Curriculum.html` | `Page_Admin_Curriculum` | หลักสูตร |
+| `Page_Academic.html` | `Page_Academic` | เช็คชื่อ / กิจกรรมหน้าเสาธง |
+| `Page_Academic_Report.html.html` | `Page_Academic_Report` | รายงานสถิติ (มส.) |
+| `Page_Score_Entry.html` | `Page_Score_Entry` | บันทึกคะแนน (ปพ.5) |
+| `Page_Subject_Config.html` | `Page_Subject_Config` | ตั้งค่าโครงสร้างวิชา |
+| `Page_Grade_Summary.html` | `Page_Grade_Summary` | ปพ.5 สมุดบันทึกผลการเรียน |
+| `Page_Calendar.html` | `Page_Calendar` | ปฏิทินปฏิบัติงาน |
+| `Page_General.html` | `Page_General` | สารบรรณ |
+| `Page_Budget.html` | `Page_Budget` | งบประมาณ |
+| `Page_Personnel.html` | `Page_Personnel` | บุคลากร |
+| `Page_Lesson_History.html.html` | `Page_Lesson_History` | แฟ้มบันทึกหลังสอน |
+| `Template_PP5.html` | — | Template พิมพ์ ปพ.5 |
+
+> ไฟล์ที่มีนามสกุล `.html.html` (เช่น `Page_Dashboard_Admin.html.html`) — GAS จะตัดนามสกุลออกชั้นหนึ่ง ชื่อที่ใช้ใน `loadPage()` จึงไม่มี `.html`
+
+---
+
+## Google Sheets — ชีตทั้งหมด
+
+### ชีตที่สร้างโดย `setupDatabase()`
+| Sheet | Headers หลัก | ใช้งาน |
+|---|---|---|
+| `User_Database` | [0]Username, [1]Password, [2]FullName, [3]Role, [4]Department, [5]Email, [6]Year | ผู้ใช้ทั้งหมด |
+| `Attendance_Database` | Timestamp, Date, Term, Year, SubjectCode, SubjectName, Class, Period, StudentID, StudentName, Status, TeacherID, SessionID | บันทึกการเช็คชื่อ |
+| `Academic_Records` | Date, Term, Year, SubjectCode, Class, Period, Topic, Present, Absent, Leave, TeacherID, SessionID | บันทึกการสอน (เนื้อหา+สถิติ) |
+| `Budgets` | ProjectID, ProjectName, BudgetAmount, UsedAmount, Balance, Status, Year | งบประมาณ |
+| `Leave_Records` | StaffName, Type, StartDate, EndDate, Reason, Status, Year | บันทึกการลา |
+| `Maintenance` | ID, Location, Issue, Reporter, Status, Technician | บำรุงรักษา |
+| `System_Settings` | Key, Value | ตั้งค่าระบบ |
+| `Timetable_Database` | [0]SubjectCode, [1]SubjectName, [2]Level, [3]Room, [4]Location, [5]TeacherID, [6]Day, [7]Period, [8]Term, [9]Year | ตารางสอน |
+| `Morning_Activity` | Date, Term, Year, Class, StudentID, StudentName, Area_Status, Duty_Status, Flag_Status, TeacherID, SessionID | กิจกรรมหน้าเสาธง |
+| `Sarabun_Database` | Timestamp, DocType, DocNumber, Subject, Requester, TargetDate, Status, FileURL, Year | ทะเบียนสารบรรณ |
+
+### ชีตที่สร้างโดย `setupPorPor5Database()`
+| Sheet | ใช้งาน |
+|---|---|
+| `Subject_Config` | ตั้งค่าโครงสร้างวิชา (ตัวชี้วัด, น้ำหนักคะแนน) |
+| `Score_Database` | คะแนนรายตัวชี้วัด |
+| `Qualitative_Assess` | ประเมินคุณลักษณะอันพึงประสงค์ |
+| `Grade_Summary` | สรุปผลการเรียนรายวิชา |
+| `Print_Config` | ตั้งค่าหัวกระดาษสำหรับพิมพ์ ปพ.5 |
+
+### ชีตอื่นที่สร้างอัตโนมัติเมื่อใช้งาน
+| Sheet | ใช้งาน |
+|---|---|
+| `Detailed_Lesson_Records` | บันทึกการสอนแบบละเอียด |
+| `Score_History` | Log ประวัติการแก้คะแนน |
+| `Calendar_Database` | ปฏิทินกิจกรรม |
+| `Curriculum_Database` | หลักสูตร / ตัวชี้วัด |
+| `User_History_Database` | ประวัติการแก้ไขข้อมูลผู้ใช้ |
+
+### System_Settings Format (แบบใหม่)
+```
+Row: ["Active", "Term", "1", "2568", ...]        ← เทอมปัจจุบัน
+Row: ["TermData", "1_2568", startDate, endDate]  ← วันเริ่ม-สิ้นสุดเทอม
+```
+
+---
+
+## Roles & Permissions
+
+| Role | สิทธิ์ |
+|---|---|
+| `ADMIN` | เข้าถึงทุกส่วน, bypass `verifyTeacherPermission` |
+| `TEACHER` | เช็คชื่อ, บันทึกคะแนน, ตารางสอน, ปพ.5 เฉพาะวิชาที่สอน |
+| `STUDENT` | ดูข้อมูลตัวเอง |
+
+> Role เก็บใน `User_Database[row][3]` — เปรียบเทียบด้วย `.toUpperCase()`
+
+---
+
+## Authentication & Session
+
+```javascript
+// หลัง login สำเร็จ ข้อมูลเก็บใน:
+localStorage.getItem('pssms_user')    // Remember Me = true
+sessionStorage.getItem('pssms_user')  // Remember Me = false
+
+// Structure ของ pssms_user:
+{ id, name, role, dept, currentTerm, currentYear }
+
+// keys อื่นใน localStorage:
+'pssms_last_page'   // หน้าล่าสุดที่เปิด — restore อัตโนมัติเมื่อ reload
+'pssms_theme'       // 'light' | 'dark'
+
+// cache ใน sessionStorage:
+`subjects_${userId}_${term}_${year}`   // list วิชาของครู (cache ระหว่าง session)
+```
+
+`syncSystemTerm()` — เรียกหลัง login เพื่ออัปเดตเทอม/ปีแบบ silent (ไม่ reload หน้า)
+
+---
+
+## Frontend Routing
+
+```javascript
+// เปลี่ยนหน้าด้วย: (ชื่อฟังก์ชันจริงคือ loadPage ไม่ใช่ showPage)
+loadPage('Page_Score_Entry')   // โหลด HTML จาก GAS แล้วใส่ใน #page-content
+
+// เรียก Backend:
+google.script.run
+  .withSuccessHandler(callback)
+  .withFailureHandler(errCallback)
+  .functionName(args)
+```
+
+- ไม่มี URL routing — ทุกอย่างอยู่ใน URL เดียว (GAS Web App URL)
+- `loadPage()` บันทึกชื่อหน้าลง `pssms_last_page` และ restore เมื่อ reload
+
+---
+
+## ระบบตรวจสิทธิ์ครู (`verifyTeacherPermission`)
+
+```javascript
+verifyTeacherPermission(teacherId, subjectCode, className, term, year)
+// คืน true/false
+// Admin ผ่านทันที
+// ครูทั่วไป: เช็คว่ามีใน Timetable_Database (ห้อง+วิชา+เทอม+ปีต้องตรง)
+// className format: "ม.1/1" หรือ "1/1"
+// subjectCode "hr" = โฮมรูม (อนุโลม)
+```
+
+---
+
+## UI Libraries (CDN ใน Index.html)
+
+| Library | Version | ใช้งาน |
+|---|---|---|
+| Bootstrap | 5.3 | Layout, components |
+| Font Awesome | 6 | Icons |
+| Chart.js | latest | กราฟ Dashboard |
+| FullCalendar | 6 | ปฏิทิน |
+| Flatpickr | latest | Date picker |
+| Kanit (Google Fonts) | - | Font ภาษาไทย |
+
+---
+
+## Third-party Integrations
+
+- **Notion API** — Todo list, credentials เป็น global var ใน `Code.js` บรรทัด 204-206
+- **Google Drive** — อัปโหลดเอกสารสารบรรณ (`DriveApp`)
+
+> **ระวัง:** `NOTION_TOKEN`, `DATABASE_ID`, `PROJECT_ID` hardcode เป็น `var` ใน `Code.js` — อย่า push ขึ้น public repo
+
+---
+
+## ไฟล์ทดสอบ (`ไฟล์ทดสอบ/`)
+
+| ไฟล์ | ใช้ทดสอบ |
+|---|---|
+| `ปฏิทิน_69-1.csv` | นำเข้าปฏิทินกิจกรรม ภาคเรียน 1/2569 |
+| `ตัวชี้วัด.csv` / `.xlsx` | นำเข้าตัวชี้วัดหลักสูตร |
+
+---
+
+## Convention สำคัญ
+
+- ปีการศึกษาเป็น **พ.ศ.** (2568, 2569) ไม่ใช่ ค.ศ.
+- เทอม: `"1"` หรือ `"2"` (string ไม่ใช่ number)
+- ID ผู้ใช้: เปรียบเทียบด้วย `String(x).trim()` เสมอ
+- ทุกฟังก์ชัน GAS ต้องรองรับทั้ง Admin และ non-Admin
+- เพิ่มฟีเจอร์ใหม่ → คำนึงถึง role และ term/year เสมอ
+- ภาษาไทยทั้งหมด (UI + error message)
+- Default admin จาก `setupDatabase()`: username `admin` / password `1234` — เปลี่ยนก่อน production
