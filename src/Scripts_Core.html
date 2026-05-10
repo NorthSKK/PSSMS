@@ -156,10 +156,10 @@ function renderApp(user) {
   if (role === 'ADMIN') {
     menuHTML += `
       <div class="menu-divider">การจัดการระบบ</div>
-      <li class="mb-1"><a href="javascript:void(0)" class="nav-link-sub text-warning" onclick="loadPage('Page_Admin_Users')"><i class="fas fa-users-cog me-2"></i>จัดการผู้ใช้งาน</a></li>
-      <li class="mb-1"><a href="javascript:void(0)" class="nav-link-sub text-info" onclick="loadPage('Page_Admin_Timetable')"><i class="fas fa-calendar-alt me-2"></i>จัดการตารางสอน</a></li>
-      <li class="mb-1"><a href="javascript:void(0)" class="nav-link-sub text-success" onclick="loadPage('Page_Admin_Curriculum')"><i class="fas fa-layer-group me-2"></i>คลังตัวชี้วัด/ผลการเรียนรู้</a></li>
-      <li class="mb-3"><a href="javascript:void(0)" class="nav-link-sub text-light" onclick="loadPage('Page_Admin_Settings')"><i class="fas fa-cogs me-2"></i>ตั้งค่าระบบ</a></li>
+      <li class="mb-1"><a href="javascript:void(0)" class="dept-btn" style="border-left-color: #f39c12 !important;" onclick="loadPage('Page_Admin_Users')"><i class="fas fa-users-cog" style="color: #f39c12;"></i> <span>จัดการผู้ใช้งาน</span></a></li>
+      <li class="mb-1"><a href="javascript:void(0)" class="dept-btn" style="border-left-color: #17a2b8 !important;" onclick="loadPage('Page_Admin_Timetable')"><i class="fas fa-calendar-alt" style="color: #17a2b8;"></i> <span>จัดการตารางสอน</span></a></li>
+      <li class="mb-1"><a href="javascript:void(0)" class="dept-btn" style="border-left-color: #2ecc71 !important;" onclick="loadPage('Page_Admin_Curriculum')"><i class="fas fa-layer-group" style="color: #2ecc71;"></i> <span>คลังตัวชี้วัด/ผลการเรียนรู้</span></a></li>
+      <li class="mb-2"><a href="javascript:void(0)" class="dept-btn" style="border-left-color: #adb5bd !important;" onclick="loadPage('Page_Admin_Settings')"><i class="fas fa-cogs" style="color: #adb5bd;"></i> <span>ตั้งค่าระบบ</span></a></li>
     `;
   }
 
