@@ -198,6 +198,40 @@ function initTeacherDashboard() {
   
   // 🌟 บังคับ To-Do List ให้โหลดแบบอิสระ ไม่ต้องรอฟังก์ชันข้างบนทำงานเสร็จ
   setTimeout(loadTodoList, 300);
+  try { loadDashboardCalendarEvents(); } catch(e) { console.error(e); }
+}
+
+function loadDashboardCalendarEvents() {
+  google.script.run.withSuccessHandler(function(events) {
+    const strip = document.getElementById('dashCalendarStrip');
+    const badges = document.getElementById('dashCalendarBadges');
+    if (!strip || !badges || !events) return;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const limit = new Date(today);
+    limit.setDate(limit.getDate() + 14);
+
+    const upcoming = events.filter(function(ev) {
+      if (!ev.start) return false;
+      const start = new Date(ev.start);
+      const end = ev.end ? new Date(ev.end) : start;
+      return start <= limit && end >= today;
+    }).sort(function(a, b) { return new Date(a.start) - new Date(b.start); });
+
+    if (upcoming.length === 0) return;
+
+    strip.classList.remove('d-none');
+    badges.innerHTML = upcoming.map(function(ev) {
+      const d = new Date(ev.start);
+      const isToday = d.toDateString() === today.toDateString();
+      const dayLabel = d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' });
+      const color = ev.backgroundColor || '#6c757d';
+      const dot = isToday ? '<i class="fas fa-circle me-1" style="font-size:0.5rem;vertical-align:middle;"></i>' : '';
+      return '<span class="badge rounded-pill shadow-sm" style="background-color:' + color + ';font-size:0.78rem;padding:5px 11px;cursor:default;" title="' + (ev.description || '') + '">'
+        + dot + '<i class="fas fa-calendar-day me-1"></i>' + dayLabel + ' · ' + ev.title + '</span>';
+    }).join('');
+  }).getCalendarEvents();
 }
 
 function renderTeacherTodaySchedule(timetable) {
