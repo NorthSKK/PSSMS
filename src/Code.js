@@ -9,6 +9,52 @@
 // ==========================================
 
 function doGet(e) {
+  // Debug endpoint สำหรับตรวจสอบ data flow (เปิด ?action=debug_risk&teacher=X&term=Y&year=Z)
+  if (e && e.parameter && e.parameter.action === 'debug_risk') {
+    const teacher = e.parameter.teacher || 'teacher12';
+    const term = e.parameter.term || '2';
+    const year = e.parameter.year || '2568';
+    const result = getTeacherRiskDashboard(teacher, term, year);
+    return ContentService.createTextOutput(JSON.stringify(result, null, 2)).setMimeType(ContentService.MimeType.JSON);
+  }
+  if (e && e.parameter && e.parameter.action === 'debug_sheet') {
+    const sheetName = e.parameter.sheet || 'User_History_Database';
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName(sheetName);
+    const out = { sheetName: sheetName };
+    if (!sheet) { out.error = 'sheet not found'; }
+    else {
+      out.lastRow = sheet.getLastRow();
+      out.lastCol = sheet.getLastColumn();
+      const sampleSize = Math.min(parseInt(e.parameter.rows) || 8, sheet.getLastRow());
+      out.sample = sheet.getRange(1, 1, sampleSize, Math.min(10, sheet.getLastColumn())).getDisplayValues();
+    }
+    return ContentService.createTextOutput(JSON.stringify(out, null, 2)).setMimeType(ContentService.MimeType.JSON);
+  }
+  if (e && e.parameter && e.parameter.action === 'debug_student') {
+    const stdId = String(e.parameter.id || '').trim();
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const out = { searchId: stdId, userDb: [], history: [] };
+    const userSheet = ss.getSheetByName("User_Database");
+    if (userSheet) {
+      const data = userSheet.getDataRange().getDisplayValues();
+      for (let i = 1; i < data.length; i++) {
+        if (String(data[i][0]).replace(/'/g, '').trim() === stdId) {
+          out.userDb.push({ row: i+1, username: data[i][0], name: data[i][2], class: data[i][4], year: data[i][6], status: data[i][7] });
+        }
+      }
+    }
+    const histSheet = ss.getSheetByName("User_History_Database");
+    if (histSheet) {
+      const data = histSheet.getDataRange().getDisplayValues();
+      for (let i = 1; i < data.length; i++) {
+        if (String(data[i][0]).replace(/'/g, '').trim() === stdId) {
+          out.history.push({ row: i+1, username: data[i][0], name: data[i][2], class: data[i][4], year: data[i][6], status: data[i][7] });
+        }
+      }
+    }
+    return ContentService.createTextOutput(JSON.stringify(out, null, 2)).setMimeType(ContentService.MimeType.JSON);
+  }
   return HtmlService.createTemplateFromFile('Index')
       .evaluate()
       .setTitle('PSSMS - โรงเรียนภูพระบาทวิทยา')
@@ -2531,18 +2577,23 @@ function getTeacherRiskDashboard(teacherId, term, year) {
 
                            // ลำดับการเลือกห้อง: user_history (snapshot ปีนั้น) > user_db_match (ตรง year) > attClassMap (จากเช็คชื่อ) > fallback (ห้องปัจจุบัน)
                            let displayClass;
+                           let classSource;
                            const sm = studentMap[safeId];
                            if (sm && (sm.source === 'user_history' || sm.source === 'user_db_match')) {
                                displayClass = sm.cls;
+                               classSource = sm.source;
                            } else if (attClassMap[safeId]) {
                                displayClass = attClassMap[safeId];
+                               classSource = 'attendance';
                            } else {
                                displayClass = sm ? sm.cls : "ไม่ทราบชั้น";
+                               classSource = sm ? sm.source : 'none';
                            }
                            riskList.push({
                                stdId: sm ? sm.displayId : safeId,
                                stdName: sm ? sm.name : "ไม่ทราบชื่อ",
                                className: displayClass,
+                               classSource: classSource,
                                subjectCode: subCode,
                                subjectName: teacherSubjects[subCode],
                                type: riskType

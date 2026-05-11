@@ -345,7 +345,6 @@ function renderTeacherAtRiskDashboard(data, container) {
 // 🚨 ดึงข้อมูลกลุ่มเสี่ยงมาแสดงที่ Dashboard (จัดกลุ่มตามห้อง + รวบรายชื่อเด็ก)
 // ==========================================
 function loadTeacherRiskDashboard(teacherId, term, year) {
-  console.log('[RiskDash] called:', teacherId, 'term:', term, 'year:', year);
   const el0 = document.getElementById('riskCount0');
   const elR = document.getElementById('riskCountR');
   const elMS = document.getElementById('riskCountMS');
@@ -368,9 +367,6 @@ function loadTeacherRiskDashboard(teacherId, term, year) {
   container.innerHTML = `<div class="text-center text-muted py-5"><div class="spinner-border text-danger mb-3" role="status"></div><br>กำลังประมวลผลข้อมูลกลุ่มเสี่ยง...</div>`;
 
   safeRun(3).withSuccessHandler(function(res) {
-    console.log('[RiskDash] backend response:', JSON.stringify(res.debug, null, 2));
-    console.log('[RiskDash] summary:', res.summary);
-    console.log('[RiskDash] sample details:', res.details && res.details.slice(0, 3));
     if (res.status === 'success') {
       sessionStorage.setItem(cacheKey, JSON.stringify(res));
       el0.innerHTML = `<span class="fs-1">${res.summary.zero}</span> <span class="fs-6 fw-normal">รายการ</span>`;
