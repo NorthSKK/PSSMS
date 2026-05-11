@@ -137,15 +137,25 @@ function renderTermBadge(user) {
   }, { once: false });
 }
 
+function clearTermCaches() {
+  // Clear only term-dependent cache keys, preserve pssms_user
+  const keep = ['pssms_user', 'pssms_last_page', 'pssms_theme'];
+  const removeKeys = [];
+  for (let i = 0; i < sessionStorage.length; i++) {
+    const k = sessionStorage.key(i);
+    if (!keep.includes(k)) removeKeys.push(k);
+  }
+  removeKeys.forEach(k => sessionStorage.removeItem(k));
+}
+
 function setViewTerm(term, year) {
   const user = getSessionUser();
   user.currentTerm = term;
   user.currentYear = year;
   user.termOverride = true;
   saveUserSession(user);
-  sessionStorage.clear();
+  clearTermCaches();
   renderTermBadge(user);
-  // Reload current page to fetch data with new term
   const lastPage = localStorage.getItem('pssms_last_page') || (user.role.toUpperCase() === 'ADMIN' ? 'Page_Dashboard_Admin' : 'Page_Dashboard_Teacher');
   loadPage(lastPage);
 }
@@ -153,9 +163,7 @@ function setViewTerm(term, year) {
 function resetToSystemTerm() {
   const user = getSessionUser();
   delete user.termOverride;
-  saveUserSession(user);
-  sessionStorage.clear();
-  // Re-sync from server
+  clearTermCaches();
   safeRun(3).withSuccessHandler(function(config) {
     const u = getSessionUser();
     u.currentTerm = config.term;
