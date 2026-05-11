@@ -141,7 +141,7 @@ function loadStudentList(forceRefresh = false) {
   }
 
   showLoader(true);
-  const cacheKey = `v4_stdlist_${fullClassName}`;
+  const cacheKey = `v5_stdlist_${fullClassName}`;
 
   const fetchHistoryAndRender = (studentsData) => {
       if (isHR) {
@@ -193,9 +193,11 @@ function loadStudentList(forceRefresh = false) {
       }
   };
 
-  if (!forceRefresh && sessionStorage.getItem(cacheKey)) {
-      currentStudents = JSON.parse(sessionStorage.getItem(cacheKey));
-      fetchHistoryAndRender(currentStudents); 
+  let cached = null;
+  try { cached = JSON.parse(sessionStorage.getItem(cacheKey) || 'null'); } catch(e){}
+  if (!forceRefresh && cached && cached.length > 0) {
+      currentStudents = cached;
+      fetchHistoryAndRender(currentStudents);
   } else {
       google.script.run
       .withFailureHandler(err => { showLoader(false); alert("Error: " + err.message); })

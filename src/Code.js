@@ -559,6 +559,11 @@ function getTeacherTimetable(teacherId) {
   }).filter(item => item !== null);
 }
 
+function normalizeClassName(c) {
+  // ทำให้รหัสห้องเทียบกันได้: ตัด space, ตัด "ม." ออก → "ม.1/1" และ "1/1" ตรงกัน
+  return String(c || "").replace(/\s+/g, '').replace(/^ม\.?/i, '').toLowerCase();
+}
+
 function getStudentsByClass(className) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName("User_Database");
@@ -566,20 +571,20 @@ function getStudentsByClass(className) {
   if (!sheet) return [];
 
   const data = sheet.getDataRange().getDisplayValues();
-  const targetClass = String(className).replace(/\s+/g, ''); 
-  const targetYear = String(config.year).trim(); 
+  const targetClass = normalizeClassName(className);
+  const targetYear = String(config.year).trim();
 
   // 1. ค้นหาในฐานข้อมูลปัจจุบันก่อน
   let filtered = data.slice(1).filter(r => {
     const rowRole = String(r[3]).trim().toLowerCase();
-    const rowClass = String(r[4]).replace(/\s+/g, ''); 
+    const rowClass = normalizeClassName(r[4]);
     const rowYear = String(r[6]).trim();
     let rowStatus = "ปกติ";
     if (r.length > 7 && String(r[7]).trim() !== "") rowStatus = String(r[7]).trim();
 
     const isStudent = (rowRole === 'student' || rowRole === 'นักเรียน');
     const isClassMatch = (rowClass === targetClass);
-    const isYearMatch = (rowYear === targetYear || rowYear === ""); 
+    const isYearMatch = (rowYear === targetYear || rowYear === "");
     const isStatusNormal = (rowStatus === 'ปกติ');
 
     return isStudent && isClassMatch && isYearMatch && isStatusNormal;
@@ -589,7 +594,7 @@ function getStudentsByClass(className) {
   if (filtered.length === 0) {
       filtered = data.slice(1).filter(r => {
           const rowRole = String(r[3]).trim().toLowerCase();
-          const rowClass = String(r[4]).replace(/\s+/g, '');
+          const rowClass = normalizeClassName(r[4]);
           let rowStatus = "ปกติ";
           if (r.length > 7 && String(r[7]).trim() !== "") rowStatus = String(r[7]).trim();
           return (rowRole === 'student' || rowRole === 'นักเรียน') && rowClass === targetClass && rowStatus === 'ปกติ';
@@ -603,7 +608,7 @@ function getStudentsByClass(className) {
           const histData = histSheet.getDataRange().getDisplayValues();
           filtered = histData.slice(1).filter(r => {
               const rowRole = String(r[3]).trim().toLowerCase();
-              const rowClass = String(r[4]).replace(/\s+/g, '');
+              const rowClass = normalizeClassName(r[4]);
               const rowYear = String(r[6]).trim();
               let rowStatus = "ปกติ";
               if (r.length > 7 && String(r[7]).trim() !== "") rowStatus = String(r[7]).trim();
@@ -619,6 +624,43 @@ function getStudentsByClass(className) {
   }
 
   return filtered;
+}
+
+// Debug: เรียกจาก frontend เพื่อดูว่านักเรียนใน sheet มี class/role/status อะไรบ้าง
+function debugStudentsByClass(className) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName("User_Database");
+  const config = getSystemConfig();
+  if (!sheet) return { error: "no User_Database" };
+
+  const data = sheet.getDataRange().getDisplayValues();
+  const targetClass = normalizeClassName(className);
+
+  const studentRows = data.slice(1).filter(r => {
+    const rowRole = String(r[3]).trim().toLowerCase();
+    return rowRole === 'student' || rowRole === 'นักเรียน';
+  });
+
+  const classes = {};
+  studentRows.forEach(r => {
+    const c = String(r[4] || "").trim();
+    classes[c] = (classes[c] || 0) + 1;
+  });
+
+  const matched = studentRows.filter(r => normalizeClassName(r[4]) === targetClass);
+
+  return {
+    activeYear: config.year,
+    activeTerm: config.term,
+    targetClass: className,
+    normalizedTarget: targetClass,
+    totalStudents: studentRows.length,
+    classesInDB: classes,
+    matchedCount: matched.length,
+    sampleMatched: matched.slice(0, 3).map(r => ({
+      id: r[0], name: r[2], role: r[3], class: r[4], year: r[6], status: r[7] || "(empty)"
+    }))
+  };
 }
 
 function updateAttendanceStatus(studentId, sessionID, newStatus) {
