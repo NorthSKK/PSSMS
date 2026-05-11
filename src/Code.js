@@ -2458,14 +2458,15 @@ function getTeacherRiskDashboard(teacherId, term, year) {
     if (gradeSheet) {
         const gradeData = gradeSheet.getDataRange().getDisplayValues();
         
+        const targetTerm = String(term).trim();
         const subjectMaxScore = {};
         for (let i = 1; i < gradeData.length; i++) {
             let subCode = String(gradeData[i][1]).trim();
             let totalScore = parseFloat(gradeData[i][2]) || 0;
             let rTerm = String(gradeData[i][6]).trim();
             let rYear = String(gradeData[i][7]).trim();
-            
-            if ((rTerm === String(term).trim() || rTerm === '') && (rYear === targetYear || rYear === '')) {
+
+            if (rTerm === targetTerm && rYear === targetYear) {
                 if (!subjectMaxScore[subCode]) subjectMaxScore[subCode] = 0;
                 if (totalScore > subjectMaxScore[subCode]) subjectMaxScore[subCode] = totalScore;
             }
@@ -2475,7 +2476,7 @@ function getTeacherRiskDashboard(teacherId, term, year) {
            let rTerm = String(gradeData[i][6]).trim();
            let rYear = String(gradeData[i][7]).trim();
 
-           if ((rTerm === String(term).trim() || rTerm === '') && (rYear === targetYear || rYear === '')) {
+           if (rTerm === targetTerm && rYear === targetYear) {
                let safeId = normID(gradeData[i][0]); 
                let subCode = String(gradeData[i][1]).trim();
                let grade = String(gradeData[i][3]).trim();   
