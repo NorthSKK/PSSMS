@@ -80,7 +80,7 @@ Local (src/)  →  clasp push  →  Google Apps Script
 | ไฟล์ | ชื่อใช้ใน `loadPage()` | หน้าที่ |
 |---|---|---|
 | `Page_Dashboard_Admin.html.html` | `Page_Dashboard_Admin` | Dashboard Admin |
-| `Page_Dashboard_Teacher.html.html` | `Page_Dashboard_Teacher` | Dashboard ครู |
+| `Page_Dashboard_Teacher.html.html` | `Page_Dashboard_Teacher` | Dashboard ครู (มี `#dashCalendarStrip` แสดงกิจกรรม 14 วันข้างหน้า) |
 | `Page_Dashboard_Student.html.html` | `Page_Dashboard_Student` | Dashboard นักเรียน |
 | `Page_Admin_Users.html` | `Page_Admin_Users` | จัดการผู้ใช้ |
 | `Page_Admin_Timetable.html` | `Page_Admin_Timetable` | จัดการตารางสอน |
@@ -193,6 +193,20 @@ google.script.run
 
 - ไม่มี URL routing — ทุกอย่างอยู่ใน URL เดียว (GAS Web App URL)
 - `loadPage()` บันทึกชื่อหน้าลง `pssms_last_page` และ restore เมื่อ reload
+
+---
+
+## Sidebar Menu — CSS Classes
+
+| Class | ใช้กับ | รูปแบบ |
+|---|---|---|
+| `nav-link-custom` | หัวเมนูหลัก (Dashboard) | full-width, ไม่มี border-left |
+| `dept-btn` | เมนู section (4 ฝ่าย + การจัดการระบบ Admin) | `margin: 5px 15px`, `border-left: 4px solid`, `border-radius: 10px` |
+| `nav-link-sub` | sub-item ใต้ dept-btn (เมนูครู) | `padding-left: 45px`, font เล็ก |
+| `menu-divider` | หัวกลุ่ม (การจัดการระบบ, บริหารจัดการ 4 ฝ่าย) | uppercase, เส้นขีดล่าง |
+
+> เมนู Admin ส่วน "การจัดการระบบ" ใช้ `dept-btn` (ไม่ใช่ `nav-link-sub`) — consistent กับเมนู 4 ฝ่าย  
+> `nav-link-sub` ใช้เฉพาะ sub-item ของครู (เยื้อง `ms-3` + indent 45px)
 
 ---
 

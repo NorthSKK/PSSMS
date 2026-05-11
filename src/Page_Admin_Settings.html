@@ -94,15 +94,3 @@
     </div>
   </div>
 </div>
-
-<script>
-function runDebugStudents() {
-  const cls = document.getElementById('debugClassName').value.trim();
-  const out = document.getElementById('debugOutput');
-  out.innerText = 'กำลังตรวจสอบ...';
-  google.script.run
-    .withFailureHandler(err => { out.innerText = 'ERROR: ' + err.message; })
-    .withSuccessHandler(res => { out.innerText = JSON.stringify(res, null, 2); })
-    .debugStudentsByClass(cls);
-}
-</script>

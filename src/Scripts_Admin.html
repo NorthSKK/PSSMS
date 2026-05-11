@@ -783,4 +783,16 @@ function executePromotion() {
     .promoteStudentsToNextYear();
 }
 
+// Debug: ตรวจสอบรายชื่อนักเรียนตามห้อง
+function runDebugStudents() {
+  const cls = document.getElementById('debugClassName').value.trim();
+  const out = document.getElementById('debugOutput');
+  if (!out) return;
+  out.innerText = 'กำลังตรวจสอบ...';
+  google.script.run
+    .withFailureHandler(err => { out.innerText = 'ERROR: ' + err.message; })
+    .withSuccessHandler(res => { out.innerText = JSON.stringify(res, null, 2); })
+    .debugStudentsByClass(cls);
+}
+
 </script>
