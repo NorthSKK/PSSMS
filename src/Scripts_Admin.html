@@ -795,4 +795,16 @@ function runDebugStudents() {
     .debugStudentsByClass(cls);
 }
 
+// Debug: ตรวจสอบ Homeroom ใน Timetable
+function runDebugHomeroom() {
+  const tid = document.getElementById('debugTeacherId').value.trim();
+  const out = document.getElementById('debugHROutput');
+  if (!out) return;
+  out.innerText = 'กำลังตรวจสอบ...';
+  google.script.run
+    .withFailureHandler(err => { out.innerText = 'ERROR: ' + err.message; })
+    .withSuccessHandler(res => { out.innerText = JSON.stringify(res, null, 2); })
+    .debugHomeroom(tid);
+}
+
 </script>

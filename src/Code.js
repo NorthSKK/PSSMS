@@ -703,6 +703,46 @@ function debugStudentsByClass(className) {
   };
 }
 
+// Debug: ดูว่า Timetable_Database มี HR (โฮมรูม) entries สำหรับครูคนไหนใน active term/year
+function debugHomeroom(teacherId) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const tt = ss.getSheetByName("Timetable_Database");
+  const config = getSystemConfig();
+  if (!tt) return { error: "no Timetable_Database" };
+
+  const data = tt.getDataRange().getDisplayValues();
+  const activeTerm = String(config.term).trim();
+  const activeYear = String(config.year).trim();
+
+  // HR rows ทั้งหมดใน Timetable
+  const allHR = data.slice(1).filter(r => {
+    const code = String(r[0] || "").toUpperCase().trim();
+    const name = String(r[1] || "");
+    return code === 'HR' || name.includes('โฮมรูม');
+  }).map(r => ({
+    subjectCode: r[0], subjectName: r[1], level: r[2], room: r[3], loc: r[4],
+    teacherId: r[5], day: r[6], period: r[7], term: r[8], year: r[9]
+  }));
+
+  // HR ของ active term/year
+  const activeHR = allHR.filter(r => String(r.term).trim() === activeTerm && String(r.year).trim() === activeYear);
+
+  // ถ้าระบุ teacherId มา → กรองเพิ่ม
+  let teacherHR = null;
+  if (teacherId) {
+    teacherHR = activeHR.filter(r => String(r.teacherId).trim().toLowerCase() === String(teacherId).trim().toLowerCase());
+  }
+
+  return {
+    activeTerm, activeYear,
+    queryTeacherId: teacherId || "(not specified)",
+    allHRCount: allHR.length,
+    activeTermYearHRCount: activeHR.length,
+    activeTermYearHR: activeHR.slice(0, 20),
+    teacherSpecificHR: teacherHR
+  };
+}
+
 function updateAttendanceStatus(studentId, sessionID, newStatus) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName("Attendance_Database");
