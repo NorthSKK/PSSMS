@@ -585,23 +585,32 @@ function getStudentsByClass(className) {
     return isStudent && isClassMatch && isYearMatch && isStatusNormal;
   });
 
-  // 🌟 2. ท่าไม้ตาย: ถ้าย้อนกลับไปดูปีเก่า แล้วหาเด็กห้องนี้ไม่เจอ ให้ไปขุดจาก "คลังประวัติ"
+  // 2. fallback: ค้นใน User_Database โดยไม่กรอง year (รองรับช่วงเปลี่ยนปีการศึกษา)
+  if (filtered.length === 0) {
+      filtered = data.slice(1).filter(r => {
+          const rowRole = String(r[3]).trim().toLowerCase();
+          const rowClass = String(r[4]).replace(/\s+/g, '');
+          let rowStatus = "ปกติ";
+          if (r.length > 7 && String(r[7]).trim() !== "") rowStatus = String(r[7]).trim();
+          return (rowRole === 'student' || rowRole === 'นักเรียน') && rowClass === targetClass && rowStatus === 'ปกติ';
+      });
+  }
+
+  // 3. ท่าไม้ตาย: ขุดจาก User_History_Database (กรณีดูย้อนหลังปีที่นักเรียนจบ/ย้ายไปแล้ว)
   if (filtered.length === 0) {
       const histSheet = ss.getSheetByName("User_History_Database");
       if (histSheet && histSheet.getLastRow() > 1) {
           const histData = histSheet.getDataRange().getDisplayValues();
           filtered = histData.slice(1).filter(r => {
               const rowRole = String(r[3]).trim().toLowerCase();
-              const rowClass = String(r[4]).replace(/\s+/g, ''); 
+              const rowClass = String(r[4]).replace(/\s+/g, '');
               const rowYear = String(r[6]).trim();
               let rowStatus = "ปกติ";
               if (r.length > 7 && String(r[7]).trim() !== "") rowStatus = String(r[7]).trim();
 
               const isStudent = (rowRole === 'student' || rowRole === 'นักเรียน');
               const isClassMatch = (rowClass === targetClass);
-              const isYearMatch = (rowYear === targetYear); 
-              
-              // ในคลังประวัติ ถ้าตอนนั้นเขาเรียนอยู่ห้องนี้ (ถึงตอนนี้จะจบไปแล้ว) ก็ต้องดึงมาโชว์ให้ครูแก้คะแนน
+              const isYearMatch = (rowYear === targetYear);
               const isStatusValid = (rowStatus === 'ปกติ' || rowStatus === 'จบการศึกษา');
 
               return isStudent && isClassMatch && isYearMatch && isStatusValid;
