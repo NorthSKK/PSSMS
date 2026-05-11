@@ -647,7 +647,7 @@ function normalizeClassName(c) {
   return String(c || "").replace(/\s+/g, '').replace(/^ม\.?/i, '').toLowerCase();
 }
 
-function getStudentsByClass(className) {
+function getStudentsByClass(className, year) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName("User_Database");
   const config = getSystemConfig();
@@ -655,7 +655,7 @@ function getStudentsByClass(className) {
 
   const data = sheet.getDataRange().getDisplayValues();
   const targetClass = normalizeClassName(className);
-  const targetYear = String(config.year).trim();
+  const targetYear = String(year || config.year).trim();
 
   // 1. ค้นหาในฐานข้อมูลปัจจุบันก่อน
   let filtered = data.slice(1).filter(r => {
@@ -1877,12 +1877,12 @@ function getAllInOneScoreGridData(subjectCode, className, term, year) {
   let config = getSubjectConfig(subjectCode, className, term, year);
   if (!config) config = { ratio: "70:10:20", indicators: [{name: "คะแนนเก็บ 1", score: 70}] }; 
 
-  let students = getStudentsByClass(className);
+  let students = getStudentsByClass(className, year);
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const normID = (id) => { let clean = String(id).replace(/[^a-zA-Z0-9]/g, '').replace(/^0+/, ''); return clean || '0'; };
   const normStr = (str) => String(str).replace(/\s+/g, '').toLowerCase();
 
-  // 🚀 MAGIC UPGRADE: กู้คืนรายชื่อนักเรียนในอดีต (กรณีแก้คะแนนย้อนหลังข้ามปี)
+  // เพิ่มนักเรียนจาก Grade_Summary ที่อาจไม่มีใน User_Database/History แล้ว
   const configSys = getSystemConfig();
   if (String(year).trim() !== String(configSys.year).trim()) {
       const gradeSheet = ss.getSheetByName("Grade_Summary");
