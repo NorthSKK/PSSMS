@@ -2403,48 +2403,49 @@ function getTeacherRiskDashboard(teacherId, term, year) {
     // 🌟 ระบบค้นหาระดับชั้นตาม "ปีการศึกษาที่แอดมินเลือก"
     const targetYear = String(year).trim();
     const studentMap = {};
-    
+    const configCur = getSystemConfig();
+    const isHistoricalView = String(targetYear).trim() !== String(configCur.year).trim();
+
     const userSheet = ss.getSheetByName("User_Database");
     if (userSheet) {
         const userData = userSheet.getDataRange().getDisplayValues();
-        // 1. ค้นหาในฐานข้อมูลปัจจุบันก่อน ว่ามีเด็กที่ปีตรงกับที่แอดมินเลือกหรือไม่
+        // 1. User_Database ที่ year ตรง (สำหรับเทอมปัจจุบัน หรือเด็กที่ year ตรง)
         for(let i = 1; i < userData.length; i++) {
             if (String(userData[i][3]).toLowerCase() === 'student' || String(userData[i][3]) === 'นักเรียน') {
                 let stdYear = String(userData[i][6]).trim();
                 if (stdYear === targetYear) {
-                    let rawId = String(userData[i][0]).replace(/'/g, '').trim(); 
-                    studentMap[normID(rawId)] = { displayId: rawId, name: String(userData[i][2]).trim(), cls: String(userData[i][4]).trim() };
+                    let rawId = String(userData[i][0]).replace(/'/g, '').trim();
+                    studentMap[normID(rawId)] = { displayId: rawId, name: String(userData[i][2]).trim(), cls: String(userData[i][4]).trim(), source: 'user_db_match' };
                 }
             }
         }
     }
 
+    // 2. User_History_Database ที่ year ตรง (snapshot ก่อน admin promote) — ใช้ logic ของ admin
     const histSheet = ss.getSheetByName("User_History_Database");
-    if (histSheet) {
+    if (histSheet && histSheet.getLastRow() > 1) {
         const histData = histSheet.getDataRange().getDisplayValues();
-        // 2. ถ้าค้นในฐานข้อมูลปัจจุบันไม่เจอ ให้ไปงัดจาก "คลังประวัติ" ที่มีปีตรงกับที่แอดมินเลือก
         for(let i = 1; i < histData.length; i++) {
             if (String(histData[i][3]).toLowerCase() === 'student' || String(histData[i][3]) === 'นักเรียน') {
                 let histYear = String(histData[i][6]).trim();
-                let rawId = String(histData[i][0]).replace(/'/g, '').trim(); 
+                let rawId = String(histData[i][0]).replace(/'/g, '').trim();
                 let nId = normID(rawId);
-                
                 if (!studentMap[nId] && histYear === targetYear) {
-                    studentMap[nId] = { displayId: rawId, name: String(histData[i][2]).trim(), cls: String(histData[i][4]).trim() };
+                    studentMap[nId] = { displayId: rawId, name: String(histData[i][2]).trim(), cls: String(histData[i][4]).trim(), source: 'user_history' };
                 }
             }
         }
     }
 
-    // 3. ท่าไม้ตาย: ถ้าหาไม่เจอจริงๆ ให้ดึงข้อมูลล่าสุดเท่าที่มีมาโชว์ (เพื่อไม่ให้ช่องชื่อ/ชั้นเรียนว่างเปล่า)
+    // 3. fallback: ดึง User_Database (ห้องปัจจุบัน) เฉพาะกรณีเทอมปัจจุบัน หรือใช้แค่ name (cls จะ override จาก attClassMap)
     if (userSheet) {
         const userData = userSheet.getDataRange().getDisplayValues();
         for(let i = 1; i < userData.length; i++) {
             if (String(userData[i][3]).toLowerCase() === 'student' || String(userData[i][3]) === 'นักเรียน') {
-                let rawId = String(userData[i][0]).replace(/'/g, '').trim(); 
+                let rawId = String(userData[i][0]).replace(/'/g, '').trim();
                 let nId = normID(rawId);
                 if (!studentMap[nId]) {
-                    studentMap[nId] = { displayId: rawId, name: String(userData[i][2]).trim(), cls: String(userData[i][4]).trim() };
+                    studentMap[nId] = { displayId: rawId, name: String(userData[i][2]).trim(), cls: String(userData[i][4]).trim(), source: 'user_db_fallback' };
                 }
             }
         }
@@ -2528,10 +2529,20 @@ function getTeacherRiskDashboard(teacherId, term, year) {
                            else if (riskType === 'ร') countR++;
                            else if (riskType === 'มส') countMS++;
 
+                           // ลำดับการเลือกห้อง: user_history (snapshot ปีนั้น) > user_db_match (ตรง year) > attClassMap (จากเช็คชื่อ) > fallback (ห้องปัจจุบัน)
+                           let displayClass;
+                           const sm = studentMap[safeId];
+                           if (sm && (sm.source === 'user_history' || sm.source === 'user_db_match')) {
+                               displayClass = sm.cls;
+                           } else if (attClassMap[safeId]) {
+                               displayClass = attClassMap[safeId];
+                           } else {
+                               displayClass = sm ? sm.cls : "ไม่ทราบชั้น";
+                           }
                            riskList.push({
-                               stdId: studentMap[safeId] ? studentMap[safeId].displayId : safeId,
-                               stdName: studentMap[safeId] ? studentMap[safeId].name : "ไม่ทราบชื่อ",
-                               className: attClassMap[safeId] || (studentMap[safeId] ? studentMap[safeId].cls : "ไม่ทราบชั้น"),
+                               stdId: sm ? sm.displayId : safeId,
+                               stdName: sm ? sm.name : "ไม่ทราบชื่อ",
+                               className: displayClass,
                                subjectCode: subCode,
                                subjectName: teacherSubjects[subCode],
                                type: riskType
@@ -2543,6 +2554,10 @@ function getTeacherRiskDashboard(teacherId, term, year) {
         }
     }
 
+    // นับ source ของ studentMap
+    let sourceCount = { user_db_match: 0, user_history: 0, user_db_fallback: 0 };
+    Object.values(studentMap).forEach(s => { if (sourceCount[s.source] !== undefined) sourceCount[s.source]++; });
+
     return {
       status: 'success',
       summary: { zero: count0, r: countR, ms: countMS },
@@ -2550,10 +2565,15 @@ function getTeacherRiskDashboard(teacherId, term, year) {
       debug: {
         paramTerm: String(term).trim(),
         paramYear: String(year).trim(),
+        isHistoricalView: isHistoricalView,
         teacherSubjectsCount: Object.keys(teacherSubjects).length,
         teacherSubjects: Object.keys(teacherSubjects),
         matchedGradeRows: debugMatchedRows,
-        sampleMatchedRows: debugSampleRows
+        sampleMatchedRows: debugSampleRows,
+        studentMapSize: Object.keys(studentMap).length,
+        studentMapSources: sourceCount,
+        attClassMapSize: Object.keys(attClassMap).length,
+        histSheetRows: histSheet ? histSheet.getLastRow() - 1 : 0
       }
     };
 
