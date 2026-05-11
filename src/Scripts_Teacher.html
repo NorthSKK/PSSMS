@@ -192,7 +192,7 @@ function initTeacherDashboard() {
   }
   
   // 🌟 ป้องกัน Error โดมิโน่: ถ้ามีอะไรพังให้มันข้ามไปทำคำสั่งถัดไปเลย ไม่ต้องตายทั้งระบบ
-  try { loadTeacherRiskDashboard(); } catch(e) { console.error(e); }
+  try { loadTeacherRiskDashboard(user.id, user.currentTerm, user.currentYear); } catch(e) { console.error(e); }
   try { loadTeacherAtRiskDashboard(user.id, user.currentTerm, user.currentYear); } catch(e) { console.error(e); }
   try { loadMorningSummaryDashboard(user.id, user.currentTerm, user.currentYear); } catch(e) { console.error(e); }
   
@@ -344,40 +344,39 @@ function renderTeacherAtRiskDashboard(data, container) {
 // ==========================================
 // 🚨 ดึงข้อมูลกลุ่มเสี่ยงมาแสดงที่ Dashboard (จัดกลุ่มตามห้อง + รวบรายชื่อเด็ก)
 // ==========================================
-function loadTeacherRiskDashboard() {
-  const user = getSessionUser();
-  if (!user || user.role !== 'Teacher') return;
-
+function loadTeacherRiskDashboard(teacherId, term, year) {
   const el0 = document.getElementById('riskCount0');
   const elR = document.getElementById('riskCountR');
   const elMS = document.getElementById('riskCountMS');
-  const container = document.getElementById('riskCardsContainer'); 
-  
-  if(!el0 || !elR || !elMS || !container) return;
+  const container = document.getElementById('riskCardsContainer');
+  if (!el0 || !elR || !elMS || !container) return;
+
+  const cacheKey = `grade_risk_${teacherId}_${term}_${year}`;
+  if (sessionStorage.getItem(cacheKey)) {
+    const cached = JSON.parse(sessionStorage.getItem(cacheKey));
+    el0.innerHTML = `<span class="fs-1">${cached.summary.zero}</span> <span class="fs-6 fw-normal">รายการ</span>`;
+    elR.innerHTML = `<span class="fs-1">${cached.summary.r}</span> <span class="fs-6 fw-normal">รายการ</span>`;
+    elMS.innerHTML = `<span class="fs-1">${cached.summary.ms}</span> <span class="fs-6 fw-normal">รายการ</span>`;
+    renderRiskCards(cached.details);
+    return;
+  }
 
   el0.innerHTML = '<span class="spinner-grow spinner-border-sm"></span>';
   elR.innerHTML = '<span class="spinner-grow spinner-border-sm"></span>';
   elMS.innerHTML = '<span class="spinner-grow spinner-border-sm"></span>';
-  
-  container.innerHTML = `
-      <div class="text-center text-muted py-5">
-          <div class="spinner-border text-danger mb-3" role="status"></div><br>
-          กำลังประมวลผลข้อมูลกลุ่มเสี่ยง...
-      </div>`;
+  container.innerHTML = `<div class="text-center text-muted py-5"><div class="spinner-border text-danger mb-3" role="status"></div><br>กำลังประมวลผลข้อมูลกลุ่มเสี่ยง...</div>`;
 
   safeRun(3).withSuccessHandler(function(res) {
     if (res.status === 'success') {
-      
+      sessionStorage.setItem(cacheKey, JSON.stringify(res));
       el0.innerHTML = `<span class="fs-1">${res.summary.zero}</span> <span class="fs-6 fw-normal">รายการ</span>`;
       elR.innerHTML = `<span class="fs-1">${res.summary.r}</span> <span class="fs-6 fw-normal">รายการ</span>`;
       elMS.innerHTML = `<span class="fs-1">${res.summary.ms}</span> <span class="fs-6 fw-normal">รายการ</span>`;
-
       renderRiskCards(res.details);
-      
     } else {
       container.innerHTML = `<div class="text-center text-danger py-4 border rounded-3 bg-white shadow-sm">❌ เกิดข้อผิดพลาด: ${res.message}</div>`;
     }
-  }).getTeacherRiskDashboard(user.id, user.currentTerm, user.currentYear);
+  }).getTeacherRiskDashboard(teacherId, term, year);
 }
 
 // ==========================================
