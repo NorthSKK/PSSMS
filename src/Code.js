@@ -31,6 +31,31 @@ function doGet(e) {
     }
     return ContentService.createTextOutput(JSON.stringify(out, null, 2)).setMimeType(ContentService.MimeType.JSON);
   }
+  if (e && e.parameter && e.parameter.action === 'debug_score') {
+    const sub = String(e.parameter.subject || '').trim();
+    const cls = String(e.parameter.class || '').trim();
+    const term = String(e.parameter.term || '').trim();
+    const year = String(e.parameter.year || '').trim();
+    const result = getAllInOneScoreGridData(sub, cls, term, year);
+    const out = {
+      subjectCode: sub, className: cls, term: term, year: year,
+      studentCount: result.students ? result.students.length : 0,
+      sampleStudents: result.students ? result.students.slice(0, 10).map(s => ({ id: s[0], name: s[2], class: s[4], year: s[6] })) : [],
+      configSysYear: getSystemConfig().year
+    };
+    return ContentService.createTextOutput(JSON.stringify(out, null, 2)).setMimeType(ContentService.MimeType.JSON);
+  }
+  if (e && e.parameter && e.parameter.action === 'debug_students_class') {
+    const cls = String(e.parameter.class || '').trim();
+    const year = String(e.parameter.year || '').trim();
+    const students = getStudentsByClass(cls, year);
+    const out = {
+      className: cls, year: year,
+      count: students.length,
+      sample: students.slice(0, 10).map(s => ({ id: s[0], name: s[2], class: s[4], year: s[6] }))
+    };
+    return ContentService.createTextOutput(JSON.stringify(out, null, 2)).setMimeType(ContentService.MimeType.JSON);
+  }
   if (e && e.parameter && e.parameter.action === 'debug_student') {
     const stdId = String(e.parameter.id || '').trim();
     const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -702,54 +727,44 @@ function getStudentsByClass(className, year) {
   const data = sheet.getDataRange().getDisplayValues();
   const targetClass = normalizeClassName(className);
   const targetYear = String(year || config.year).trim();
+  const isHistorical = targetYear !== String(config.year).trim();
 
-  // 1. ค้นหาในฐานข้อมูลปัจจุบันก่อน
+  const isStudentRow = (r) => {
+    const role = String(r[3]).trim().toLowerCase();
+    return role === 'student' || role === 'นักเรียน';
+  };
+  const getStatus = (r) => (r.length > 7 && String(r[7]).trim() !== "") ? String(r[7]).trim() : "ปกติ";
+
+  // 1. User_Database ที่ class + year ตรง (สำหรับปีปัจจุบัน หรือเด็กที่ year ยังตรง)
   let filtered = data.slice(1).filter(r => {
-    const rowRole = String(r[3]).trim().toLowerCase();
-    const rowClass = normalizeClassName(r[4]);
-    const rowYear = String(r[6]).trim();
-    let rowStatus = "ปกติ";
-    if (r.length > 7 && String(r[7]).trim() !== "") rowStatus = String(r[7]).trim();
-
-    const isStudent = (rowRole === 'student' || rowRole === 'นักเรียน');
-    const isClassMatch = (rowClass === targetClass);
-    const isYearMatch = (rowYear === targetYear || rowYear === "");
-    const isStatusNormal = (rowStatus === 'ปกติ');
-
-    return isStudent && isClassMatch && isYearMatch && isStatusNormal;
+    return isStudentRow(r) &&
+           normalizeClassName(r[4]) === targetClass &&
+           (String(r[6]).trim() === targetYear || String(r[6]).trim() === "") &&
+           getStatus(r) === 'ปกติ';
   });
 
-  // 2. fallback: ค้นใน User_Database โดยไม่กรอง year (รองรับช่วงเปลี่ยนปีการศึกษา)
-  if (filtered.length === 0) {
-      filtered = data.slice(1).filter(r => {
-          const rowRole = String(r[3]).trim().toLowerCase();
-          const rowClass = normalizeClassName(r[4]);
-          let rowStatus = "ปกติ";
-          if (r.length > 7 && String(r[7]).trim() !== "") rowStatus = String(r[7]).trim();
-          return (rowRole === 'student' || rowRole === 'นักเรียน') && rowClass === targetClass && rowStatus === 'ปกติ';
+  // 2. ดูปีย้อนหลัง: ดึง User_History_Database ก่อน fallback no-year
+  if (filtered.length === 0 && isHistorical) {
+    const histSheet = ss.getSheetByName("User_History_Database");
+    if (histSheet && histSheet.getLastRow() > 1) {
+      const histData = histSheet.getDataRange().getDisplayValues();
+      filtered = histData.slice(1).filter(r => {
+        const status = getStatus(r);
+        return isStudentRow(r) &&
+               normalizeClassName(r[4]) === targetClass &&
+               String(r[6]).trim() === targetYear &&
+               (status === 'ปกติ' || status === 'จบการศึกษา');
       });
+    }
   }
 
-  // 3. ท่าไม้ตาย: ขุดจาก User_History_Database (กรณีดูย้อนหลังปีที่นักเรียนจบ/ย้ายไปแล้ว)
-  if (filtered.length === 0) {
-      const histSheet = ss.getSheetByName("User_History_Database");
-      if (histSheet && histSheet.getLastRow() > 1) {
-          const histData = histSheet.getDataRange().getDisplayValues();
-          filtered = histData.slice(1).filter(r => {
-              const rowRole = String(r[3]).trim().toLowerCase();
-              const rowClass = normalizeClassName(r[4]);
-              const rowYear = String(r[6]).trim();
-              let rowStatus = "ปกติ";
-              if (r.length > 7 && String(r[7]).trim() !== "") rowStatus = String(r[7]).trim();
-
-              const isStudent = (rowRole === 'student' || rowRole === 'นักเรียน');
-              const isClassMatch = (rowClass === targetClass);
-              const isYearMatch = (rowYear === targetYear);
-              const isStatusValid = (rowStatus === 'ปกติ' || rowStatus === 'จบการศึกษา');
-
-              return isStudent && isClassMatch && isYearMatch && isStatusValid;
-          });
-      }
+  // 3. fallback สุดท้าย: User_Database ไม่กรอง year (กรณีเทอมปัจจุบัน + เด็กไม่มี year)
+  if (filtered.length === 0 && !isHistorical) {
+    filtered = data.slice(1).filter(r => {
+      return isStudentRow(r) &&
+             normalizeClassName(r[4]) === targetClass &&
+             getStatus(r) === 'ปกติ';
+    });
   }
 
   return filtered;
