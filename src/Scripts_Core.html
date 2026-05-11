@@ -57,27 +57,114 @@ function checkAutoLogin() {
   }
 }
 
-// 🌟 ฟังก์ชันใหม่: ซิงค์เทอมและปีการศึกษาล่าสุดแบบเงียบๆ
 function syncSystemTerm() {
   const userStr = localStorage.getItem('pssms_user') || sessionStorage.getItem('pssms_user');
   if (!userStr) return;
-  
+  let user = JSON.parse(userStr);
+  // ถ้าครูเลือกดูเทอมเก่าอยู่ ไม่ต้อง sync ทับ
+  if (user.termOverride) return;
+
   safeRun(3).withSuccessHandler(function(config) {
-      let user = JSON.parse(userStr);
-      // ถ้าเทอมในฐานข้อมูล ไม่ตรงกับเทอมที่โชว์อยู่ ให้อัปเดตทันที
-      if (config.term && config.year && (user.currentTerm !== config.term || user.currentYear !== config.year)) {
-          user.currentTerm = config.term;
-          user.currentYear = config.year;
-          
-          // อัปเดต Cache ใหม่
-          if (localStorage.getItem('pssms_user')) localStorage.setItem('pssms_user', JSON.stringify(user));
-          if (sessionStorage.getItem('pssms_user')) sessionStorage.setItem('pssms_user', JSON.stringify(user));
-          window.currentUser = user;
-          
-          // อัปเดตข้อความมุมขวาบนแบบ Real-time
-          const badge = document.getElementById('user-term-badge');
-          if (badge) badge.innerText = `เทอม ${config.term}/${config.year}`;
+      let u = JSON.parse(localStorage.getItem('pssms_user') || sessionStorage.getItem('pssms_user'));
+      if (u.termOverride) return;
+      if (config.term && config.year && (u.currentTerm !== config.term || u.currentYear !== config.year)) {
+          u.currentTerm = config.term;
+          u.currentYear = config.year;
+          if (localStorage.getItem('pssms_user')) localStorage.setItem('pssms_user', JSON.stringify(u));
+          if (sessionStorage.getItem('pssms_user')) sessionStorage.setItem('pssms_user', JSON.stringify(u));
+          window.currentUser = u;
+          renderTermBadge(u);
       }
+  }).getSystemConfig();
+}
+
+function saveUserSession(user) {
+  if (localStorage.getItem('pssms_user')) localStorage.setItem('pssms_user', JSON.stringify(user));
+  else sessionStorage.setItem('pssms_user', JSON.stringify(user));
+  window.currentUser = user;
+}
+
+function renderTermBadge(user) {
+  const wrap = document.getElementById('term-badge-wrap');
+  if (!wrap) return;
+  const isOverride = !!user.termOverride;
+  const badgeClass = isOverride ? 'bg-warning text-dark' : 'bg-info text-dark';
+  const resetBtn = isOverride
+    ? `<button class="btn btn-sm btn-link p-0 ms-1" style="font-size:0.65rem;color:#c85000;" onclick="resetToSystemTerm()" title="กลับเทอมปัจจุบัน"><i class="fas fa-times-circle"></i></button>`
+    : '';
+  wrap.innerHTML = `
+    <div class="dropdown d-inline-block">
+      <span id="user-term-badge" class="badge ${badgeClass} shadow-sm dropdown-toggle" style="font-size:0.7rem;border-radius:6px;cursor:pointer;" data-bs-toggle="dropdown" aria-expanded="false">
+        ${isOverride ? '<i class="fas fa-history me-1" style="font-size:0.6rem;"></i>' : ''}เทอม ${user.currentTerm}/${user.currentYear}
+      </span>
+      ${resetBtn}
+      <ul class="dropdown-menu dropdown-menu-end shadow" id="term-dropdown-menu" style="min-width:180px;font-size:0.85rem;">
+        <li><h6 class="dropdown-header">เลือกภาคเรียน</h6></li>
+        <li><span class="dropdown-item text-muted" style="cursor:default;"><i class="fas fa-spinner fa-spin me-1"></i>กำลังโหลด...</span></li>
+      </ul>
+    </div>`;
+
+  // Load available terms lazily when dropdown opens
+  const menuEl = document.getElementById('term-badge-wrap').querySelector('.dropdown-toggle');
+  menuEl.addEventListener('show.bs.dropdown', function() {
+    const menu = document.getElementById('term-dropdown-menu');
+    if (menu.dataset.loaded) return;
+    menu.dataset.loaded = '1';
+    google.script.run.withSuccessHandler(function(terms) {
+      const u = getSessionUser();
+      let html = '<li><h6 class="dropdown-header">เลือกภาคเรียน</h6></li>';
+      if (!u.termOverride) {
+        html += `<li><a class="dropdown-item active" href="javascript:void(0)"><i class="fas fa-check me-1"></i>เทอม ${u.currentTerm}/${u.currentYear} (ปัจจุบัน)</a></li>`;
+      } else {
+        html += `<li><a class="dropdown-item" href="javascript:void(0)" onclick="resetToSystemTerm()"><i class="fas fa-home me-1"></i>กลับภาคเรียนปัจจุบัน</a></li>`;
+      }
+      if (terms.length > 0) {
+        html += '<li><hr class="dropdown-divider"></li>';
+        html += '<li><h6 class="dropdown-header text-muted">ดูข้อมูลย้อนหลัง</h6></li>';
+        terms.forEach(function(t) {
+          const isCurrent = (t.term === u.currentTerm && t.year === u.currentYear && !u.termOverride);
+          if (isCurrent) return;
+          const isSelected = (t.term === u.currentTerm && t.year === u.currentYear && u.termOverride);
+          html += `<li><a class="dropdown-item${isSelected ? ' active' : ''}" href="javascript:void(0)" onclick="setViewTerm('${t.term}','${t.year}')">
+            ${isSelected ? '<i class="fas fa-check me-1"></i>' : '<i class="fas fa-history me-1 text-muted"></i>'}เทอม ${t.term}/${t.year}
+          </a></li>`;
+        });
+      } else {
+        html += '<li><span class="dropdown-item text-muted">ไม่มีข้อมูลย้อนหลัง</span></li>';
+      }
+      menu.innerHTML = html;
+    }).getAvailableTerms();
+  }, { once: false });
+}
+
+function setViewTerm(term, year) {
+  const user = getSessionUser();
+  user.currentTerm = term;
+  user.currentYear = year;
+  user.termOverride = true;
+  saveUserSession(user);
+  sessionStorage.clear();
+  renderTermBadge(user);
+  // Reload current page to fetch data with new term
+  const lastPage = localStorage.getItem('pssms_last_page') || (user.role.toUpperCase() === 'ADMIN' ? 'Page_Dashboard_Admin' : 'Page_Dashboard_Teacher');
+  loadPage(lastPage);
+}
+
+function resetToSystemTerm() {
+  const user = getSessionUser();
+  delete user.termOverride;
+  saveUserSession(user);
+  sessionStorage.clear();
+  // Re-sync from server
+  safeRun(3).withSuccessHandler(function(config) {
+    const u = getSessionUser();
+    u.currentTerm = config.term;
+    u.currentYear = config.year;
+    delete u.termOverride;
+    saveUserSession(u);
+    renderTermBadge(u);
+    const lastPage = localStorage.getItem('pssms_last_page') || (u.role.toUpperCase() === 'ADMIN' ? 'Page_Dashboard_Admin' : 'Page_Dashboard_Teacher');
+    loadPage(lastPage);
   }).getSystemConfig();
 }
 
@@ -117,14 +204,10 @@ function renderApp(user) {
   window.currentUser = user;
   document.getElementById('login-section').classList.add('d-none');
   document.getElementById('main-app').classList.remove('d-none');
-  
-  let termText = "";
-  if(user.currentTerm && user.currentYear) {
-    termText = `<span id="user-term-badge" class="badge bg-info text-dark shadow-sm" style="font-size: 0.7rem; border-radius: 6px;">เทอม ${user.currentTerm}/${user.currentYear}</span>`;
-  }
 
   const currentTheme = localStorage.getItem('pssms_theme') || 'light';
   const themeIcon = currentTheme === 'dark' ? 'fa-sun text-warning' : 'fa-moon text-secondary';
+  const showTermBadge = !!(user.currentTerm && user.currentYear);
 
   document.getElementById('user-display').innerHTML = `
   <div class="d-flex align-items-center justify-content-end gap-3">
@@ -135,10 +218,12 @@ function renderApp(user) {
       <div class="fw-bold text-dark theme-text" style="font-size: 0.95rem; line-height: 1;">${user.name}</div>
       <div class="d-flex align-items-center justify-content-end gap-2 mt-1" style="font-size: 0.8rem;">
         <span class="text-muted fw-bold">${user.role}</span>
-        ${termText}
+        ${showTermBadge ? '<span id="term-badge-wrap"></span>' : ''}
       </div>
     </div>
   </div>`;
+
+  if (showTermBadge) renderTermBadge(user);
   
   let menuHTML = '';
   let startPage = '';

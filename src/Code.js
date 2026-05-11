@@ -197,6 +197,28 @@ function saveSystemConfig(term, year, startDate, endDate) {
   }
 }
 
+function getAvailableTerms() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName("System_Settings");
+  if (!sheet) return [];
+  const data = sheet.getDataRange().getValues();
+  const terms = [];
+  data.forEach(row => {
+    if (row[0] === "TermData") {
+      const parts = String(row[1]).split("_"); // "1_2568"
+      if (parts.length === 2) {
+        terms.push({ term: parts[0], year: parts[1], key: String(row[1]) });
+      }
+    }
+  });
+  // Sort: year desc, term desc (newest first)
+  terms.sort((a, b) => {
+    if (b.year !== a.year) return parseInt(b.year) - parseInt(a.year);
+    return parseInt(b.term) - parseInt(a.term);
+  });
+  return terms;
+}
+
 // ==========================================
 // 3. DASHBOARD & STATS
 // ==========================================
