@@ -77,7 +77,9 @@ function buildTimetableDropdown(timetable) {
   document.getElementById('studentListSection')?.classList.add('d-none');
 
   if(!timetable || timetable.length === 0) { select.innerHTML = '<option value="">ไม่มีตารางสอนในวันที่เลือก</option>'; showLoader(false); return; }
-  
+
+  timetable.sort((a, b) => Number(a[5]) - Number(b[5]));
+
   timetable.forEach(item => {
     let opt = document.createElement('option');
     opt.value = JSON.stringify(item);
@@ -294,6 +296,72 @@ function updateSummary() {
   
   const tableContainer = document.getElementById('studentRows')?.closest('.table-responsive');
   if(tableContainer) tableContainer.insertAdjacentHTML('beforebegin', summaryHtml);
+}
+
+function renderMorningTable(students, historyData = {}) {
+  const tbody = document.getElementById('studentRows');
+  if (!tbody) return;
+
+  const table = tbody.closest('table');
+  if (table) {
+    let thead = table.querySelector('thead');
+    if (thead) {
+      thead.innerHTML = `
+        <tr class="table-success text-center">
+          <th style="width:50px;">ที่</th>
+          <th class="text-start">ชื่อ-สกุล</th>
+          <th style="min-width:130px;">ความเรียบร้อย</th>
+          <th style="min-width:130px;">หน้าที่</th>
+          <th style="min-width:130px;">หน้าเสาธง</th>
+        </tr>`;
+    }
+  }
+
+  students.sort((a, b) => String(a[0] || "").localeCompare(String(b[0] || ""), 'th', {numeric: true}));
+
+  const radioBtn = (name, val, label, checked, color) =>
+    `<label class="btn btn-sm btn-outline-${color} py-1 px-2 ${checked ? 'active' : ''}" style="font-size:0.75rem;">
+       <input type="radio" name="${name}" value="${val}" ${checked ? 'checked' : ''} autocomplete="off"> ${label}
+     </label>`;
+
+  let html = '';
+  students.forEach((s, idx) => {
+    const stdId = String(s[0]).trim();
+    const hist = historyData[stdId] || {};
+    const area = hist.area || 'ปกติ';
+    const duty = hist.duty || 'ทำหน้าที่';
+    const flag = hist.flag || 'เข้าแถว';
+
+    html += `<tr>
+      <td class="text-center text-muted small">${idx + 1}</td>
+      <td><div class="fw-bold" style="font-size:0.85rem;">${s[2]}</div><div class="text-muted" style="font-size:0.75rem;">${stdId}</div></td>
+      <td class="text-center">
+        <div class="btn-group btn-group-sm" role="group">
+          ${radioBtn(`area_${stdId}`, 'ปกติ', 'ปกติ', area === 'ปกติ', 'success')}
+          ${radioBtn(`area_${stdId}`, 'ไม่ปกติ', 'ไม่ปกติ', area === 'ไม่ปกติ', 'warning')}
+        </div>
+      </td>
+      <td class="text-center">
+        <div class="btn-group btn-group-sm" role="group">
+          ${radioBtn(`duty_${stdId}`, 'ทำหน้าที่', 'ทำ', duty === 'ทำหน้าที่', 'success')}
+          ${radioBtn(`duty_${stdId}`, 'ไม่ทำหน้าที่', 'ไม่ทำ', duty === 'ไม่ทำหน้าที่', 'warning')}
+        </div>
+      </td>
+      <td class="text-center">
+        <div class="btn-group btn-group-sm" role="group">
+          ${radioBtn(`flag_${stdId}`, 'เข้าแถว', 'เข้า', flag === 'เข้าแถว', 'success')}
+          ${radioBtn(`flag_${stdId}`, 'ไม่เข้าแถว', 'ไม่เข้า', flag === 'ไม่เข้าแถว', 'danger')}
+        </div>
+      </td>
+    </tr>`;
+  });
+
+  tbody.innerHTML = html;
+
+  const summaryEl = document.getElementById('attendanceSummary');
+  if (summaryEl) summaryEl.remove();
+
+  document.getElementById('studentListSection')?.classList.remove('d-none');
 }
 
 // ==========================================

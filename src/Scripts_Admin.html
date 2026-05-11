@@ -807,4 +807,17 @@ function runDebugHomeroom() {
     .debugHomeroom(tid);
 }
 
+function runDebugTimetable() {
+  const tid = document.getElementById('debugTTTeacherId').value.trim();
+  const dateStr = document.getElementById('debugTTDate').value;
+  const out = document.getElementById('debugTTOutput');
+  if (!out) return;
+  if (!tid) { out.innerText = 'กรุณาใส่ Teacher ID'; return; }
+  out.innerText = 'กำลังตรวจสอบ...';
+  google.script.run
+    .withFailureHandler(err => { out.innerText = 'ERROR: ' + err.message; })
+    .withSuccessHandler(res => { out.innerText = JSON.stringify(res, null, 2); })
+    .debugTimetableResult(tid, dateStr);
+}
+
 </script>

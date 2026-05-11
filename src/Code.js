@@ -743,6 +743,47 @@ function debugHomeroom(teacherId) {
   };
 }
 
+function debugTimetableResult(teacherId, dateStr) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName("Timetable_Database");
+  const config = getSystemConfig();
+  const days = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์'];
+
+  let targetDateObj = dateStr ? new Date(dateStr) : new Date();
+  const targetDayName = days[targetDateObj.getDay()];
+  const searchTeacherId = String(teacherId).trim().toLowerCase();
+  const searchTerm = String(config.term).trim();
+  const searchYear = String(config.year).trim();
+
+  if (!sheet) return { error: "no Timetable_Database" };
+  const data = sheet.getDataRange().getValues();
+
+  // ผลที่ function จริงจะ return
+  const matched = data.slice(1).filter(r => {
+    return String(r[5]).trim().toLowerCase() === searchTeacherId
+      && String(r[6]).trim() === targetDayName
+      && String(r[8]).trim() === searchTerm
+      && String(r[9]).trim() === searchYear;
+  }).map(r => ({
+    subjectCode: r[0], subjectName: r[1], level: r[2], room: r[3],
+    day: r[6], period: r[7], term: r[8], year: r[9]
+  }));
+
+  // rows ของ teacher นี้ทั้งหมด (ไม่กรอง day/term/year) เพื่อ compare
+  const teacherAllRows = data.slice(1).filter(r =>
+    String(r[5]).trim().toLowerCase() === searchTeacherId
+  ).map(r => ({ subjectCode: r[0], day: r[6], period: r[7], term: r[8], year: r[9] }));
+
+  return {
+    input: { teacherId, dateStr },
+    computed: { targetDayName, searchTerm, searchYear },
+    matchedCount: matched.length,
+    matched,
+    teacherAllRowsCount: teacherAllRows.length,
+    teacherAllRows: teacherAllRows.slice(0, 30)
+  };
+}
+
 function updateAttendanceStatus(studentId, sessionID, newStatus) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName("Attendance_Database");
