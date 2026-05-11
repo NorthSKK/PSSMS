@@ -649,6 +649,43 @@ function debugStudentsByClass(className) {
 
   const matched = studentRows.filter(r => normalizeClassName(r[4]) === targetClass);
 
+  // เช็ค Timetable_Database ด้วย
+  const tt = ss.getSheetByName("Timetable_Database");
+  let timetableInfo = { error: "no Timetable_Database" };
+  if (tt) {
+    const ttData = tt.getDataRange().getDisplayValues();
+    const yearTermCounts = {};
+    ttData.slice(1).forEach(r => {
+      const term = String(r[8] || "").trim();
+      const year = String(r[9] || "").trim();
+      const key = `${term}_${year}`;
+      yearTermCounts[key] = (yearTermCounts[key] || 0) + 1;
+    });
+    const matchActive = ttData.slice(1).filter(r =>
+      String(r[8]).trim() === String(config.term).trim() &&
+      String(r[9]).trim() === String(config.year).trim()
+    );
+    timetableInfo = {
+      totalRows: ttData.length - 1,
+      byTermYear: yearTermCounts,
+      matchActiveTermYear: matchActive.length
+    };
+  }
+
+  // เช็ค status breakdown ของ students ในห้อง
+  const statusBreakdown = {};
+  matched.forEach(r => {
+    const s = r.length > 7 ? String(r[7] || "(empty)").trim() : "(no col)";
+    statusBreakdown[s] = (statusBreakdown[s] || 0) + 1;
+  });
+
+  // ดู year breakdown ของห้องนี้
+  const yearBreakdown = {};
+  matched.forEach(r => {
+    const y = String(r[6] || "(empty)").trim();
+    yearBreakdown[y] = (yearBreakdown[y] || 0) + 1;
+  });
+
   return {
     activeYear: config.year,
     activeTerm: config.term,
@@ -657,6 +694,9 @@ function debugStudentsByClass(className) {
     totalStudents: studentRows.length,
     classesInDB: classes,
     matchedCount: matched.length,
+    matchedYearBreakdown: yearBreakdown,
+    matchedStatusBreakdown: statusBreakdown,
+    timetable: timetableInfo,
     sampleMatched: matched.slice(0, 3).map(r => ({
       id: r[0], name: r[2], role: r[3], class: r[4], year: r[6], status: r[7] || "(empty)"
     }))
