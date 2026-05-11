@@ -2450,14 +2450,33 @@ function getTeacherRiskDashboard(teacherId, term, year) {
         }
     }
 
+    // ห้องเรียนตามเทอม/ปีนั้นๆ จาก Attendance_Database (ไม่ใช่ห้องปัจจุบัน)
+    const attClassMap = {};
+    const attSheet = ss.getSheetByName("Attendance_Database");
+    if (attSheet) {
+        const attData = attSheet.getDataRange().getDisplayValues();
+        const targetTerm = String(term).trim();
+        for (let i = 1; i < attData.length; i++) {
+            const rTerm = String(attData[i][2]).trim();
+            const rYear = String(attData[i][3]).trim();
+            if (rTerm === targetTerm && rYear === targetYear) {
+                const stdId = normID(attData[i][8]);
+                const cls = String(attData[i][6]).trim();
+                if (stdId && cls && !attClassMap[stdId]) attClassMap[stdId] = cls;
+            }
+        }
+    }
+
     let riskList = [];
     let count0 = 0, countR = 0, countMS = 0;
-    let riskCheckMap = {}; 
+    let riskCheckMap = {};
+    let debugMatchedRows = 0;
+    let debugSampleRows = [];
 
     const gradeSheet = ss.getSheetByName("Grade_Summary");
     if (gradeSheet) {
         const gradeData = gradeSheet.getDataRange().getDisplayValues();
-        
+
         const targetTerm = String(term).trim();
         const subjectMaxScore = {};
         for (let i = 1; i < gradeData.length; i++) {
@@ -2477,10 +2496,17 @@ function getTeacherRiskDashboard(teacherId, term, year) {
            let rYear = String(gradeData[i][7]).trim();
 
            if (rTerm === targetTerm && rYear === targetYear) {
-               let safeId = normID(gradeData[i][0]); 
+               debugMatchedRows++;
+               if (debugSampleRows.length < 5) {
+                 debugSampleRows.push({
+                   stdId: gradeData[i][0], subject: gradeData[i][1], grade: gradeData[i][3],
+                   remark: gradeData[i][4], term: gradeData[i][6], year: gradeData[i][7]
+                 });
+               }
+               let safeId = normID(gradeData[i][0]);
                let subCode = String(gradeData[i][1]).trim();
-               let grade = String(gradeData[i][3]).trim();   
-               let remark = String(gradeData[i][4] || '').trim(); 
+               let grade = String(gradeData[i][3]).trim();
+               let remark = String(gradeData[i][4] || '').trim();
 
                if (teacherSubjects[subCode]) {
                    let key = `${safeId}_${subCode}`;
@@ -2505,7 +2531,7 @@ function getTeacherRiskDashboard(teacherId, term, year) {
                            riskList.push({
                                stdId: studentMap[safeId] ? studentMap[safeId].displayId : safeId,
                                stdName: studentMap[safeId] ? studentMap[safeId].name : "ไม่ทราบชื่อ",
-                               className: studentMap[safeId] ? studentMap[safeId].cls : "ไม่ทราบชั้น",
+                               className: attClassMap[safeId] || (studentMap[safeId] ? studentMap[safeId].cls : "ไม่ทราบชั้น"),
                                subjectCode: subCode,
                                subjectName: teacherSubjects[subCode],
                                type: riskType
@@ -2517,7 +2543,19 @@ function getTeacherRiskDashboard(teacherId, term, year) {
         }
     }
 
-    return { status: 'success', summary: { zero: count0, r: countR, ms: countMS }, details: riskList.sort((a, b) => a.className.localeCompare(b.className)) };
+    return {
+      status: 'success',
+      summary: { zero: count0, r: countR, ms: countMS },
+      details: riskList.sort((a, b) => a.className.localeCompare(b.className)),
+      debug: {
+        paramTerm: String(term).trim(),
+        paramYear: String(year).trim(),
+        teacherSubjectsCount: Object.keys(teacherSubjects).length,
+        teacherSubjects: Object.keys(teacherSubjects),
+        matchedGradeRows: debugMatchedRows,
+        sampleMatchedRows: debugSampleRows
+      }
+    };
 
   } catch (e) {
     return { status: 'error', message: e.message };
