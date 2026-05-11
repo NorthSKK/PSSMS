@@ -559,6 +559,67 @@ function getTeacherTimetable(teacherId) {
   }).filter(item => item !== null);
 }
 
+function getTeacherTimetableWithStatus(teacherId) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const config = getSystemConfig();
+  const days = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์'];
+  const now = new Date();
+  const today = days[now.getDay()];
+  const todayStr = Utilities.formatDate(now, "Asia/Bangkok", "yyyy-MM-dd");
+
+  const ttSheet = ss.getSheetByName("Timetable_Database");
+  if (!ttSheet) return [];
+
+  const ttData = ttSheet.getDataRange().getValues();
+  const searchTeacherId = String(teacherId).trim().toLowerCase();
+  const searchTerm = String(config.term).trim();
+  const searchYear = String(config.year).trim();
+
+  const items = ttData.slice(1).map(r => {
+    if (String(r[5]).trim().toLowerCase() !== searchTeacherId) return null;
+    if (String(r[6]).trim() !== today) return null;
+    if (String(r[8]).trim() !== searchTerm || String(r[9]).trim() !== searchYear) return null;
+    const tClassID = `${String(r[2]).trim()}/${String(r[3]).trim()}`;
+    return [r[0], r[1], tClassID, r[3], r[4], r[7], r[6]];
+  }).filter(Boolean);
+
+  if (items.length === 0) return [];
+
+  const fmtDate = (v) => v instanceof Date
+    ? Utilities.formatDate(v, "Asia/Bangkok", "yyyy-MM-dd")
+    : String(v).substring(0, 10);
+
+  // ตรวจ Attendance_Database (วิชาปกติ): Date[1], SubjectCode[4], Class[6], Period[7], TeacherID[11]
+  const attSheet = ss.getSheetByName("Attendance_Database");
+  const checkedSet = new Set();
+  if (attSheet) {
+    attSheet.getDataRange().getValues().slice(1).forEach(r => {
+      if (fmtDate(r[1]) === todayStr && String(r[11]).trim().toLowerCase() === searchTeacherId) {
+        checkedSet.add(`${String(r[4]).trim()}_${String(r[6]).trim()}_${String(r[7]).trim()}`);
+      }
+    });
+  }
+
+  // ตรวจ Morning_Activity (HR): Date[1], Class[4], TeacherID[10]
+  const mrSheet = ss.getSheetByName("Morning_Activity");
+  const hrCheckedSet = new Set();
+  if (mrSheet) {
+    mrSheet.getDataRange().getValues().slice(1).forEach(r => {
+      if (fmtDate(r[1]) === todayStr && String(r[10]).trim().toLowerCase() === searchTeacherId) {
+        hrCheckedSet.add(String(r[4]).trim());
+      }
+    });
+  }
+
+  return items.map(item => {
+    const isHR = String(item[0]).toUpperCase() === 'HR' || String(item[1]).includes('โฮมรูม');
+    const checked = isHR
+      ? hrCheckedSet.has(item[2])
+      : checkedSet.has(`${String(item[0]).trim()}_${item[2]}_${String(item[5]).trim()}`);
+    return [...item, checked]; // item[7] = boolean
+  });
+}
+
 function normalizeClassName(c) {
   // ทำให้รหัสห้องเทียบกันได้: ตัด space, ตัด "ม." ออก → "ม.1/1" และ "1/1" ตรงกัน
   return String(c || "").replace(/\s+/g, '').replace(/^ม\.?/i, '').toLowerCase();

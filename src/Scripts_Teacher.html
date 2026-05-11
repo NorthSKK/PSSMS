@@ -180,7 +180,7 @@ function initTeacherDashboard() {
   
   const now = new Date();
   const localDate = new Date(now.getTime() - (now.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
-  const scheduleCacheKey = `today_schedule_${user.id}_${localDate}`;
+  const scheduleCacheKey = `today_schedule_v2_${user.id}_${localDate}`;
 
   if (sessionStorage.getItem(scheduleCacheKey)) {
      renderTeacherTodaySchedule(JSON.parse(sessionStorage.getItem(scheduleCacheKey)));
@@ -188,7 +188,7 @@ function initTeacherDashboard() {
      google.script.run.withSuccessHandler(data => {
        sessionStorage.setItem(scheduleCacheKey, JSON.stringify(data));
        renderTeacherTodaySchedule(data);
-     }).getTeacherTimetable(user.id);
+     }).getTeacherTimetableWithStatus(user.id);
   }
   
   // 🌟 ป้องกัน Error โดมิโน่: ถ้ามีอะไรพังให้มันข้ามไปทำคำสั่งถัดไปเลย ไม่ต้องตายทั้งระบบ
@@ -282,7 +282,9 @@ function renderTeacherTodaySchedule(timetable) {
       </td>
       <td class="text-center align-middle">
         ${isTeaching ? '<span class="badge bg-danger pulse mb-1">กำลังสอน</span>' : (startTotalMinutes > currentMinutes ? '<span class="badge bg-light text-dark border mb-1">รอสอน</span>' : '<span class="badge bg-success mb-1">สอนเสร็จแล้ว</span>')}
-        <br><span class="badge bg-primary rounded-pill" style="font-size: 0.65rem;"><i class="fas fa-hand-pointer me-1"></i>คลิกเช็คชื่อ</span>
+        <br>${r[7]
+          ? '<span class="badge bg-success rounded-pill" style="font-size:0.65rem;"><i class="fas fa-check-circle me-1"></i>เช็คชื่อแล้ว</span>'
+          : '<span class="badge bg-primary rounded-pill" style="font-size:0.65rem;"><i class="fas fa-hand-pointer me-1"></i>คลิกเช็คชื่อ</span>'}
       </td>
     </tr>`;
   });
@@ -299,13 +301,7 @@ function renderTeacherTodaySchedule(timetable) {
 
 function jumpToAttendance(encodedData) {
   const item = JSON.parse(decodeURIComponent(encodedData));
-  
-  if (item[0].toUpperCase() === 'HR' || item[1].includes('โฮมรูม')) {
-     openMorningCheckModal(item);
-     return; 
-  }
-
-  sessionStorage.setItem('pending_attendance_item', encodedData);
+  sessionStorage.setItem('pending_attendance_item', JSON.stringify(item));
   const now = new Date();
   const localDate = new Date(now.getTime() - (now.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
   sessionStorage.setItem('pending_teaching_date', localDate);
