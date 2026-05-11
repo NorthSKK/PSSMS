@@ -136,70 +136,227 @@ input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer
 .col-highlight-grade { background-color: #f0fdf4 !important; } 
 
 /* ==========================================
-   🌙 6. DARK MODE (โหมดมืด สมบูรณ์แบบ)
+   🌙 6. DARK MODE
 ========================================== */
-body.dark-mode { background-color: #121212 !important; color: #e0e0e0 !important; }
-.dark-mode #sidebar { background-color: #1a1a1a !important; border-right: 1px solid #2a2a2a !important; }
-.dark-mode .nav-link-custom, .dark-mode .nav-link-sub { color: #b0b0b0 !important; }
-.dark-mode .nav-link-custom:hover { background-color: #2d2d2d !important; color: #fff !important; }
 
-/* Cards & Modals */
+/* --- Base: override Bootstrap 5.3 CSS variables --- */
+body.dark-mode {
+  background-color: #121212 !important;
+  color: #e0e0e0 !important;
+  --bs-body-color: #e0e0e0;
+  --bs-body-bg: #121212;
+  --bs-emphasis-color: #fff;
+  --bs-secondary-color: #9ba3ab;
+  --bs-tertiary-color: #666;
+  --bs-heading-color: #e0e0e0;
+  --bs-link-color: #8bb9fe;
+  --bs-link-hover-color: #abc8ff;
+  --bs-border-color: #333;
+  --bs-border-color-translucent: rgba(255,255,255,0.15);
+  color-scheme: dark;
+}
+/* Bootstrap table variables */
+.dark-mode .table {
+  --bs-table-color: #e0e0e0;
+  --bs-table-bg: transparent;
+  --bs-table-border-color: #333;
+  --bs-table-striped-color: #e0e0e0;
+  --bs-table-active-color: #e0e0e0;
+  --bs-table-hover-color: #fff;
+  color: #e0e0e0 !important;
+  border-color: #333 !important;
+}
+/* Bootstrap form variables */
+.dark-mode {
+  --bs-form-control-bg: #2d2d2d;
+  --bs-form-control-disabled-bg: #1e1e1e;
+}
+
+/* --- Sidebar & Nav --- */
+.dark-mode #sidebar { background-color: #1a1a1a !important; border-right: 1px solid #2a2a2a !important; }
+.dark-mode .nav-link-custom, .dark-mode .nav-link-sub, .dark-mode .dept-btn { color: #b0b0b0 !important; }
+.dark-mode .nav-link-custom:hover, .dark-mode .nav-link-sub:hover { background-color: #2d2d2d !important; color: #fff !important; }
+
+/* --- Cards & Modals --- */
 .dark-mode .card, .dark-mode .modal-content { background-color: #1e1e1e !important; border: 1px solid #333 !important; }
 .dark-mode .card-header, .dark-mode .modal-header { border-bottom: 1px solid #333 !important; }
 .dark-mode .modal-footer { border-top: 1px solid #333 !important; }
-.dark-mode .bg-white, .dark-mode .bg-light { background-color: #1e1e1e !important; color: #e0e0e0 !important; border-color: #333 !important; }
 .dark-mode .btn-close { filter: invert(1) grayscale(100%) brightness(200%); }
 
-/* Tabs */
+/* --- Contextual Backgrounds (dimmed for dark) --- */
+.dark-mode .bg-white   { background-color: #1e1e1e !important; color: #e0e0e0 !important; }
+.dark-mode .bg-light   { background-color: #252525 !important; color: #e0e0e0 !important; }
+.dark-mode .bg-primary { background-color: #1a4080 !important; }
+.dark-mode .bg-success { background-color: #0f4020 !important; }
+.dark-mode .bg-danger  { background-color: #6e1515 !important; }
+.dark-mode .bg-warning { background-color: #5c3c00 !important; }
+.dark-mode .bg-info    { background-color: #0a3d52 !important; }
+.dark-mode .bg-dark    { background-color: #111 !important; }
+/* Bootstrap 5.3 subtle */
+.dark-mode .bg-primary-subtle { background-color: #0d1f3c !important; }
+.dark-mode .bg-success-subtle { background-color: #0a2010 !important; }
+.dark-mode .bg-danger-subtle  { background-color: #250a0a !important; }
+.dark-mode .bg-warning-subtle { background-color: #251500 !important; }
+.dark-mode .bg-info-subtle    { background-color: #06202c !important; }
+
+/* --- Text Colors --- */
+.dark-mode .text-dark, .dark-mode .fw-bold.text-dark { color: #f0f0f0 !important; }
+.dark-mode .text-primary   { color: #8bb9fe !important; }
+.dark-mode .text-success   { color: #86c4a3 !important; }
+.dark-mode .text-danger    { color: #f29b9b !important; }
+.dark-mode .text-warning   { color: #ffc773 !important; }
+.dark-mode .text-info      { color: #7de1f7 !important; }
+.dark-mode .text-muted, .dark-mode .text-secondary { color: #9ba3ab !important; }
+.dark-mode h1,.dark-mode h2,.dark-mode h3,.dark-mode h4,.dark-mode h5,.dark-mode h6,.dark-mode label { color: #e0e0e0 !important; }
+/* text inside colored bg: ensure contrast */
+.dark-mode .bg-warning .text-dark, .dark-mode .card-header.bg-warning .text-dark { color: #ffc107 !important; }
+.dark-mode .bg-info    .text-dark, .dark-mode .card-header.bg-info    .text-dark { color: #7de1f7 !important; }
+.dark-mode .bg-success .text-dark, .dark-mode .card-header.bg-success .text-dark { color: #86c4a3 !important; }
+
+/* --- Alerts --- */
+.dark-mode .alert-primary { background-color: #0d1f3c !important; border-color: #1a4080 !important; color: #8bb9fe !important; }
+.dark-mode .alert-success { background-color: #0a2010 !important; border-color: #0f4020 !important; color: #86c4a3 !important; }
+.dark-mode .alert-danger  { background-color: #250a0a !important; border-color: #6e1515 !important; color: #f29b9b !important; }
+.dark-mode .alert-warning { background-color: #251500 !important; border-color: #5c3c00 !important; color: #ffc773 !important; }
+.dark-mode .alert-info    { background-color: #06202c !important; border-color: #0a3d52 !important; color: #7de1f7 !important; }
+.dark-mode .alert.bg-info-subtle { background-color: #06202c !important; color: #7de1f7 !important; }
+.dark-mode .alert .text-dark { color: #e0e0e0 !important; }
+.dark-mode .alert .text-info  { color: #7de1f7 !important; }
+
+/* --- Badges --- */
+.dark-mode .badge.bg-light, .dark-mode span.bg-light.badge { background-color: #333 !important; color: #e0e0e0 !important; }
+.dark-mode .badge.bg-white  { background-color: #2d2d2d !important; color: #e0e0e0 !important; }
+.dark-mode .badge.text-dark, .dark-mode .badge.text-bg-light { color: #e0e0e0 !important; }
+
+/* --- Tables --- */
+.dark-mode .table { color: #e0e0e0 !important; border-color: #333 !important; }
+.dark-mode .table th, .dark-mode .table td { border-color: #333 !important; }
+.dark-mode .table th:not([class*="col-highlight"]), .dark-mode .table td:not([class*="col-highlight"]) { background-color: transparent !important; }
+.dark-mode .table-hover tbody tr:hover { background-color: #2a2a2a !important; }
+/* Bootstrap table contextual rows */
+.dark-mode .table-primary { --bs-table-bg:#0d1f3c; --bs-table-striped-bg:#102240; --bs-table-hover-bg:#122545; --bs-table-color:#e0e0e0; border-color:#333; }
+.dark-mode .table-success { --bs-table-bg:#0a2010; --bs-table-color:#e0e0e0; border-color:#333; }
+.dark-mode .table-danger  { --bs-table-bg:#250a0a; --bs-table-color:#e0e0e0; border-color:#333; }
+.dark-mode .table-warning { --bs-table-bg:#251500; --bs-table-color:#e0e0e0; border-color:#333; }
+.dark-mode .table-info    { --bs-table-bg:#06202c; --bs-table-color:#e0e0e0; border-color:#333; }
+.dark-mode .table-light   { --bs-table-bg:#252525; --bs-table-color:#e0e0e0; border-color:#333; }
+.dark-mode .table-dark    { --bs-table-bg:#111;    --bs-table-color:#e0e0e0; border-color:#222; }
+
+/* --- Forms --- */
+.dark-mode input, .dark-mode select, .dark-mode textarea,
+.dark-mode .form-control, .dark-mode .form-select {
+  background-color: #2d2d2d !important; color: #fff !important; border-color: #444 !important;
+}
+.dark-mode input:focus, .dark-mode select:focus, .dark-mode textarea:focus,
+.dark-mode .form-control:focus, .dark-mode .form-select:focus {
+  background-color: #222 !important; border-color: #0d6efd !important;
+}
+.dark-mode input:disabled, .dark-mode input[readonly] { background-color: transparent !important; color: #8bb9fe !important; }
+.dark-mode ::placeholder { color: #666 !important; opacity: 1; }
+.dark-mode input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.7); }
+.dark-mode .input-group-text { background-color: #252525 !important; border-color: #444 !important; color: #adb5bd !important; }
+.dark-mode .form-check-label { color: #e0e0e0 !important; }
+.dark-mode .border-secondary-subtle { border-color: #444 !important; }
+
+/* --- Buttons --- */
+.dark-mode .btn-light { background-color: #2d2d2d !important; border-color: #444 !important; color: #e0e0e0 !important; }
+.dark-mode .btn-light:hover { background-color: #3d3d3d !important; color: #fff !important; }
+.dark-mode .btn-outline-secondary { color: #adb5bd !important; border-color: #555 !important; }
+.dark-mode .btn-outline-secondary:hover { background-color: #2d2d2d !important; color: #fff !important; }
+.dark-mode .btn-outline-dark { color: #e0e0e0 !important; border-color: #555 !important; }
+.dark-mode .btn-outline-dark:hover { background-color: #2d2d2d !important; color: #fff !important; }
+
+/* --- Tabs --- */
+.dark-mode .nav-tabs { border-color: #333 !important; }
+.dark-mode .nav-tabs .nav-link { color: #adb5bd !important; border-color: transparent !important; }
+.dark-mode .nav-tabs .nav-link:hover { background-color: #2d2d2d !important; border-color: #333 !important; color: #fff !important; }
+.dark-mode .nav-tabs .nav-link.active { background-color: #1e1e1e !important; color: #fff !important; border-color: #333 #333 #1e1e1e !important; }
 .dark-mode .nav-pills .nav-link { color: #a0a0a0; }
 .dark-mode .nav-pills .nav-link:hover { background-color: #2d2d2d; color: #fff; }
 .dark-mode .nav-pills .nav-link.active { background-color: #0d6efd; color: #fff; }
 
-/* Inputs & Forms */
-.dark-mode input, .dark-mode select, .dark-mode textarea { background-color: #2d2d2d !important; color: #fff !important; border-color: #444 !important; }
-.dark-mode input:focus, .dark-mode select:focus, .dark-mode textarea:focus { background-color: #222 !important; border-color: #0d6efd !important; }
+/* --- List Group --- */
+.dark-mode .list-group-item { background-color: #1e1e1e !important; border-color: #333 !important; color: #e0e0e0 !important; }
+.dark-mode .list-group-item-action:hover, .dark-mode .list-group-item-action:focus { background-color: #2d2d2d !important; color: #fff !important; }
+.dark-mode .list-group-item.active { background-color: #0d6efd !important; border-color: #0d6efd !important; }
 
-/* 🌟 ตารางในโหมดมืด (Dark Mode Tables & Sticky) */
-.dark-mode .table { color: #e0e0e0 !important; border-color: #333 !important; }
-.dark-mode .table th, .dark-mode .table td { border-color: #333 !important; background-color: transparent !important; }
-.dark-mode .table-hover tbody tr:hover { background-color: #2a2a2a !important; }
+/* --- Dropdown --- */
+.dark-mode .dropdown-menu { background-color: #1e1e1e !important; border-color: #333 !important; box-shadow: 0 4px 16px rgba(0,0,0,0.6) !important; }
+.dark-mode .dropdown-item { color: #e0e0e0 !important; }
+.dark-mode .dropdown-item:hover, .dark-mode .dropdown-item:focus { background-color: #2d2d2d !important; color: #fff !important; }
+.dark-mode .dropdown-divider { border-color: #333 !important; }
+.dark-mode .dropdown-header { color: #adb5bd !important; }
 
+/* --- Borders & Dividers --- */
+.dark-mode hr { border-color: #333 !important; opacity: 1; }
+.dark-mode .border, .dark-mode .border-bottom, .dark-mode .border-top,
+.dark-mode .border-start, .dark-mode .border-end { border-color: #333 !important; }
+
+/* --- Progress --- */
+.dark-mode .progress { background-color: #333 !important; }
+
+/* --- Accordion --- */
+.dark-mode .accordion-item { background-color: #1e1e1e !important; border-color: #333 !important; }
+.dark-mode .accordion-button { background-color: #1e1e1e !important; color: #e0e0e0 !important; box-shadow: none !important; }
+.dark-mode .accordion-button:not(.collapsed) { background-color: #252525 !important; color: #8bb9fe !important; }
+.dark-mode .accordion-button::after { filter: invert(0.8); }
+.dark-mode .accordion-body { background-color: #1e1e1e !important; color: #e0e0e0 !important; }
+
+/* --- Pagination --- */
+.dark-mode .page-link { background-color: #1e1e1e !important; border-color: #333 !important; color: #8bb9fe !important; }
+.dark-mode .page-item.active .page-link { background-color: #0d6efd !important; border-color: #0d6efd !important; color: #fff !important; }
+.dark-mode .page-item.disabled .page-link { background-color: #1a1a1a !important; color: #555 !important; }
+
+/* --- Score Table (ปพ.5) --- */
 .dark-mode .grid-wrapper { border-color: #333; background: #1e1e1e; }
 .dark-mode .grid-scroll-container::-webkit-scrollbar-track { background: #1a1a1a; border-top: 1px solid #333; }
 .dark-mode .grid-scroll-container::-webkit-scrollbar-thumb { background: #444; border: 3px solid #1a1a1a; }
 .dark-mode .grid-scroll-container::-webkit-scrollbar-thumb:hover { background: #666; }
-
-/* ล็อกคอลัมน์และหัวตารางโหมดมืด 2 ชั้น */
 .dark-mode .sticky-col-1, .dark-mode .sticky-col-2, .dark-mode .sticky-head-1, .dark-mode .sticky-head-2 { background: #1e1e1e !important; box-shadow: inset -1px 0 0 #333, inset 0 -1px 0 #333 !important; }
 .dark-mode .sticky-col-2, .dark-mode .sticky-head-2 { box-shadow: inset -1px 0 0 #333, inset 0 -1px 0 #333, 4px 0 6px -2px rgba(0,0,0,0.5) !important; }
-
 .dark-mode #scoreTableHeader tr:nth-child(1) th, .dark-mode .eval-header tr:nth-child(1) th,
-.dark-mode #scoreTableHeader tr:nth-child(2) th, .dark-mode .eval-header tr:nth-child(2) th { 
-    background: #1e1e1e !important; box-shadow: inset 0 -1px 0 #333; border-color: #333 !important; 
+.dark-mode #scoreTableHeader tr:nth-child(2) th, .dark-mode .eval-header tr:nth-child(2) th {
+  background: #1e1e1e !important; box-shadow: inset 0 -1px 0 #333; border-color: #333 !important;
 }
-
-/* ช่องกรอกคะแนนโหมดมืด */
 .dark-mode .score-cell-input, .dark-mode .eval-input, .dark-mode .qual-select { background-color: #2d2d2d !important; color: #fff !important; border-color: #444 !important; }
 .dark-mode .score-cell-input:focus, .dark-mode .eval-input:focus { background-color: #1a1a1a !important; color: #fff !important; }
-.dark-mode input:disabled, .dark-mode input[readonly] { background-color: transparent !important; color: #8bb9fe !important; }
+.dark-mode .col-highlight-f     { background-color: #0b151f !important; }
+.dark-mode .col-highlight-m     { background-color: #1a1607 !important; }
+.dark-mode .col-highlight-mr    { background-color: #1a0b0b !important; }
+.dark-mode .col-highlight-e     { background-color: #1f0f15 !important; }
+.dark-mode .col-highlight-total { background-color: #1e1e1e !important; }
+.dark-mode .col-highlight-grade { background-color: #0a1a10 !important; }
 
-/* ไฮไลท์ตารางโหมดมืด */
-.dark-mode .col-highlight-f { background-color: #0b151f !important; } 
-.dark-mode .col-highlight-m { background-color: #1a1607 !important; } 
-.dark-mode .col-highlight-mr { background-color: #1a0b0b !important; } 
-.dark-mode .col-highlight-e { background-color: #1f0f15 !important; } 
-.dark-mode .col-highlight-total { background-color: #1e1e1e !important; } 
-.dark-mode .col-highlight-grade { background-color: #0a1a10 !important; } 
-
-/* สีอักษรโหมดมืด */
-.dark-mode .text-dark, .dark-mode .fw-bold.text-dark { color: #f8f9fa !important; } 
-.dark-mode .text-primary { color: #8bb9fe !important; }
-.dark-mode .text-success { color: #86c4a3 !important; }
-.dark-mode .text-danger { color: #f29b9b !important; }
-.dark-mode .text-warning { color: #ffea8c !important; }
-.dark-mode .text-info { color: #7de1f7 !important; }
-.dark-mode .text-muted, .dark-mode .text-secondary { color: #adb5bd !important; }
-.dark-mode h1, .dark-mode h2, .dark-mode h3, .dark-mode h4, .dark-mode h5, .dark-mode h6, .dark-mode label { color: #e0e0e0 !important; }
+/* --- JS-rendered content: catch inline light backgrounds --- */
+/* card-body or div with white/light inline background */
+.dark-mode [style*="background: linear-gradient(to right, #ffffff"],
+.dark-mode [style*="background: linear-gradient(to right, #fff"],
+.dark-mode [style*="background-color: #e7f1ff"],
+.dark-mode [style*="background-color: #fff5f5"],
+.dark-mode [style*="background-color: #ffecec"],
+.dark-mode [style*="background: #fff5f5"],
+.dark-mode [style*="background: #ffecec"] {
+  background: #1e2a3a !important;
+  color: #e0e0e0 !important;
+}
+/* generic: any div/span/td with explicit white/light bg inline style */
+.dark-mode .card-body[style*="background"],
+.dark-mode div[style*="background-color: #f"],
+.dark-mode div[style*="background-color: rgb(255"],
+.dark-mode div[style*="background-color: white"] {
+  background-color: #1e1e1e !important;
+  color: #e0e0e0 !important;
+}
+/* progress background inline */
+.dark-mode div[style*="background-color: #e9ecef"] { background-color: #333 !important; }
+/* table row with inline light bg (JS-rendered report rows) */
+.dark-mode tr[style*="background-color: #e7f1ff"] { background-color: #0d1f3c !important; color: #e0e0e0 !important; }
+/* fw-bold without explicit color — ensure readable */
+.dark-mode .fw-bold:not([class*="text-"]):not([style*="color"]) { color: inherit; }
+/* small text divs */
+.dark-mode .small { color: inherit; }
+/* links */
+.dark-mode a:not(.btn):not(.nav-link):not(.nav-link-custom):not(.dropdown-item) { color: #8bb9fe; }
 
 /* ==========================================
    📱 7. RESPONSIVE (มือถือ)
