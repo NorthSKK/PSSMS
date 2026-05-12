@@ -1120,4 +1120,83 @@ function adminRemoveMemberBtn(studentId, studentName) {
   }).adminRemoveMember(_currentClubForMembers.clubId, studentId);
 }
 
+// --- Export / Print ---
+function exportClubsPrint() {
+  const user = JSON.parse(localStorage.getItem('pssms_user') || sessionStorage.getItem('pssms_user'));
+  if (!_clubList.length) { alert('ยังไม่มีชุมนุมในเทอมนี้'); return; }
+  google.script.run.withSuccessHandler(payload => {
+    if (!payload || !payload.clubs) { alert('ไม่สามารถดึงข้อมูลได้'); return; }
+    const win = window.open('', '_blank');
+    let body = `<h1 style="text-align:center;">รายชื่อสมาชิกชุมนุม (ทั้งหมด)</h1>
+      <h3 style="text-align:center;">ภาคเรียนที่ ${payload.term} ปีการศึกษา ${payload.year}</h3>
+      <p style="text-align:center;">จำนวน ${payload.clubs.length} ชุมนุม · พิมพ์เมื่อ ${new Date().toLocaleString('th-TH')}</p>`;
+    payload.clubs.forEach(c => {
+      const advText = (c.advisors || []).map(a => a.teacherName).filter(Boolean).join(', ') || '-';
+      body += `<div style="page-break-after: always;">
+        <h2 style="margin-top:30px; border-bottom: 2px solid #333; padding-bottom: 4px;">${escapeHtmlSafe(c.clubName)}</h2>
+        <table style="width:100%; margin-bottom: 8px; font-size: 0.95em;"><tr>
+          <td><strong>ครูที่ปรึกษา:</strong> ${escapeHtmlSafe(advText)}</td>
+          <td style="text-align:right;"><strong>สมาชิก:</strong> ${c.members.length}${c.capacity ? '/' + c.capacity : ''} คน</td>
+        </tr></table>`;
+      if (!c.members.length) {
+        body += '<p><em>(ยังไม่มีสมาชิก)</em></p>';
+      } else {
+        const byClass = {};
+        c.members.forEach(m => { (byClass[m.className] = byClass[m.className] || []).push(m); });
+        Object.keys(byClass).sort().forEach(cls => {
+          body += `<h4 style="margin-top:14px;">ห้อง ${escapeHtmlSafe(cls)} (${byClass[cls].length} คน)</h4>
+            <table style="width:100%; border-collapse: collapse; font-size: 0.9em;"><thead><tr style="background:#eee;">
+              <th style="border:1px solid #999; padding:4px;">ที่</th>
+              <th style="border:1px solid #999; padding:4px;">รหัสประจำตัว</th>
+              <th style="border:1px solid #999; padding:4px;">ชื่อ-สกุล</th>
+              <th style="border:1px solid #999; padding:4px;">ลายเซ็น</th>
+            </tr></thead><tbody>`;
+          byClass[cls].forEach((m, i) => {
+            body += `<tr>
+              <td style="border:1px solid #999; padding:4px; text-align:center;">${i+1}</td>
+              <td style="border:1px solid #999; padding:4px;">${escapeHtmlSafe(m.studentId)}</td>
+              <td style="border:1px solid #999; padding:4px;">${escapeHtmlSafe(m.studentName)}</td>
+              <td style="border:1px solid #999; padding:4px;">&nbsp;</td>
+            </tr>`;
+          });
+          body += '</tbody></table>';
+        });
+      }
+      body += '</div>';
+    });
+    win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>รายชื่อชุมนุม ${payload.term}/${payload.year}</title>
+      <style>body{font-family:"Sarabun","Kanit",sans-serif;padding:20px;}</style></head><body>${body}
+      <script>window.onload=()=>window.print();<\/script></body></html>`);
+    win.document.close();
+  }).exportClubsForTerm(user.currentTerm, user.currentYear);
+}
+
+function exportClubsCSV() {
+  const user = JSON.parse(localStorage.getItem('pssms_user') || sessionStorage.getItem('pssms_user'));
+  google.script.run.withSuccessHandler(payload => {
+    if (!payload || !payload.clubs) { alert('ไม่สามารถดึงข้อมูลได้'); return; }
+    let csv = '﻿'; // UTF-8 BOM for Excel Thai support
+    csv += 'ชุมนุม,ครูที่ปรึกษา,รหัสประจำตัว,ชื่อ-สกุล,ห้อง,สมัครเมื่อ,สมัครโดย\n';
+    payload.clubs.forEach(c => {
+      const advText = (c.advisors || []).map(a => a.teacherName).filter(Boolean).join('; ') || '-';
+      if (!c.members.length) {
+        csv += `"${csvEsc(c.clubName)}","${csvEsc(advText)}",,,,(ไม่มีสมาชิก),\n`;
+      } else {
+        c.members.forEach(m => {
+          const dt = m.registeredAt ? new Date(m.registeredAt).toLocaleString('th-TH') : '';
+          csv += `"${csvEsc(c.clubName)}","${csvEsc(advText)}","${csvEsc(m.studentId)}","${csvEsc(m.studentName)}","${csvEsc(m.className)}","${csvEsc(dt)}","${csvEsc(m.registeredBy || '')}"\n`;
+        });
+      }
+    });
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `ชุมนุม_${payload.term}-${payload.year}.csv`;
+    document.body.appendChild(a); a.click();
+    setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 500);
+  }).exportClubsForTerm(user.currentTerm, user.currentYear);
+}
+
+function csvEsc(s) { return String(s == null ? '' : s).replace(/"/g, '""'); }
+
 </script>

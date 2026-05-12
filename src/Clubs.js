@@ -466,6 +466,38 @@ function adminBulkAssign(clubId, studentIds) {
 // ==========================================
 // Dropdown helpers
 // ==========================================
+/**
+ * Export all clubs + members + advisors for given term/year as a structured
+ * payload the frontend can render into print/excel.
+ */
+function exportClubsForTerm(term, year) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var clubs = getClubList(term, year);
+  var memberSheet = ss.getSheetByName(CLUB_MEMBER_SHEET);
+  var membersByClub = {};
+  if (memberSheet) {
+    var data = memberSheet.getDataRange().getValues();
+    for (var i = 1; i < data.length; i++) {
+      if (String(data[i][4]) !== String(term) || String(data[i][5]) !== String(year)) continue;
+      var cid = String(data[i][0]);
+      if (!membersByClub[cid]) membersByClub[cid] = [];
+      membersByClub[cid].push({
+        studentId: String(data[i][1]).replace(/'/g, '').trim(),
+        studentName: String(data[i][2]),
+        className: String(data[i][3]),
+        registeredAt: data[i][6],
+        registeredBy: data[i][7]
+      });
+    }
+  }
+  clubs.forEach(function(c) { c.members = membersByClub[c.clubId] || []; });
+  return {
+    term: String(term), year: String(year),
+    clubs: clubs,
+    generatedAt: new Date()
+  };
+}
+
 function getTeacherListForClubDropdown() {
   return getCached('teacher_list_dropdown', 300, function() {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
