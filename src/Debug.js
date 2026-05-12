@@ -75,3 +75,7 @@ function debugPing() {
     tz: Session.getScriptTimeZone()
   };
 }
+
+// One-click wrappers for GAS Editor "Run" button (no args needed)
+function _enableDebug() { return setDebugMode(true); }
+function _disableDebug() { return setDebugMode(false); }
