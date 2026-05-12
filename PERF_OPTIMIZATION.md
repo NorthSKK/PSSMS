@@ -295,8 +295,55 @@ Per call savings: ~100ms + ~80ms = **~180ms** for these 2 hot functions.
 
 - Commit: (pending)
 
-## Phase 6: Precompute reports
-- Status: pending
+## Phase 6: Precompute reports ✅
+
+**Goal**: time-trigger คำนวณ heavy dashboards ตอน 02:00 ทุกคืน → frontend ดึงจาก snapshot.
+
+### Files
+- New: `src/Precompute.js`
+- Edited: `src/Code.js` (เพิ่ม readComputed check ใน 2 functions)
+
+### Design
+- **Sheet `_Computed_Cache`** auto-created — columns: `Key | Type | TeacherId | Term | Year | UpdatedAt | PayloadJSON`
+- **Key format**: `<type>|<teacherIdLower>|<term>|<year>`
+- **Types**: `risk` + `atRisk`
+
+### Functions
+- `ensureComputedCacheSheet()` — auto-create sheet + header
+- `readComputed(type, teacherId, term, year, maxAgeMs)` — lookup, return null if missing/stale
+- `writeComputed(type, teacherId, term, year, payload)` — upsert (overwrite if key exists)
+- `_listActiveTeachingContexts()` — distinct (teacher, term, year) tuples from Timetable_Database
+- `precomputeNightly()` — main job: loop contexts, compute risk + atRisk, save. Time-budgeted 5 min
+- `precomputeNow()` — manual trigger สำหรับ admin/test
+- `setupPrecomputeTrigger()` — install daily trigger at 02:00 (run once)
+
+### Hot path integration
+`getTeacherRiskDashboard` + `getTeacherAtRiskDashboard` ตอนนี้ check `readComputed()` ก่อน:
+- HIT (cache อายุ ≤ 12 ชม.) → return ทันที (~10ms)
+- MISS / stale → live compute เหมือนเดิม
+
+### Setup
+ใน GAS Editor:
+1. รัน `setupPrecomputeTrigger()` ครั้งเดียว → ตั้ง trigger
+2. รัน `precomputeNow()` ครั้งแรกเพื่อ prime _Computed_Cache
+3. หลังจากนั้นทุกคืน 02:00 → auto refresh
+
+### Expected impact
+- Risk dashboard live compute ~3-5s → cache hit ~10ms (**~99% faster**)
+- ครู login เช้ามา → dashboard load ใน <500ms (จากที่เคย 3-5s)
+- Trade-off: data ตอนเช้า represents เมื่อคืน — เหมาะกับ dashboard summary (ไม่ใช่ realtime)
+
+### Safety
+- Trigger time-budgeted 5 นาที (under GAS 6-min limit)
+- Live fallback ถ้า cache miss
+- ครู save grade ใหม่ → cache 12h ยังคงอยู่ แต่ live compute เมื่อ TTL expires (Phase 2 cache invalidate ครอบ getCalendarEvents/users, ไม่ครอบ _Computed_Cache โดยตรง)
+
+### Verification
+- รัน `precomputeNow()` ใน GAS Editor → ดู return summary
+- เช็ก `_Computed_Cache` sheet → มี rows
+- เปิด dashboard ดู log `[PRECOMP] risk HIT age=Xms`
+
+- Commit: (pending)
 
 ## Phase 7: Frontend optimizations
 - Status: pending

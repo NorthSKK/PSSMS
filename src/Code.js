@@ -496,10 +496,19 @@ function importTeacherCSV(base64Data) {
 // ==========================================
 
 function getTeacherAtRiskDashboard(teacherId, term, year) {
+  // Phase 6: read precomputed snapshot if fresh enough (12h)
+  try {
+    var cached = (typeof readComputed === 'function') ? readComputed('atRisk', teacherId, term, year, 12 * 3600 * 1000) : null;
+    if (cached && cached.ok) {
+      if (typeof debugLog === 'function') debugLog('PRECOMP', 'atRisk HIT age=' + cached.ageMs + 'ms');
+      return cached.data;
+    }
+  } catch (e) {}
+
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const attSheet = ss.getSheetByName("Attendance_Database");
   const timeSheet = ss.getSheetByName("Timetable_Database");
-  
+
   const attData = attSheet ? attSheet.getDataRange().getDisplayValues() : [];
   const timeData = timeSheet ? timeSheet.getDataRange().getDisplayValues() : [];
 
@@ -2470,6 +2479,15 @@ function getTodayMorningSummary(teacherId, term, year) {
 // ==========================================
 function getTeacherRiskDashboard(teacherId, term, year) {
   return withTiming('getTeacherRiskDashboard', function() {
+  // Phase 6: read precomputed snapshot if fresh enough (12h)
+  try {
+    var cached = (typeof readComputed === 'function') ? readComputed('risk', teacherId, term, year, 12 * 3600 * 1000) : null;
+    if (cached && cached.ok) {
+      if (typeof debugLog === 'function') debugLog('PRECOMP', 'risk HIT age=' + cached.ageMs + 'ms');
+      return cached.data;
+    }
+  } catch (e) {}
+
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const normID = (id) => { let clean = String(id).replace(/[^a-zA-Z0-9]/g, '').replace(/^0+/, ''); return clean || '0'; };
