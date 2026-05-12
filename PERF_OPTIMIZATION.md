@@ -345,8 +345,41 @@ Per call savings: ~100ms + ~80ms = **~180ms** for these 2 hot functions.
 
 - Commit: (pending)
 
-## Phase 7: Frontend optimizations
-- Status: pending
+## Phase 7: Frontend optimizations ✅
+
+**Goal**: ลด UI jank ตอนค้นหา + ลด DOM re-render ซ้ำซ้อน.
+
+### Helpers added (`src/Scripts_Core.html`)
+- `window.debounce(fn, wait)` — delay execution, reset on each call
+- `window.throttle(fn, limit)` — cap to max-rate
+
+### Search inputs debounced (180ms)
+| Function | File | Before |
+|---|---|---|
+| `filterTable` | Scripts_Admin.html (Page_Admin_Users) | re-filter on every keystroke (instant) |
+| `filterCurriculumTable` | Scripts_Admin.html (Page_Admin_Curriculum) | every keystroke |
+| `filterLessonHistory` | Scripts_Academic.html (Page_Lesson_History) | every keystroke |
+| `filterSarabunData` | Scripts_General.html (Page_General) | every keystroke + 3 inputs |
+
+Pattern: rename original to `_xxxImpl()`, assign `window.xxx = debounce(_xxxImpl, 180)`. `onkeyup="xxx()"` continues to work because we patch global. Falls back to non-debounced if `debounce` undefined.
+
+### Other findings (already optimal)
+- `autoSaveTimer` ใน Scripts_Score.html — debounce 3s แล้ว ✓
+- `safeRun()` ใน Scripts_Core.html — มี auto-retry (Phase -1 patched ให้ timing)
+- `sessionStorage` caching ใน Scripts_Teacher.html dashboard — ทำแล้ว ✓
+
+### Lazy load Scripts (deferred)
+ครูถูกบังคับโหลด Admin/Score/Calendar scripts ทั้งหมด (~351 KB). Lazy load จำเป็นต้อง refactor `<?!= include() ?>` → dynamic script injection — invasive. ปัจจุบัน gzipped delivery < 100 KB, browser parse ~100-200ms. ROI ต่ำเทียบกับ effort. **Deferred — revisit เมื่อ profiling ระบุว่า initial load > 2s**.
+
+### Expected impact
+- พิมพ์ค้นหาเร็วๆ (>5 keystroke/s) → DOM re-render ลด ~90% (1 ครั้งหลัง 180ms นิ่ง vs ทุก keystroke)
+- UI ลื่นขึ้นบน mobile/old computer
+
+### Verification
+- เปิด Console → พิมพ์ค้นหา 10 keystroke/s → ดู `[CALL]` log ใน debug panel ไม่มี (ฟังก์ชัน client-side)
+- DOM render visibly smooth
+
+- Commit: (pending)
 
 ## Phase 8: Finalize
 - Status: pending

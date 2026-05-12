@@ -1077,11 +1077,12 @@ function initLessonHistoryPage() {
     .getDetailedLessonRecords(user.id, user.currentTerm, user.currentYear);
 }
 
-function filterLessonHistory() {
+function _filterLessonHistoryImpl() {
   const keyword = document.getElementById('searchLessonHistory').value.toLowerCase();
   const filtered = allLessonHistories.filter(item => item.subjectCode.toLowerCase().includes(keyword) || item.subjectName.toLowerCase().includes(keyword) || item.className.toLowerCase().includes(keyword) || item.topic.toLowerCase().includes(keyword));
   renderLessonHistoryCards(filtered);
 }
+window.filterLessonHistory = (typeof debounce === 'function') ? debounce(_filterLessonHistoryImpl, 180) : _filterLessonHistoryImpl;
 
 function renderLessonHistoryCards(data) {
   const container = document.getElementById('lessonHistoryContainer'); if(!container) return;

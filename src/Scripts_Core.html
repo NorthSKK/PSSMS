@@ -68,6 +68,29 @@ window.pssmsDebugPanelAppend = function(tag, msg) {
 };
 
 // ==========================================
+// 0.1 Debounce / Throttle helpers (Phase 7)
+// ==========================================
+window.debounce = function(fn, wait) {
+  let t;
+  return function() {
+    const ctx = this, args = arguments;
+    clearTimeout(t);
+    t = setTimeout(function() { fn.apply(ctx, args); }, wait || 250);
+  };
+};
+
+window.throttle = function(fn, limit) {
+  let inFlight = false, lastArgs;
+  return function() {
+    lastArgs = arguments;
+    if (inFlight) return;
+    inFlight = true;
+    fn.apply(this, lastArgs);
+    setTimeout(function() { inFlight = false; }, limit || 200);
+  };
+};
+
+// ==========================================
 // 1. Core System & UI
 // ==========================================
 window.onload = function() {

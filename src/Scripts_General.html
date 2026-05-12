@@ -255,22 +255,22 @@ window.renderSarabunTable = function(dataList) {
     tbody.innerHTML = html;
 };
 
-// 🌟 6. ฟังก์ชันค้นหาและกรองข้อมูล
-window.filterSarabunData = function() {
+// 🌟 6. ฟังก์ชันค้นหาและกรองข้อมูล (debounced 180ms — Phase 7)
+function _filterSarabunDataImpl() {
     const searchText = document.getElementById('searchSarabunText').value.toLowerCase();
     const filterType = document.getElementById('filterSarabunType').value;
     const startDate = document.getElementById('searchStartDate').value;
     const endDate = document.getElementById('searchEndDate').value;
 
     const filtered = allSarabunData.filter(row => {
-        const matchText = row.docNumber.toLowerCase().includes(searchText) || 
-                          row.subject.toLowerCase().includes(searchText) || 
+        const matchText = row.docNumber.toLowerCase().includes(searchText) ||
+                          row.subject.toLowerCase().includes(searchText) ||
                           (row.docFrom && row.docFrom.toLowerCase().includes(searchText)) ||
                           (row.docTo && row.docTo.toLowerCase().includes(searchText)) ||
                           (row.requester && row.requester.toLowerCase().includes(searchText));
-                          
+
         const matchType = (filterType === 'ALL') || (row.docType === filterType);
-        
+
         let matchDate = true;
         if (startDate && endDate) {
             matchDate = (row.targetDate >= startDate && row.targetDate <= endDate);
@@ -284,7 +284,8 @@ window.filterSarabunData = function() {
     });
 
     renderSarabunTable(filtered);
-};
+}
+window.filterSarabunData = (typeof debounce === 'function') ? debounce(_filterSarabunDataImpl, 180) : _filterSarabunDataImpl;
 
 // 🌟 7. ฟังก์ชันจัดการการอัปโหลดไฟล์ (ทำงานซ่อนหลังบ้าน)
 window.handleSarabunFileUpload = function(event) {

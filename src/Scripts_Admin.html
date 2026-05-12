@@ -220,11 +220,12 @@ function confirmDelete(id) {
   if(confirm('ยืนยันลบ ' + id + '?')) { showLoader(true); google.script.run.withSuccessHandler(res => { showLoader(false); alert(res.message); loadUserData(); }).deleteUser(id); }
 }
 
-function filterTable() {
+function _filterTableImpl() {
   const input = document.getElementById('searchInput').value.toLowerCase();
   const filtered = allUsers.filter(r => String(r[0]).toLowerCase().includes(input) || String(r[2]).toLowerCase().includes(input) || String(r[4]).toLowerCase().includes(input));
   renderTable(filtered);
 }
+window.filterTable = (typeof debounce === 'function') ? debounce(_filterTableImpl, 180) : _filterTableImpl;
 
 function handleFileUpload(input, type) {
   const file = input.files[0];
@@ -661,15 +662,16 @@ function renderCurriculumTable(data) {
   tbody.innerHTML = html;
 }
 
-function filterCurriculumTable() {
+function _filterCurriculumTableImpl() {
   const keyword = document.getElementById('searchCurriculum').value.toLowerCase();
-  const filtered = allCurriculumData.filter(item => 
-    String(item.subjectCode).toLowerCase().includes(keyword) || 
-    String(item.standardCode).toLowerCase().includes(keyword) || 
+  const filtered = allCurriculumData.filter(item =>
+    String(item.subjectCode).toLowerCase().includes(keyword) ||
+    String(item.standardCode).toLowerCase().includes(keyword) ||
     String(item.description).toLowerCase().includes(keyword)
   );
   renderCurriculumTable(filtered);
 }
+window.filterCurriculumTable = (typeof debounce === 'function') ? debounce(_filterCurriculumTableImpl, 180) : _filterCurriculumTableImpl;
 
 function uploadCurriculumCSV() {
   const fileInput = document.getElementById('csvCurriculumFile');
