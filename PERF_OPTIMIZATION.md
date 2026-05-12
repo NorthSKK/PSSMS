@@ -172,8 +172,32 @@
 
 - Commit: (pending)
 
-## Phase 3: PropertiesService term/year
-- Status: pending
+## Phase 3: PropertiesService term/year ✅
+
+**Goal**: sub-millisecond accessor สำหรับ active term/year (ใช้บ่อยที่สุด).
+
+### Helper added (`src/Cache.js`)
+- `getActiveTermYear()` — อ่าน term + year จาก `ScriptProperties` ทันที, fallback ไป `getSystemConfig()` ครั้งแรก แล้ว prime properties
+- `setActiveTermYear(term, year)` — เซต properties
+
+### Sync hook
+- `saveSystemConfig()` → เรียก `setActiveTermYear(term, year)` หลัง invalidateCache
+
+### Caller migrated
+- `getStudentsByClass` — เดิมเรียก `getSystemConfig()` แค่เพื่อเอา `.year` → ตอนนี้ใช้ `getActiveTermYear()`
+
+### Why not migrate every caller?
+Phase 2 cache ทำให้ `getSystemConfig` HIT ใช้แค่ ~5ms อยู่แล้ว — gain จาก Properties path ~3-4ms ต่อ call. Migrate เฉพาะ hot path ที่เรียกบ่อย (`getStudentsByClass`). ฟังก์ชันที่ต้องการ `termHistory`/`termStart`/`termEnd` ยังคงใช้ `getSystemConfig` (cached).
+
+### Verification
+- เปิด `?debug=1` → ดู log ในรอบแรก: `[PROPS] MISS term/year — fallback` → รอบสอง: `[PROPS] HIT term/year`
+- Admin save term ใหม่ → `setActiveTermYear` log + ครู refresh ต้องเห็น term ใหม่ทันที (ไม่รอ cache 5 min)
+
+### Expected impact
+- `getStudentsByClass` ต่ำลง ~3-4ms ต่อ call (เรียก 5-10 ครั้ง/dashboard = ลด ~30ms)
+- Active term refresh ทันที (Properties + Cache invalidate ทำงานพร้อมกัน)
+
+- Commit: (pending)
 
 ## Phase 4: Sheets I/O batch
 - Status: pending

@@ -122,3 +122,55 @@ function getCacheStatus() {
     trackedKeys: PSSMS_TRACKED_KEYS
   };
 }
+
+// ==========================================
+// Fast-path: ACTIVE TERM / YEAR via PropertiesService
+// Reads are sub-millisecond. Use only when you need term/year (not full config).
+// ==========================================
+var PSSMS_ACTIVE_TERM_KEY = 'PSSMS_ACTIVE_TERM';
+var PSSMS_ACTIVE_YEAR_KEY = 'PSSMS_ACTIVE_YEAR';
+
+/**
+ * Fast active term + year accessor.
+ * Tries PropertiesService first; falls back to getSystemConfig() once if empty.
+ * @return {{term:string, year:string}}
+ */
+function getActiveTermYear() {
+  var props;
+  try { props = PropertiesService.getScriptProperties(); } catch (e) { props = null; }
+
+  if (props) {
+    var t = props.getProperty(PSSMS_ACTIVE_TERM_KEY);
+    var y = props.getProperty(PSSMS_ACTIVE_YEAR_KEY);
+    if (t && y) {
+      if (typeof debugLog === 'function') debugLog('PROPS', 'HIT term/year');
+      return { term: String(t), year: String(y) };
+    }
+  }
+
+  // Fallback — read from getSystemConfig (which is cached) and prime properties
+  if (typeof debugLog === 'function') debugLog('PROPS', 'MISS term/year — fallback');
+  var cfg = (typeof getSystemConfig === 'function') ? getSystemConfig() : { term: '1', year: '2568' };
+  if (props && cfg && cfg.term && cfg.year) {
+    try {
+      props.setProperty(PSSMS_ACTIVE_TERM_KEY, String(cfg.term));
+      props.setProperty(PSSMS_ACTIVE_YEAR_KEY, String(cfg.year));
+    } catch (e) {}
+  }
+  return { term: String(cfg.term || '1'), year: String(cfg.year || '2568') };
+}
+
+/**
+ * Write active term + year to PropertiesService.
+ * Called from saveSystemConfig (Phase 3 sync hook).
+ */
+function setActiveTermYear(term, year) {
+  try {
+    var props = PropertiesService.getScriptProperties();
+    props.setProperty(PSSMS_ACTIVE_TERM_KEY, String(term));
+    props.setProperty(PSSMS_ACTIVE_YEAR_KEY, String(year));
+    if (typeof debugLog === 'function') debugLog('PROPS', 'set term=' + term + ' year=' + year);
+  } catch (e) {
+    if (typeof debugLog === 'function') debugLog('PROPS_ERR', 'set: ' + e);
+  }
+}

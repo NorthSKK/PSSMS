@@ -265,6 +265,7 @@ function saveSystemConfig(term, year, startDate, endDate) {
     if (!termDataUpdated) sheet.appendRow(["TermData", targetKey, startDate, endDate]);
 
     invalidateCacheKeys(['system_config', 'available_terms', 'all_users']);
+    setActiveTermYear(term, year);
 
     return { status: 'success', message: `✅ บันทึกและตั้งเป็นภาคเรียนปัจจุบัน (${term}/${year}) เรียบร้อย` };
   } catch(e) {
@@ -744,13 +745,13 @@ function getStudentsByClass(className, year) {
   return withTiming('getStudentsByClass', function() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName("User_Database");
-  const config = getSystemConfig();
+  const active = getActiveTermYear();
   if (!sheet) return [];
 
   const data = sheet.getDataRange().getDisplayValues();
   const targetClass = normalizeClassName(className);
-  const targetYear = String(year || config.year).trim();
-  const isHistorical = targetYear !== String(config.year).trim();
+  const targetYear = String(year || active.year).trim();
+  const isHistorical = targetYear !== String(active.year).trim();
 
   const isStudentRow = (r) => {
     const role = String(r[3]).trim().toLowerCase();
