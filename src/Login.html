@@ -1,41 +1,45 @@
 <div class="container">
   <div class="row min-vh-100 align-items-center justify-content-center">
     <div class="col-md-5 col-lg-4">
-      <div class="card p-4 shadow-lg text-center">
+      <div class="pssms-card p-4 text-center" style="background: #fff;">
         <div class="mb-4">
-          <img src="https://cdn-icons-png.flaticon.com/512/3135/3135715.png" width="80" class="mb-3">
-          <h3 class="fw-bold">PSSMS Login</h3>
-          <p class="text-muted">โรงเรียนภูพระบาทวิทยา</p>
+          <div class="rounded-circle d-inline-flex justify-content-center align-items-center mb-3" style="width: 72px; height: 72px; background: var(--p-accent-soft); border: 1px solid var(--p-border);">
+            <i class="fas fa-school fa-lg" style="color: var(--p-accent);"></i>
+          </div>
+          <h4 class="fw-bold mb-1" style="letter-spacing: -0.01em;">PSSMS</h4>
+          <p class="text-muted small mb-0">โรงเรียนภูพระบาทวิทยา</p>
         </div>
-        
+
         <div class="form-floating mb-3 text-start">
           <input type="text" class="form-control" id="username" placeholder="Username" onkeydown="if(event.key === 'Enter') document.getElementById('password').focus()">
           <label for="username"><i class="fas fa-user me-2"></i>รหัสผู้ใช้งาน</label>
         </div>
-        
+
         <div class="form-floating mb-3 text-start position-relative">
-          <input type="password" class="form-control" id="password" placeholder="Password" 
-                 style="padding-right: 45px;" 
-                 onkeydown="if(event.key === 'Enter') processLogin()"> <label for="password"><i class="fas fa-lock me-2"></i>รหัสผ่าน</label>
-          
-          <span class="position-absolute top-50 end-0 translate-middle-y me-3" 
-                style="cursor: pointer; color: #6c757d; z-index: 10;" 
+          <input type="password" class="form-control" id="password" placeholder="Password"
+                 style="padding-right: 45px;"
+                 onkeydown="if(event.key === 'Enter') processLogin()">
+          <label for="password"><i class="fas fa-lock me-2"></i>รหัสผ่าน</label>
+
+          <span class="position-absolute top-50 end-0 translate-middle-y me-3"
+                style="cursor: pointer; color: var(--p-text-muted); z-index: 10;"
                 onclick="togglePasswordVisibility()">
             <i id="toggleIcon" class="fas fa-eye-slash"></i>
           </span>
         </div>
 
         <div class="form-check mb-3 text-start ms-2">
-          <input class="form-check-input" type="checkbox" id="rememberMe" 
-                 onkeydown="if(event.key === 'Enter') processLogin()"> <label class="form-check-label text-muted" for="rememberMe">
+          <input class="form-check-input" type="checkbox" id="rememberMe"
+                 onkeydown="if(event.key === 'Enter') processLogin()">
+          <label class="form-check-label text-muted small" for="rememberMe">
             จำรหัสผ่าน / เข้าสู่ระบบค้างไว้
           </label>
         </div>
 
-        <button class="btn btn-primary w-100 py-3 rounded-pill fw-bold shadow-sm" onclick="processLogin()">
+        <button class="btn btn-accent w-100 py-2 fw-medium" onclick="processLogin()">
           เข้าสู่ระบบ
         </button>
-        
+
         <div class="mt-4 small text-muted">
           พัฒนาโดย: ครูน๊อต ศิกษก เดินรีบรัมย์
         </div>
@@ -48,15 +52,15 @@
   function togglePasswordVisibility() {
     const passwordInput = document.getElementById('password');
     const toggleIcon = document.getElementById('toggleIcon');
-    
+
     if (passwordInput.type === 'password') {
-      passwordInput.type = 'text'; // เปลี่ยนเป็นโชว์ตัวหนังสือ
+      passwordInput.type = 'text';
       toggleIcon.classList.remove('fa-eye-slash');
-      toggleIcon.classList.add('fa-eye'); // เปลี่ยนรูปตาเปิด
+      toggleIcon.classList.add('fa-eye');
     } else {
-      passwordInput.type = 'password'; // เปลี่ยนเป็นจุดๆ
+      passwordInput.type = 'password';
       toggleIcon.classList.remove('fa-eye');
-      toggleIcon.classList.add('fa-eye-slash'); // เปลี่ยนรูปตาปิด
+      toggleIcon.classList.add('fa-eye-slash');
     }
   }
 </script>
