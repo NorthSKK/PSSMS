@@ -1,27 +1,79 @@
-<div class="container-fluid py-4 animate__animated animate__fadeIn">
-  <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
+<style>
+/* Calendar — minimal modern theme */
+#calendarPageWrap { --cal-accent: #e83e8c; --cal-border: #eef0f3; --cal-muted: #8a93a4; }
+#calendarPageWrap .fc { font-family: inherit; }
+#calendarPageWrap .fc-toolbar.fc-header-toolbar { margin-bottom: 1rem; }
+#calendarPageWrap .fc-toolbar-title { font-size: 1.15rem; font-weight: 600; color: #222; letter-spacing: -0.01em; }
+#calendarPageWrap .fc-button {
+    background: transparent !important; border: 1px solid var(--cal-border) !important;
+    color: #444 !important; font-weight: 500 !important; text-transform: none !important;
+    padding: 0.32rem 0.85rem !important; box-shadow: none !important; border-radius: 8px !important;
+    font-size: 0.85rem !important; transition: all 0.15s;
+}
+#calendarPageWrap .fc-button:hover { background: #f6f8fa !important; border-color: #dde1e6 !important; color: #111 !important; }
+#calendarPageWrap .fc-button-primary:not(:disabled).fc-button-active,
+#calendarPageWrap .fc-button-primary:not(:disabled):active {
+    background: #111 !important; color: #fff !important; border-color: #111 !important;
+}
+#calendarPageWrap .fc-today-button { font-weight: 600 !important; }
+#calendarPageWrap .fc-prev-button, #calendarPageWrap .fc-next-button { padding: 0.32rem 0.6rem !important; }
+#calendarPageWrap .fc-col-header-cell {
+    background: transparent; border: none; padding: 8px 4px;
+    font-weight: 500; font-size: 0.78rem; color: var(--cal-muted); text-transform: uppercase; letter-spacing: 0.04em;
+}
+#calendarPageWrap .fc-col-header-cell a { color: inherit; text-decoration: none; }
+#calendarPageWrap .fc-scrollgrid, #calendarPageWrap .fc-scrollgrid-section > * {
+    border-color: var(--cal-border) !important;
+}
+#calendarPageWrap .fc-daygrid-day { background: #fff; transition: background 0.12s; }
+#calendarPageWrap .fc-daygrid-day:hover { background: #fafbfc; }
+#calendarPageWrap .fc-day-today { background: #fff4f7 !important; }
+#calendarPageWrap .fc-day-today .fc-daygrid-day-number { color: var(--cal-accent); font-weight: 700; }
+#calendarPageWrap .fc-daygrid-day-number {
+    font-size: 0.82rem; color: #444; padding: 6px 8px; font-weight: 500;
+}
+#calendarPageWrap .fc-day-other .fc-daygrid-day-number { color: #c8ccd1; }
+#calendarPageWrap .fc-daygrid-event {
+    border-radius: 4px !important; border: none !important; padding: 2px 6px !important;
+    font-size: 0.72rem !important; font-weight: 500;
+    margin: 1px 4px !important; box-shadow: none !important;
+}
+#calendarPageWrap .fc-event-title { font-weight: 500 !important; }
+#calendarPageWrap .fc-list-event:hover td { background: #f6f8fa !important; }
+#calendarPageWrap .fc-list-day-cushion { background: #fafbfc !important; }
+#calendarPageWrap .fc-list-event-dot { border-width: 5px !important; }
+#calendarPageWrap .fc-list-empty { background: #fafbfc; color: var(--cal-muted); }
+#calendarPageWrap .fc-popover { border-radius: 10px; border-color: var(--cal-border); box-shadow: 0 4px 16px rgba(0,0,0,0.06); }
+.cal-legend-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
+</style>
+
+<div class="container-fluid py-4 animate__animated animate__fadeIn" id="calendarPageWrap">
+  <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-start mb-3 gap-3">
     <div>
-      <h4 class="fw-bold mb-1" style="color: #e83e8c;"><i class="fas fa-calendar-alt me-2"></i>ปฏิทินปฏิบัติงานโรงเรียน</h4>
-      <p class="text-muted small mb-0">ดูและจัดการแผนปฏิบัติงาน, วันหยุด, และกิจกรรมต่างๆ ภายในโรงเรียน</p>
+      <h4 class="fw-bold mb-1" style="letter-spacing: -0.01em;"><i class="fas fa-calendar-alt me-2" style="color: #e83e8c;"></i>ปฏิทินปฏิบัติงาน</h4>
+      <div class="d-flex flex-wrap gap-3 small text-muted">
+        <span><span class="cal-legend-dot" style="background:#0d6efd"></span>ทั่วไป</span>
+        <span><span class="cal-legend-dot" style="background:#198754"></span>วิชาการ</span>
+        <span><span class="cal-legend-dot" style="background:#ffc107"></span>ประชุม</span>
+        <span><span class="cal-legend-dot" style="background:#dc3545"></span>วันหยุด</span>
+        <span><span class="cal-legend-dot" style="background:#6f42c1"></span>ส่วนตัว</span>
+      </div>
     </div>
-    <div class="d-flex gap-2">
-      <button class="btn btn-outline-secondary shadow-sm fw-bold pssms-admin-only" onclick="initCalendarDB()">
-        <i class="fas fa-tools me-1"></i> Setup DB
+    <div class="d-flex gap-2 flex-wrap">
+      <button class="btn btn-light border fw-medium pssms-admin-only" onclick="initCalendarDB()" style="font-size:0.85rem;">
+        <i class="fas fa-tools me-1 text-muted"></i> Setup DB
       </button>
-      <button class="btn btn-outline-info shadow-sm fw-bold pssms-admin-only" onclick="openImportCalendarModal()">
-        <i class="fas fa-file-import me-1"></i> นำเข้าจากไฟล์
+      <button class="btn btn-light border fw-medium pssms-admin-only" onclick="openImportCalendarModal()" style="font-size:0.85rem;">
+        <i class="fas fa-file-import me-1 text-muted"></i> นำเข้า
       </button>
-      <button class="btn text-white shadow-sm fw-bold px-4" id="btnAddCalendarEvent" style="background-color: #e83e8c;" onclick="openCalendarModal('add')">
-        <i class="fas fa-plus-circle me-1"></i> <span id="btnAddCalendarEventLabel">เพิ่มกิจกรรม</span>
+      <button class="btn text-white fw-medium px-3" id="btnAddCalendarEvent" style="background-color: #e83e8c; font-size:0.85rem; border-radius:8px;" onclick="openCalendarModal('add')">
+        <i class="fas fa-plus me-1"></i> <span id="btnAddCalendarEventLabel">เพิ่มกิจกรรม</span>
       </button>
     </div>
   </div>
 
-  <!-- กล่องแสดงปฏิทิน -->
-  <div class="card border-0 shadow-sm rounded-4">
-    <div class="card-body p-4">
-      <div id="schoolCalendar" style="min-height: 600px;"></div>
-    </div>
+  <div class="bg-white rounded-3" style="border: 1px solid #eef0f3; padding: 16px;">
+    <div id="schoolCalendar" style="min-height: 640px;"></div>
   </div>
 </div>
 

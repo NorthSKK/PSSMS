@@ -48,9 +48,15 @@ window.initCalendarPage = function() {
             headerToolbar: {
                 left: 'prev,next today',
                 center: 'title',
-                right: 'dayGridMonth,timeGridWeek,listMonth'
+                right: 'dayGridMonth,listMonth'
             },
-            themeSystem: 'bootstrap5',
+            buttonText: { today: 'วันนี้', month: 'เดือน', week: 'สัปดาห์', list: 'รายการ' },
+            dayMaxEventRows: 3,
+            fixedWeekCount: false,
+            height: 'auto',
+            displayEventTime: false,
+            eventDisplay: 'block',
+            dayHeaderFormat: { weekday: 'short' },
             events: filteredEvents,
             editable: true,
             selectable: true,
