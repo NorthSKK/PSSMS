@@ -46,8 +46,54 @@
 
 ---
 
-## Phase 0: Baseline Audit
-- Status: pending
+## Phase 0: Baseline Audit ✅
+
+**Goal**: instrument hot path functions วัด baseline ก่อนปรับปรุง.
+
+### Audit findings
+- `src/Code.js` มี 84 top-level functions, ~3171 บรรทัด
+- ใช้ `getDataRange().getValues()` ทั่วทุก function (ดี — ไม่มี `getValue()` loops singular)
+- ปัญหาที่พบ:
+  - `getSystemConfig()` ถูกเรียกซ้ำในแทบทุก request → cache target
+  - `getStudentsByClass()` อ่าน User_Database + อาจอ่าน User_History_Database → expensive, ใช้บ่อยมาก
+  - `getAllInOneScoreGridData()` อ่าน 4 sheets (Subject_Config, User_Database, Grade_Summary, User_Database อีก) → heavy
+  - `getTeacherRiskDashboard()` ~200 บรรทัด, อ่าน Timetable + Grade_Summary + User_History
+  - `getMassiveAttendanceGrid()` scan Attendance_Database ทุก row → ปัญหาเมื่อ rows เยอะ
+
+### Functions wrapped with withTiming
+1. `getStudentsByClass` — Code.js:721
+2. `getSystemConfig` — Code.js:177
+3. `getAdminStats` — Code.js:346
+4. `getTeacherSubjects` — Code.js:1190
+5. `getMassiveAttendanceGrid` — Code.js:1367
+6. `getAllInOneScoreGridData` — Code.js:1945
+7. `getTeacherRiskDashboard` — Code.js:2450
+8. `getCalendarEvents` — Code.js:3004
+
+### How to read baseline
+1. เปิด debug:
+   - Backend: GAS Editor → run `setDebugMode(true)`
+   - Frontend: URL `?debug=1`
+2. ใช้งานปกติ (login → dashboard → score entry → ...)
+3. ดูค่าใน:
+   - Overlay debug panel ขวาล่าง — frontend latency
+   - `clasp logs` — backend `[PERF]` lines
+4. บันทึก timing สำคัญลงตาราง Baseline ด้านล่าง (รอ user เก็บข้อมูลจริง)
+
+### Baseline timings (เก็บภายหลังการใช้งาน)
+
+| Function | Avg ms | Sample size | Notes |
+|---|---|---|---|
+| getSystemConfig | TBD | — | จะ cache ใน Phase 2-3 |
+| getStudentsByClass | TBD | — | target cache ใน Phase 2 |
+| getAllInOneScoreGridData | TBD | — | batch read ใน Phase 4 |
+| getTeacherRiskDashboard | TBD | — | precompute ใน Phase 6 |
+| getMassiveAttendanceGrid | TBD | — | batch + pagination ใน Phase 4 |
+| getTeacherSubjects | TBD | — | cache ใน Phase 2 |
+| getCalendarEvents | TBD | — | cache 5 นาที ใน Phase 2 |
+| getAdminStats | TBD | — | bundle ใน Phase 5 |
+
+- Commit: (pending)
 
 ## Phase 1: Cleanup backup files
 - Status: pending

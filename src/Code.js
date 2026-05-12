@@ -175,12 +175,13 @@ function checkLogin(username, password) {
 }
 
 function getSystemConfig() {
+  return withTiming('getSystemConfig', function() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   let sheet = ss.getSheetByName("System_Settings");
   let config = { term: "1", year: "2568", termStart: "", termEnd: "", termHistory: {} };
-  
+
   if (!sheet) return config;
-  
+
   const data = sheet.getDataRange().getValues();
   
   // ตรวจสอบว่าเป็นโครงสร้างเก่าหรือไม่
@@ -217,8 +218,9 @@ function getSystemConfig() {
       config.termEnd = config.termHistory[currentKey].end;
     }
   }
-  
+
   return config;
+  });
 }
 
 function saveSystemConfig(term, year, startDate, endDate) {
@@ -342,8 +344,9 @@ function saveTodoList(userId, todosJSON) {
 }
 
 function getAdminStats() {
+  return withTiming('getAdminStats', function() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const config = getSystemConfig(); 
+  const config = getSystemConfig();
   const currentYear = String(config.year);
   const todayStr = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd");
 
@@ -369,6 +372,7 @@ function getAdminStats() {
   }
 
   return { academic: presenceCount > 0 ? 100 : 0, budget: budgetPercent, personnel: 0, general: 0 };
+  });
 }
 
 function getStudentSummaryStats() {
@@ -719,6 +723,7 @@ function normalizeClassName(c) {
 }
 
 function getStudentsByClass(className, year) {
+  return withTiming('getStudentsByClass', function() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName("User_Database");
   const config = getSystemConfig();
@@ -768,6 +773,7 @@ function getStudentsByClass(className, year) {
   }
 
   return filtered;
+  });
 }
 
 // Debug: เรียกจาก frontend เพื่อดูว่านักเรียนใน sheet มี class/role/status อะไรบ้าง
@@ -1184,6 +1190,7 @@ function getAllSubjectsReport(teacherId, term, year) {
 }
 
 function getTeacherSubjects(userId, userRole, targetTerm, targetYear) {
+  return withTiming('getTeacherSubjects', function() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName("Timetable_Database");
   if (!sheet) return [];
@@ -1227,12 +1234,13 @@ function getTeacherSubjects(userId, userRole, targetTerm, targetYear) {
       const key = `${tCode}-${tClassID}`;
       if (!uniqueKeys.has(key)) {
         uniqueKeys.add(key);
-        subjects.push([tCode, tName, tClassID, tDisplay]); 
+        subjects.push([tCode, tName, tClassID, tDisplay]);
       }
     }
   }
-  
+
   return subjects;
+  });
 }
 
 function saveLessonRecord(record) {
@@ -1359,6 +1367,7 @@ function updateAttendanceBatch(list) {
 }
 
 function getMassiveAttendanceGrid(subjectCode, className, term, year) {
+  return withTiming('getMassiveAttendanceGrid', function() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const attSheet = ss.getSheetByName("Attendance_Database");
   const students = getStudentsByClass(className);
@@ -1401,6 +1410,7 @@ function getMassiveAttendanceGrid(subjectCode, className, term, year) {
   }
   
   return { students: students, sessions: Object.values(sessionsMap).sort((a, b) => a.date.localeCompare(b.date) || parseInt(a.period) - parseInt(b.period)), attendance: attendanceMap };
+  });
 }
 
 function saveMassiveAttendanceGrid(subjectCode, subjectName, className, term, year, updates, newRecords, teacherId) {
@@ -1935,6 +1945,7 @@ function saveSubjectConfig(configData) {
 
 // 🌟 อัปเกรด: กรองเกรดให้ตรงเทอมและปี + กู้คืนรายชื่อในอดีต (Historical Roster)
 function getAllInOneScoreGridData(subjectCode, className, term, year) {
+  return withTiming('getAllInOneScoreGridData', function() {
   let config = getSubjectConfig(subjectCode, className, term, year);
   if (!config) config = { ratio: "70:10:20", indicators: [{name: "คะแนนเก็บ 1", score: 70}] }; 
 
@@ -2046,6 +2057,7 @@ function getAllInOneScoreGridData(subjectCode, className, term, year) {
   } catch(e) {}
 
   return { config: config, students: students, existingScores: existingScores, existingQuals: existingQuals, attStats: attStats, attDetails: attDetails, attSessions: attSessions };
+  });
 }
 
 function saveAllInOneWithConfig(payload) {
@@ -2438,6 +2450,7 @@ function getTodayMorningSummary(teacherId, term, year) {
 // 🚨 ดึงข้อมูล Dashboard กลุ่มเสี่ยง (0, ร, มส.) สำหรับครู (Ultimate Fix: ดึงชั้นเรียนตามปีที่แอดมินตั้งค่า)
 // ==========================================
 function getTeacherRiskDashboard(teacherId, term, year) {
+  return withTiming('getTeacherRiskDashboard', function() {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const normID = (id) => { let clean = String(id).replace(/[^a-zA-Z0-9]/g, '').replace(/^0+/, ''); return clean || '0'; };
@@ -2646,6 +2659,7 @@ function getTeacherRiskDashboard(teacherId, term, year) {
   } catch (e) {
     return { status: 'error', message: e.message };
   }
+  });
 }
 
 function saveStudentRemarkDirectly(studentId, subjectCode, term, year, remarkVal) {
@@ -2990,6 +3004,7 @@ function setupCalendarDatabase() {
 }
 
 function getCalendarEvents() {
+  return withTiming('getCalendarEvents', function() {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Calendar_Database");
   if (!sheet) return [];
   const data = sheet.getDataRange().getDisplayValues();
@@ -3010,6 +3025,7 @@ function getCalendarEvents() {
       });
   }
   return events;
+  });
 }
 
 function saveCalendarEvent(payload) {
