@@ -1973,29 +1973,32 @@ function getAllInOneScoreGridData(subjectCode, className, term, year) {
   const normID = (id) => { let clean = String(id).replace(/[^a-zA-Z0-9]/g, '').replace(/^0+/, ''); return clean || '0'; };
   const normStr = (str) => String(str).replace(/\s+/g, '').toLowerCase();
 
+  // Batch read once: Grade_Summary used by 2 separate logic blocks below
+  const gradeSheet = ss.getSheetByName("Grade_Summary");
+  const gradeData = (gradeSheet && gradeSheet.getLastRow() > 0) ? gradeSheet.getDataRange().getDisplayValues() : [];
+  if (typeof debugSheets === 'function') debugSheets('Grade_Summary', 'read-once', gradeData.length);
+
   // เพิ่มนักเรียนจาก Grade_Summary ที่อาจไม่มีใน User_Database/History แล้ว
-  const configSys = getSystemConfig();
-  if (String(year).trim() !== String(configSys.year).trim()) {
-      const gradeSheet = ss.getSheetByName("Grade_Summary");
+  const active = getActiveTermYear();
+  if (String(year).trim() !== String(active.year).trim()) {
       const userSheet = ss.getSheetByName("User_Database");
-      if (gradeSheet && userSheet) {
-          const gradeData = gradeSheet.getDataRange().getDisplayValues();
+      if (gradeData.length && userSheet) {
           const userData = userSheet.getDataRange().getDisplayValues();
-          
+
           const userMap = {};
           for(let i=1; i<userData.length; i++) userMap[normID(userData[i][0])] = userData[i];
-          
+
           const existingIds = new Set(students.map(s => normID(s[0])));
-          
+
           for(let i=1; i<gradeData.length; i++) {
               const rowSub = normStr(gradeData[i][1]);
               const rowTerm = normStr(gradeData[i][6]);
               const rowYear = normStr(gradeData[i][7]);
-              
+
               // ควานหาเด็กที่เคยมีเกรดวิชานี้ ในเทอม/ปีในอดีต
               if((rowSub === normStr(subjectCode) || rowSub.includes(normStr(subjectCode))) &&
                  rowTerm === normStr(term) && rowYear === normStr(year)) {
-                  
+
                   const stdId = normID(gradeData[i][0]);
                   // ถ้าเจอแต่ไม่มีชื่อในชั้นเรียนปัจจุบัน ให้ดึงโปรไฟล์กลับมาโชว์!
                   if (!existingIds.has(stdId) && userMap[stdId]) {
@@ -2027,27 +2030,24 @@ function getAllInOneScoreGridData(subjectCode, className, term, year) {
     }
   }
 
-  const gradeSheet = ss.getSheetByName("Grade_Summary");
-  if (gradeSheet && gradeSheet.getLastRow() > 0) {
-    const gradeData = gradeSheet.getDataRange().getDisplayValues();
-    for(let i = 1; i < gradeData.length; i++) {
-        const rowSub = normStr(gradeData[i][1]);
-        const rowTerm = normStr(gradeData[i][6]);
-        const rowYear = normStr(gradeData[i][7]);
-        
-        if((rowSub === normStr(subjectCode) || rowSub.includes(normStr(subjectCode))) &&
-           (rowTerm === normStr(term) || rowTerm === '') && 
-           (rowYear === normStr(year) || rowYear === '')) {
-            
-            const stdKey = normID(gradeData[i][0]);
-            let foundRemark = false;
-            for (let col = 2; col < gradeData[i].length; col++) {
-                const cellVal = String(gradeData[i][col]).trim();
-                if (cellVal === 'ร' || cellVal === 'มส') { existingScores[`${stdKey}_remark`] = cellVal; foundRemark = true; break; }
-            }
-            if (!foundRemark && !existingScores[`${stdKey}_remark`]) existingScores[`${stdKey}_remark`] = '-';
-        }
-    }
+  // Re-use gradeData read above (skip duplicate I/O)
+  for(let i = 1; i < gradeData.length; i++) {
+      const rowSub = normStr(gradeData[i][1]);
+      const rowTerm = normStr(gradeData[i][6]);
+      const rowYear = normStr(gradeData[i][7]);
+
+      if((rowSub === normStr(subjectCode) || rowSub.includes(normStr(subjectCode))) &&
+         (rowTerm === normStr(term) || rowTerm === '') &&
+         (rowYear === normStr(year) || rowYear === '')) {
+
+          const stdKey = normID(gradeData[i][0]);
+          let foundRemark = false;
+          for (let col = 2; col < gradeData[i].length; col++) {
+              const cellVal = String(gradeData[i][col]).trim();
+              if (cellVal === 'ร' || cellVal === 'มส') { existingScores[`${stdKey}_remark`] = cellVal; foundRemark = true; break; }
+          }
+          if (!foundRemark && !existingScores[`${stdKey}_remark`]) existingScores[`${stdKey}_remark`] = '-';
+      }
   }
 
   const qualSheet = ss.getSheetByName("Qualitative_Assess");
@@ -2496,29 +2496,30 @@ function getTeacherRiskDashboard(teacherId, term, year) {
     // 🌟 ระบบค้นหาระดับชั้นตาม "ปีการศึกษาที่แอดมินเลือก"
     const targetYear = String(year).trim();
     const studentMap = {};
-    const configCur = getSystemConfig();
-    const isHistoricalView = String(targetYear).trim() !== String(configCur.year).trim();
+    const active = getActiveTermYear();
+    const isHistoricalView = String(targetYear).trim() !== String(active.year).trim();
 
+    // Batch read User_Database ครั้งเดียว — เดิมอ่าน 2 รอบ (match + fallback)
     const userSheet = ss.getSheetByName("User_Database");
-    if (userSheet) {
-        const userData = userSheet.getDataRange().getDisplayValues();
-        // 1. User_Database ที่ year ตรง (สำหรับเทอมปัจจุบัน หรือเด็กที่ year ตรง)
-        for(let i = 1; i < userData.length; i++) {
-            if (String(userData[i][3]).toLowerCase() === 'student' || String(userData[i][3]) === 'นักเรียน') {
-                let stdYear = String(userData[i][6]).trim();
-                if (stdYear === targetYear) {
-                    let rawId = String(userData[i][0]).replace(/'/g, '').trim();
-                    studentMap[normID(rawId)] = { displayId: rawId, name: String(userData[i][2]).trim(), cls: String(userData[i][4]).trim(), source: 'user_db_match' };
-                }
+    const userData = userSheet ? userSheet.getDataRange().getDisplayValues() : [];
+    if (typeof debugSheets === 'function') debugSheets('User_Database', 'read-once', userData.length);
+
+    // 1. User_Database ที่ year ตรง
+    for (let i = 1; i < userData.length; i++) {
+        if (String(userData[i][3]).toLowerCase() === 'student' || String(userData[i][3]) === 'นักเรียน') {
+            let stdYear = String(userData[i][6]).trim();
+            if (stdYear === targetYear) {
+                let rawId = String(userData[i][0]).replace(/'/g, '').trim();
+                studentMap[normID(rawId)] = { displayId: rawId, name: String(userData[i][2]).trim(), cls: String(userData[i][4]).trim(), source: 'user_db_match' };
             }
         }
     }
 
-    // 2. User_History_Database ที่ year ตรง (snapshot ก่อน admin promote) — ใช้ logic ของ admin
+    // 2. User_History_Database ที่ year ตรง (snapshot ก่อน admin promote)
     const histSheet = ss.getSheetByName("User_History_Database");
     if (histSheet && histSheet.getLastRow() > 1) {
         const histData = histSheet.getDataRange().getDisplayValues();
-        for(let i = 1; i < histData.length; i++) {
+        for (let i = 1; i < histData.length; i++) {
             if (String(histData[i][3]).toLowerCase() === 'student' || String(histData[i][3]) === 'นักเรียน') {
                 let histYear = String(histData[i][6]).trim();
                 let rawId = String(histData[i][0]).replace(/'/g, '').trim();
@@ -2530,16 +2531,13 @@ function getTeacherRiskDashboard(teacherId, term, year) {
         }
     }
 
-    // 3. fallback: ดึง User_Database (ห้องปัจจุบัน) เฉพาะกรณีเทอมปัจจุบัน หรือใช้แค่ name (cls จะ override จาก attClassMap)
-    if (userSheet) {
-        const userData = userSheet.getDataRange().getDisplayValues();
-        for(let i = 1; i < userData.length; i++) {
-            if (String(userData[i][3]).toLowerCase() === 'student' || String(userData[i][3]) === 'นักเรียน') {
-                let rawId = String(userData[i][0]).replace(/'/g, '').trim();
-                let nId = normID(rawId);
-                if (!studentMap[nId]) {
-                    studentMap[nId] = { displayId: rawId, name: String(userData[i][2]).trim(), cls: String(userData[i][4]).trim(), source: 'user_db_fallback' };
-                }
+    // 3. fallback: reuse userData read above (skip duplicate I/O)
+    for (let i = 1; i < userData.length; i++) {
+        if (String(userData[i][3]).toLowerCase() === 'student' || String(userData[i][3]) === 'นักเรียน') {
+            let rawId = String(userData[i][0]).replace(/'/g, '').trim();
+            let nId = normID(rawId);
+            if (!studentMap[nId]) {
+                studentMap[nId] = { displayId: rawId, name: String(userData[i][2]).trim(), cls: String(userData[i][4]).trim(), source: 'user_db_fallback' };
             }
         }
     }

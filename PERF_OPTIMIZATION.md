@@ -199,8 +199,49 @@ Phase 2 cache ทำให้ `getSystemConfig` HIT ใช้แค่ ~5ms อ�
 
 - Commit: (pending)
 
-## Phase 4: Sheets I/O batch
-- Status: pending
+## Phase 4: Sheets I/O batch ✅
+
+**Goal**: ลบ duplicate Sheet reads ภายใน hot functions.
+
+### Audit findings
+- 86 `getDataRange()` calls ใน Code.js — ไม่มี `.getValue()` loop singular (good)
+- ปัญหาหลัก: ฟังก์ชันเดียวอ่าน sheet เดียวกัน 2 ครั้ง
+
+### Functions optimized
+
+**1. `getAllInOneScoreGridData`** (Code.js:1966)
+- เดิม: อ่าน `Grade_Summary` 2 รอบ (line 1982 + 2032) + `getSystemConfig` ในช่วง historical check
+- ตอนนี้: อ่าน Grade_Summary ครั้งเดียว ที่ top → reuse ใน 2 logic blocks
+- ใช้ `getActiveTermYear()` แทน `getSystemConfig()` สำหรับ historical check (faster)
+
+**2. `getTeacherRiskDashboard`** (Code.js:2471)
+- เดิม: อ่าน `User_Database` 2 รอบ (line 2504 + 2535) — แบบ `year-match` + `fallback`
+- ตอนนี้: อ่าน User_Database ครั้งเดียว ที่ top → loop 2 ครั้ง over array เดียว
+- ใช้ `getActiveTermYear()` แทน `getSystemConfig()`
+
+### Before / After (theoretical, depends on User_Database size)
+| Function | Before | After |
+|---|---|---|
+| getAllInOneScoreGridData | 2× Grade_Summary read (~100ms each) | 1× read (~100ms) |
+| getTeacherRiskDashboard | 2× User_Database read (~80ms each) | 1× read (~80ms) |
+
+Per call savings: ~100ms + ~80ms = **~180ms** for these 2 hot functions.
+
+### debugSheets() logs added at batched reads
+- `[SHEETS] read-once Grade_Summary rows=N`
+- `[SHEETS] read-once User_Database rows=N`
+
+### Verification
+- เปิด `?debug=1` → call Score Entry → ดู log `[SHEETS]` ปรากฏครั้งเดียวต่อ sheet
+- Verify output: scores + remarks + students ครบเหมือนเดิม
+
+### Functions reviewed, no change needed
+- `saveAttendanceBatch` — already uses `setValues` batch
+- `importStudentCSV` / `importTeacherCSV` — already batched setValues
+- `getStudentAttendanceHistory` — single read, ok
+- `getSemesterReport` — already reads each sheet once
+
+- Commit: (pending)
 
 ## Phase 5: Bundle dashboard calls
 - Status: pending
