@@ -28,6 +28,9 @@ window.initCalendarPage = function() {
     // ล้างและวาดใหม่เสมอเมื่อเปิดหน้า
     calendarEl.innerHTML = '<div class="text-center py-5 text-muted"><div class="spinner-border text-danger mb-3"></div><br>กำลังโหลดปฏิทิน...</div>';
 
+    // โหลด term progress bar คู่ขนานไปกับ event list
+    _loadTermProgressBar();
+
     safeRun().withSuccessHandler(function(events) {
         calendarEl.innerHTML = ''; // ล้างตัวโหลด
 
@@ -285,6 +288,57 @@ window.previewCalendarCSV = function(input) {
     };
     reader.readAsText(file, 'UTF-8');
 };
+
+function _loadTermProgressBar() {
+    const wrap = document.getElementById('termProgressWrap');
+    if (!wrap) return;
+    safeRun().withSuccessHandler(function(cfg) {
+        if (!cfg || !cfg.termStart || !cfg.termEnd) { wrap.classList.add('d-none'); return; }
+        _renderTermProgress(cfg);
+    }).getSystemConfig();
+}
+
+function _renderTermProgress(cfg) {
+    const wrap = document.getElementById('termProgressWrap');
+    const start = new Date(cfg.termStart);
+    const end = new Date(cfg.termEnd);
+    if (isNaN(start.getTime()) || isNaN(end.getTime()) || end <= start) {
+        wrap.classList.add('d-none'); return;
+    }
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const totalMs = end - start;
+    const elapsedMs = Math.max(0, Math.min(today - start, totalMs));
+    const totalDays = Math.round(totalMs / 86400000) + 1;
+    const elapsedDays = Math.round(elapsedMs / 86400000) + (today >= start ? 1 : 0);
+    const pct = Math.max(0, Math.min(100, Math.round((elapsedMs / totalMs) * 100)));
+
+    document.getElementById('termProgressLabel').textContent = `ภาคเรียนที่ ${cfg.term}/${cfg.year}`;
+    document.getElementById('termProgressDates').textContent = `${_fmtThaiDate(start)} → ${_fmtThaiDate(end)}`;
+    document.getElementById('termProgressDay').textContent = today < start ? '0' : Math.min(elapsedDays, totalDays);
+    document.getElementById('termProgressTotal').textContent = totalDays;
+    document.getElementById('termProgressPct').textContent = pct + '%';
+
+    const bar = document.getElementById('termProgressBar');
+    bar.style.width = pct + '%';
+    if (today < start) {
+        bar.style.background = '#9aa0a6';
+        document.getElementById('termProgressPct').textContent = 'ยังไม่เปิดเทอม';
+    } else if (today > end) {
+        bar.style.background = '#198754';
+        document.getElementById('termProgressPct').textContent = 'ปิดเทอมแล้ว';
+    } else {
+        bar.style.background = 'linear-gradient(90deg, #e83e8c, #fd7e14)';
+    }
+
+    wrap.classList.remove('d-none');
+}
+
+function _fmtThaiDate(d) {
+    const m = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+    return `${d.getDate()} ${m[d.getMonth()]} ${d.getFullYear() + 543}`;
+}
 
 function _ensurePersonalHint() {
     const sel = document.getElementById('calColor');
