@@ -331,6 +331,7 @@ function renderApp(user) {
   if (role === 'STUDENT') {
     startPage = 'Page_Dashboard_Student';
     menuHTML += `<li class="mb-3"><a href="javascript:void(0)" class="nav-link-custom active" onclick="loadPage('Page_Dashboard_Student')"><i class="fas fa-home me-2"></i>หน้าแรกนักเรียน</a></li>`;
+    menuHTML += `<li class="mb-2"><a href="javascript:void(0)" class="dept-btn" style="border-left-color: #9c27b0 !important;" onclick="loadPage('Page_Student_Clubs')"><i class="fas fa-flag-checkered" style="color: #9c27b0;"></i> <span>ลงทะเบียนชุมนุม</span></a></li>`;
   } else {
     startPage = (role === 'ADMIN') ? 'Page_Dashboard_Admin' : 'Page_Dashboard_Teacher';
     const homeLabel = (role === 'ADMIN') ? 'แดชบอร์ดผู้บริหาร' : 'แดชบอร์ดครู';
