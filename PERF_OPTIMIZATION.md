@@ -95,8 +95,34 @@
 
 - Commit: (pending)
 
-## Phase 1: Cleanup backup files
-- Status: pending
+## Phase 1: Cleanup backup files ✅
+
+**Goal**: ลบไฟล์ backup/unused ลด `clasp push` size + GAS compile time.
+
+### Files removed
+| File | Size | Reason |
+|---|---|---|
+| `src/Scripts_Backup.html` | 170 KB | backup file (CLAUDE.md flagged) |
+| `src/Scripts_Score_Backup.html` | 123 KB | backup file |
+| `src/Scripts_backup_2.html` | 159 KB | backup file |
+| `src/Code_Backup` | 139 KB | backup file |
+| `src/Scripts.html` | 18 B | empty `<script></script>` ไม่ใช้ |
+| `src/AdminDashboard.html` | 2 KB | unused (replaced by Page_Dashboard_Admin) |
+| `src/StudentDashboard.html` | 1.5 KB | unused (replaced by Page_Dashboard_Student) |
+
+**Total removed**: ~595 KB
+
+### Before / After
+| Metric | Before | After | Δ |
+|---|---|---|---|
+| `src/` size | 1.8 MB | 1.2 MB | **-33%** |
+| File count | 38 | 31 | -7 |
+
+### Verification
+- `grep` Index.html + Scripts_Core.html ไม่มี reference ถึงไฟล์ที่ลบ
+- Reference เก่าใน `Scripts_Backup.html` + `Scripts_backup_2.html` เป็น self-reference ภายในไฟล์ backup เอง — ปลอดภัยลบ
+- `npx clasp push --force` — sync สำเร็จ
+- Commit: f5b7c44 (Phase 0) → next commit
 
 ## Phase 2: CacheService
 - Status: pending
