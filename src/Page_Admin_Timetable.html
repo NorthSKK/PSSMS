@@ -1,85 +1,79 @@
-<div class="container-fluid py-4 animate__animated animate__fadeIn">
-  <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
+<div class="container-fluid pssms-page">
+  <div class="pssms-page-header">
     <div>
-      <h4 class="fw-bold mb-1"><i class="fas fa-calendar-alt me-2 text-primary"></i>จัดการตารางสอน</h4>
-      <span class="text-muted small">อัปโหลดตารางสอนผ่าน CSV และตรวจสอบตารางรายบุคคล</span>
+      <h4><i class="fas fa-calendar-alt me-2" style="color: var(--p-accent);"></i>จัดการตารางสอน</h4>
+      <p class="pssms-subtitle">นำเข้าตารางสอนผ่าน CSV + ตรวจสอบตารางรายบุคคล</p>
     </div>
-    <div class="d-flex flex-wrap gap-2">
-      <label class="btn btn-outline-success shadow-sm mb-0 fw-bold">
-        <i class="fas fa-file-csv me-1"></i> นำเข้าตารางสอน (CSV)
+    <div class="pssms-actions">
+      <label class="btn btn-accent btn-sm mb-0">
+        <i class="fas fa-file-csv me-1"></i>นำเข้า CSV
         <input type="file" accept=".csv" class="d-none" onchange="handleTimetableUpload(this)">
       </label>
     </div>
   </div>
 
-  <div class="card shadow-sm border-0 mb-4 rounded-3">
-    <div class="card-body">
-      <div class="row g-3 align-items-center">
-        <div class="col-md-3">
-          <label class="form-label small fw-bold text-muted">เลือกครูผู้สอน</label>
-          <div class="input-group">
-            <span class="input-group-text bg-light border-end-0"><i class="fas fa-chalkboard-teacher text-muted"></i></span>
-            <select id="viewTeacherID" class="form-select border-start-0" onchange="viewTimetable()">
-              <option value="">-- เลือกครูผู้สอน --</option>
-            </select>
-          </div>
-        </div>
-        <div class="col-md-2">
-          <label class="form-label small fw-bold text-muted">ภาคเรียน</label>
-          <select id="viewTerm" class="form-select bg-light" onchange="viewTimetable()">
-            <option value="1">ภาคเรียนที่ 1</option>
-            <option value="2">ภาคเรียนที่ 2</option>
-            <option value="3">ภาคเรียนที่ 3</option>
-          </select>
-        </div>
-        <div class="col-md-2">
-          <label class="form-label small fw-bold text-muted">ปีการศึกษา (พ.ศ.)</label>
-          <input type="number" id="viewYear" class="form-control bg-light" value="" onchange="viewTimetable()">
-        </div>
-        <div class="col-md-2 text-center border-start border-end">
-          <label class="small fw-bold d-block text-muted mb-1">จำนวนคาบสอน</label>
-          <h4 id="totalPeriodsBadge" class="mb-0 fw-bold text-primary">0 <span class="fs-6 text-muted fw-normal">คาบ/สัปดาห์</span></h4>
-        </div>
-        <div class="col-md-3 d-flex align-items-end justify-content-end">
-          <div class="btn-group shadow-sm" role="group">
-            <button type="button" class="btn btn-outline-primary active fw-bold px-3" id="btnListView" onclick="switchTimetableView('list')"><i class="fas fa-list me-1"></i> รายการ</button>
-            <button type="button" class="btn btn-outline-primary fw-bold px-3" id="btnGridView" onclick="switchTimetableView('grid')"><i class="fas fa-th me-1"></i> ตาราง</button>
-          </div>
+  <div class="pssms-card mb-3">
+    <div class="row g-3 align-items-end">
+      <div class="col-md-3">
+        <label class="form-label small fw-medium text-muted">ครูผู้สอน</label>
+        <select id="viewTeacherID" class="form-select" onchange="viewTimetable()">
+          <option value="">-- เลือกครูผู้สอน --</option>
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label small fw-medium text-muted">ภาคเรียน</label>
+        <select id="viewTerm" class="form-select" onchange="viewTimetable()">
+          <option value="1">ภาคเรียนที่ 1</option>
+          <option value="2">ภาคเรียนที่ 2</option>
+          <option value="3">ภาคเรียนที่ 3</option>
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label small fw-medium text-muted">ปีการศึกษา</label>
+        <input type="number" id="viewYear" class="form-control" onchange="viewTimetable()">
+      </div>
+      <div class="col-md-2 text-center" style="border-left: 1px solid var(--p-border); border-right: 1px solid var(--p-border);">
+        <label class="small fw-medium d-block text-muted mb-1" style="font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em;">จำนวนคาบสอน</label>
+        <h4 id="totalPeriodsBadge" class="mb-0 fw-bold" style="color: var(--p-accent);">0 <span class="fs-6 text-muted fw-normal">คาบ/สัปดาห์</span></h4>
+      </div>
+      <div class="col-md-3 d-flex justify-content-end">
+        <div class="btn-group" role="group">
+          <button type="button" class="btn btn-soft btn-sm active" id="btnListView" onclick="switchTimetableView('list')"><i class="fas fa-list me-1"></i>รายการ</button>
+          <button type="button" class="btn btn-soft btn-sm" id="btnGridView" onclick="switchTimetableView('grid')"><i class="fas fa-th me-1"></i>ตาราง</button>
         </div>
       </div>
     </div>
   </div>
 
-  <div id="sectionGridView" class="d-none animate__animated animate__fadeIn">
-    <div class="card shadow-sm border-0 overflow-hidden rounded-3">
+  <div id="sectionGridView" class="d-none">
+    <div class="pssms-card p-0">
       <div class="table-responsive">
-        <table class="table table-bordered mb-0 text-center align-middle" style="min-width: 1000px;">
-          <thead class="bg-primary text-white" style="border-bottom: 2px solid #0a58ca;">
-            <tr class="text-center align-middle">
-              <th style="width: 90px;" class="py-3">วัน / เวลา</th>
-              <th>คาบ 1<br><span class="badge bg-light text-dark rounded-pill mt-1 shadow-sm" style="font-size: 11px;">08.30 - 09.20</span></th>
-              <th>คาบ 2<br><span class="badge bg-light text-dark rounded-pill mt-1 shadow-sm" style="font-size: 11px;">09.20 - 10.10</span></th>
-              <th class="bg-warning text-dark" style="width: 55px; border: 1px solid #e0a800;">พัก<br><span style="font-size: 11px;">10 นาที</span></th>
-              <th>คาบ 3<br><span class="badge bg-light text-dark rounded-pill mt-1 shadow-sm" style="font-size: 11px;">10.20 - 11.10</span></th>
-              <th>คาบ 4<br><span class="badge bg-light text-dark rounded-pill mt-1 shadow-sm" style="font-size: 11px;">11.10 - 12.00</span></th>
-              <th class="bg-warning text-dark" style="width: 65px; border: 1px solid #e0a800;">พัก<br><span style="font-size: 11px;">กลางวัน</span></th>
-              <th>คาบ 5<br><span class="badge bg-light text-dark rounded-pill mt-1 shadow-sm" style="font-size: 11px;">13.00 - 13.50</span></th>
-              <th>คาบ 6<br><span class="badge bg-light text-dark rounded-pill mt-1 shadow-sm" style="font-size: 11px;">13.50 - 14.40</span></th>
-              <th>คาบ 7<br><span class="badge bg-light text-dark rounded-pill mt-1 shadow-sm" style="font-size: 11px;">14.40 - 15.30</span></th>
-              <th>คาบ 8<br><span class="badge bg-light text-dark rounded-pill mt-1 shadow-sm" style="font-size: 11px;">15.30 - 16.00</span></th>
+        <table class="pssms-table mb-0 text-center" style="min-width: 1000px;">
+          <thead>
+            <tr>
+              <th style="width: 90px;">วัน / เวลา</th>
+              <th>คาบ 1<br><span class="pssms-chip mt-1">08.30-09.20</span></th>
+              <th>คาบ 2<br><span class="pssms-chip mt-1">09.20-10.10</span></th>
+              <th style="width: 55px; background: #fefce8;">พัก<br><span class="small">10 น.</span></th>
+              <th>คาบ 3<br><span class="pssms-chip mt-1">10.20-11.10</span></th>
+              <th>คาบ 4<br><span class="pssms-chip mt-1">11.10-12.00</span></th>
+              <th style="width: 65px; background: #fefce8;">พัก<br><span class="small">กลางวัน</span></th>
+              <th>คาบ 5<br><span class="pssms-chip mt-1">13.00-13.50</span></th>
+              <th>คาบ 6<br><span class="pssms-chip mt-1">13.50-14.40</span></th>
+              <th>คาบ 7<br><span class="pssms-chip mt-1">14.40-15.30</span></th>
+              <th>คาบ 8<br><span class="pssms-chip mt-1">15.30-16.00</span></th>
             </tr>
           </thead>
-          <tbody id="timetableGridBody" class="bg-white">
-             </tbody>
+          <tbody id="timetableGridBody"></tbody>
         </table>
       </div>
     </div>
   </div>
 
-  <div id="sectionListView" class="card shadow-sm border-0 rounded-3 animate__animated animate__fadeIn">
+  <div id="sectionListView" class="pssms-card p-0">
     <div class="table-responsive">
-      <table class="table table-hover align-middle mb-0 text-nowrap">
-        <thead class="table-light text-muted">
+      <table class="pssms-table mb-0 text-nowrap">
+        <thead>
           <tr>
             <th class="ps-4">วัน</th>
             <th class="text-center">คาบที่</th>
@@ -91,49 +85,49 @@
             <th class="text-end pe-4">จัดการ</th>
           </tr>
         </thead>
-        <tbody id="timetableDisplayBody" class="bg-white">
-          <tr><td colspan="8" class="text-center p-5 text-muted">กรุณาเลือกครูผู้สอนเพื่อดูตารางเรียน</td></tr>
+        <tbody id="timetableDisplayBody">
+          <tr><td colspan="8" class="text-center p-5 text-muted">กรุณาเลือกครูผู้สอนเพื่อดูตาราง</td></tr>
         </tbody>
       </table>
     </div>
   </div>
 </div>
 
-<div class="modal fade" id="editTimetableModal" data-bs-backdrop="static" tabindex="-1">
+<div class="modal fade pssms-modal" id="editTimetableModal" data-bs-backdrop="static" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content border-0 shadow">
-      <div class="modal-header bg-warning text-dark border-0">
-        <h5 class="modal-title fw-bold"><i class="fas fa-edit me-2"></i>จัดการคาบเรียน</h5>
-        <button type="button" class="btn-close shadow-none" data-bs-dismiss="modal"></button>
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="fas fa-edit me-2" style="color: var(--p-accent);"></i>จัดการคาบเรียน</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
-      <div class="modal-body p-4 bg-light">
+      <div class="modal-body p-4">
         <input type="hidden" id="editRowIndex">
-        
+
         <div class="row g-3">
           <div class="col-md-4">
-            <label class="form-label small fw-bold text-muted">รหัสวิชา</label>
-            <input type="text" id="editSubjectCode" class="form-control fw-bold text-primary">
+            <label class="form-label small fw-medium text-muted">รหัสวิชา</label>
+            <input type="text" id="editSubjectCode" class="form-control fw-semibold">
           </div>
           <div class="col-md-8">
-            <label class="form-label small fw-bold text-muted">ชื่อวิชา</label>
+            <label class="form-label small fw-medium text-muted">ชื่อวิชา</label>
             <input type="text" id="editSubjectName" class="form-control">
           </div>
-          
+
           <div class="col-md-4">
-            <label class="form-label small fw-bold text-muted">ระดับชั้น</label>
+            <label class="form-label small fw-medium text-muted">ระดับชั้น</label>
             <input type="text" id="editLevel" class="form-control" placeholder="เช่น ม.1">
           </div>
           <div class="col-md-4">
-            <label class="form-label small fw-bold text-muted">ห้อง</label>
+            <label class="form-label small fw-medium text-muted">ห้อง</label>
             <input type="text" id="editRoom" class="form-control" placeholder="เช่น 1">
           </div>
           <div class="col-md-4">
-            <label class="form-label small fw-bold text-muted">สถานที่</label>
+            <label class="form-label small fw-medium text-muted">สถานที่</label>
             <input type="text" id="editLocation" class="form-control" placeholder="เช่น 114">
           </div>
 
           <div class="col-6">
-            <label class="form-label small fw-bold text-muted">วันสอน</label>
+            <label class="form-label small fw-medium text-muted">วันสอน</label>
             <select id="editDay" class="form-select">
               <option value="จันทร์">จันทร์</option>
               <option value="อังคาร">อังคาร</option>
@@ -143,7 +137,7 @@
             </select>
           </div>
           <div class="col-6">
-            <label class="form-label small fw-bold text-muted">คาบที่</label>
+            <label class="form-label small fw-medium text-muted">คาบที่</label>
             <select id="editPeriod" class="form-select">
               <option value="1">1</option><option value="2">2</option>
               <option value="3">3</option><option value="4">4</option>
@@ -153,14 +147,14 @@
           </div>
         </div>
       </div>
-      <div class="modal-footer border-0 bg-white d-flex justify-content-between">
-        <button type="button" class="btn btn-outline-danger fw-bold" onclick="confirmDeleteTimetable()">
-          <i class="fas fa-trash-alt me-1"></i> ลบคาบนี้
+      <div class="modal-footer d-flex justify-content-between">
+        <button type="button" class="btn btn-outline-danger btn-sm" onclick="confirmDeleteTimetable()">
+          <i class="fas fa-trash-alt me-1"></i>ลบคาบนี้
         </button>
         <div>
-          <button type="button" class="btn btn-light" data-bs-dismiss="modal">ยกเลิก</button>
-          <button type="button" id="btnSaveTimetable" class="btn btn-primary fw-bold px-4" onclick="saveTimetableEdit()">
-            <i class="fas fa-save me-1"></i> บันทึก
+          <button type="button" class="btn btn-soft btn-sm me-2" data-bs-dismiss="modal">ยกเลิก</button>
+          <button type="button" id="btnSaveTimetable" class="btn btn-accent btn-sm" onclick="saveTimetableEdit()">
+            <i class="fas fa-save me-1"></i>บันทึก
           </button>
         </div>
       </div>
