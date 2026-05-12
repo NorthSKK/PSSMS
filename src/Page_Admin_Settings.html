@@ -1,80 +1,69 @@
-<div class="container-fluid py-4 animate__animated animate__fadeIn">
-  <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
+<div class="container-fluid pssms-page">
+  <div class="pssms-page-header">
     <div>
-      <h4 class="fw-bold mb-1"><i class="fas fa-cogs me-2 text-primary"></i>ตั้งค่าระบบ (System Settings)</h4>
-      <span class="text-muted small">จัดการปีการศึกษาและข้อมูลแกนกลางของระบบ</span>
+      <h4><i class="fas fa-cogs me-2" style="color: var(--p-accent);"></i>ตั้งค่าระบบ</h4>
+      <p class="pssms-subtitle">จัดการปีการศึกษาและข้อมูลแกนกลางของระบบ</p>
     </div>
   </div>
 
-  <div class="row g-4">
+  <div class="row g-3">
     <div class="col-12 col-lg-6">
-      <div class="card border-0 shadow-sm rounded-3 h-100">
-        <div class="card-header bg-white border-bottom pb-3 pt-4">
-          <h6 class="fw-bold text-primary mb-0"><i class="fas fa-calendar-check me-2"></i>ตั้งค่าภาคเรียนและปีการศึกษาปัจจุบัน</h6>
+      <div class="pssms-card h-100">
+        <div class="pssms-card-header"><span><i class="fas fa-calendar-check me-2" style="color: var(--p-text-muted);"></i>ภาคเรียนและปีการศึกษาปัจจุบัน</span></div>
+
+        <div class="p-3 rounded-3 mb-3" style="background: var(--p-accent-soft); border: 1px solid var(--p-border);">
+          <div class="small text-muted mb-1" style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.04em;">ปัจจุบันในระบบ</div>
+          <div class="fw-bold fs-4 mb-1" style="color: var(--p-accent);" id="currentTermDisplay">-/-</div>
+          <div class="small text-muted" id="currentRangeDisplay">กำลังโหลด...</div>
         </div>
-        <div class="card-body p-4">
-          <div class="alert alert-info border-0 bg-info-subtle shadow-sm mb-4">
-            <div class="d-flex align-items-center">
-              <i class="fas fa-info-circle fs-4 text-info me-3"></i>
-              <div>
-                <strong class="text-dark">ภาคเรียนปัจจุบันในระบบ: <span id="currentTermDisplay" class="text-primary fs-5">-/-</span></strong><br>
-                <span class="small text-muted" id="currentRangeDisplay">กำลังโหลด...</span>
-              </div>
+
+        <form id="systemConfigForm">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label small fw-medium text-muted">ภาคเรียนที่</label>
+              <select class="form-select" id="inputTerm">
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3 (ฤดูร้อน)</option>
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-medium text-muted">ปีการศึกษา (พ.ศ.)</label>
+              <input type="number" class="form-control" id="inputYear" placeholder="เช่น 2568" min="2560" max="2600">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-medium text-muted">วันที่เปิดภาคเรียน</label>
+              <input type="date" class="form-control" id="inputStartDate">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-medium text-muted">วันที่ปิดภาคเรียน</label>
+              <input type="date" class="form-control" id="inputEndDate">
             </div>
           </div>
 
-          <form id="systemConfigForm">
-            <div class="row g-3">
-              <div class="col-md-6">
-                <label class="form-label small fw-bold text-muted">ภาคเรียนที่</label>
-                <select class="form-select border-secondary-subtle" id="inputTerm">
-                  <option value="1">1</option>
-                  <option value="2">2</option>
-                  <option value="3">3 (ฤดูร้อน)</option>
-                </select>
-              </div>
-              <div class="col-md-6">
-                <label class="form-label small fw-bold text-muted">ปีการศึกษา (พ.ศ.)</label>
-                <input type="number" class="form-control border-secondary-subtle" id="inputYear" placeholder="เช่น 2568" min="2560" max="2600">
-              </div>
-              <div class="col-md-6">
-                <label class="form-label small fw-bold text-muted">วันที่เปิดภาคเรียน</label>
-                <input type="date" class="form-control border-secondary-subtle" id="inputStartDate">
-              </div>
-              <div class="col-md-6">
-                <label class="form-label small fw-bold text-muted">วันที่ปิดภาคเรียน</label>
-                <input type="date" class="form-control border-secondary-subtle" id="inputEndDate">
-              </div>
-            </div>
-            
-            <hr class="text-muted my-4">
-            
-            <div class="text-end">
-              <button type="button" class="btn btn-primary px-4 rounded-pill shadow-sm fw-bold" onclick="saveConfig()">
-                <i class="fas fa-save me-2"></i> บันทึกและตั้งเป็นปีปัจจุบัน
-              </button>
-            </div>
-          </form>
-        </div>
+          <hr style="opacity: 0.1; margin: 1.25rem 0;">
+
+          <div class="text-end">
+            <button type="button" class="btn btn-accent btn-sm" onclick="saveConfig()">
+              <i class="fas fa-save me-1"></i>บันทึกและตั้งเป็นปีปัจจุบัน
+            </button>
+          </div>
+        </form>
       </div>
     </div>
 
     <div class="col-12 col-lg-6">
-      <div class="card border-0 shadow-sm rounded-3 h-100 text-white" style="background: linear-gradient(135deg, #1e3a5f 0%, #2d5a8a 100%);">
-        <div class="card-body p-5 d-flex flex-column justify-content-center align-items-center text-center">
-          <div class="bg-white p-3 rounded-circle shadow mb-4" style="width: 80px; height: 80px; display: flex; align-items: center; justify-content: center;">
-            <i class="fas fa-shield-alt fa-2x text-primary"></i>
-          </div>
-          <h4 class="fw-bold mb-2">PSSMS Core System</h4>
-          <p class="mb-4 text-white-50" style="font-size: 0.95rem;">
-            ระบบบริหารจัดการสถานศึกษา 4 ฝ่าย<br>โรงเรียนภูพระบาทวิทยา
+      <div class="pssms-card h-100 d-flex flex-column justify-content-center align-items-center text-center" style="background: var(--p-subtle);">
+        <div class="rounded-circle mb-3 d-flex align-items-center justify-content-center" style="width: 64px; height: 64px; background: var(--p-surface); border: 1px solid var(--p-border);">
+          <i class="fas fa-shield-alt fa-lg" style="color: var(--p-accent);"></i>
+        </div>
+        <h5 class="fw-bold mb-1" style="color: var(--p-text);">PSSMS Core System</h5>
+        <p class="text-muted small mb-3">ระบบบริหารจัดการสถานศึกษา 4 ฝ่าย · โรงเรียนภูพระบาทวิทยา</p>
+        <div class="p-3 rounded-3 text-start w-100" style="background: var(--p-surface); border: 1px solid var(--p-border);">
+          <h6 class="fw-semibold mb-2 small" style="color: var(--p-text);"><i class="fas fa-info-circle me-2" style="color: var(--p-text-muted);"></i>หมายเหตุ</h6>
+          <p class="mb-0 small text-muted" style="line-height: 1.6;">
+            หากเปลี่ยนปีการศึกษาใหม่ ต้องกดปุ่ม <b>"บันทึกและตั้งเป็นปีปัจจุบัน"</b> เพื่อให้ระบบอัปเดตอ้างอิงปีล่าสุด
           </p>
-          <div class="alert bg-white bg-opacity-10 border-0 text-start w-100 rounded-3 p-3">
-            <h6 class="fw-bold text-warning mb-2"><i class="fas fa-info-circle me-2"></i>อัปเดตระบบล่าสุด:</h6>
-            <ul class="mb-0 small text-white-50 ps-3" style="line-height: 1.6;">
-              <li>หากมีการปรับเปลี่ยนปีการศึกษาใหม่ กรุณากดปุ่ม <b>"บันทึกและตั้งเป็นปีปัจจุบัน"</b> เสมอ เพื่อให้ระบบฐานข้อมูลอัปเดตอ้างอิงปีล่าสุดครับ</li>
-            </ul>
-          </div>
         </div>
       </div>
     </div>
