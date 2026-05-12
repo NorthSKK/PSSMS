@@ -1,4 +1,4 @@
-<div class="container-fluid py-4 animate__animated animate__fadeIn" style="max-width: 100%; overflow: hidden;">
+<div class="container-fluid pssms-page" style="max-width: 100%; overflow: hidden;">
 
   <div id="adminPrintSettingsPanel" class="d-none mb-4 d-print-none">
     <div class="card shadow border-0" style="background: linear-gradient(to right, #212529, #343a40);">
@@ -69,58 +69,38 @@
     </div>
   </div>
 
-  <div class="card shadow-sm border-0 mb-4 d-print-none" style="border-radius: 15px;">
-    <div class="card-body p-3 p-md-4">
-      <div class="row align-items-center g-3">
-        
-        <div class="col-lg-5 col-12">
-          <div class="d-flex align-items-center">
-            <div class="bg-primary text-white rounded-circle d-flex justify-content-center align-items-center shadow-sm me-3" style="width: 45px; height: 45px;">
-              <i class="fas fa-book fs-5"></i>
-            </div>
-            <div class="flex-grow-1">
-              <label class="form-label small fw-bold text-muted mb-1">เลือกรายวิชาที่ต้องการบันทึก</label>
-              <select id="scoreClassSelect" class="form-select shadow-sm border-primary" onchange="loadScoreGrid()" style="border-radius: 8px;">
-                <option value="">⏳ กำลังโหลดวิชา...</option>
-              </select>
-            </div>
-          </div>
-        </div>
-        
-        <div class="col-lg-7 col-12 d-flex flex-wrap justify-content-lg-end justify-content-start align-items-center gap-2 btn-action-group">
-          <div class="bg-light border rounded-pill p-1 shadow-sm d-flex align-items-center flex-wrap gap-1">
-            <button type="button" class="btn btn-sm btn-light rounded-pill px-3 text-secondary fw-bold" id="btnEditHeader" onclick="event.preventDefault(); toggleHeaderEditMode()" title="แก้ไขหัวตาราง">
-              <i class="fas fa-th me-1"></i> <span>หัวตาราง</span>
-            </button>
-            <div class="vr text-secondary" style="opacity: 0.2; height: 20px;"></div>
-            <button type="button" class="btn btn-sm btn-light rounded-pill px-3 text-success fw-bold" id="btnExportSGS" onclick="event.preventDefault(); openSGSExportModal()" title="ส่งออกคะแนนไป SGS">
-              <i class="fas fa-file-export me-1"></i> <span>SGS</span>
-            </button>
-            <div class="vr text-secondary" style="opacity: 0.2; height: 20px;"></div>
-            
-            <button type="button" class="btn btn-sm btn-light rounded-pill px-3 text-secondary fw-bold" id="btnPrintPP5" onclick="preparePrintPorPor5(event)" title="พิมพ์ ปพ.5">
-              <i class="fas fa-print me-1"></i> <span>พิมพ์ ปพ.5</span>
-            </button>
-          </div>
-          
-          <button type="button" class="btn btn-primary rounded-pill shadow-sm px-4 fw-bold mt-2 mt-sm-0" id="btnSaveScores" onclick="event.preventDefault(); saveAllInOneScores()" disabled style="transition: 0.3s;">
-            <i class="fas fa-save me-2"></i>บันทึกข้อมูล
-          </button>
-        </div>
-
-      </div>
+  <div class="pssms-page-header d-print-none">
+    <div class="flex-grow-1" style="min-width: 280px;">
+      <h4><i class="fas fa-book me-2" style="color: var(--p-accent);"></i>บันทึกคะแนน (ปพ.5)</h4>
+      <select id="scoreClassSelect" class="form-select form-select-sm mt-2" style="max-width: 480px;" onchange="loadScoreGrid()">
+        <option value="">⏳ กำลังโหลดวิชา...</option>
+      </select>
+    </div>
+    <div class="pssms-actions">
+      <button type="button" class="btn btn-soft btn-sm" id="btnEditHeader" onclick="event.preventDefault(); toggleHeaderEditMode()" title="แก้ไขหัวตาราง">
+        <i class="fas fa-th me-1"></i>หัวตาราง
+      </button>
+      <button type="button" class="btn btn-soft btn-sm" id="btnExportSGS" onclick="event.preventDefault(); openSGSExportModal()" title="ส่งออกคะแนนไป SGS">
+        <i class="fas fa-file-export me-1"></i>SGS
+      </button>
+      <button type="button" class="btn btn-soft btn-sm" id="btnPrintPP5" onclick="preparePrintPorPor5(event)" title="พิมพ์ ปพ.5">
+        <i class="fas fa-print me-1"></i>พิมพ์ ปพ.5
+      </button>
+      <button type="button" class="btn btn-accent btn-sm" id="btnSaveScores" onclick="event.preventDefault(); saveAllInOneScores()" disabled>
+        <i class="fas fa-save me-1"></i>บันทึก
+      </button>
     </div>
   </div>
 
-  <ul class="nav nav-pills mb-3 d-none d-print-none" id="scoreTabs" role="tablist">
+  <ul class="nav mb-3 d-none d-print-none gap-2" id="scoreTabs" role="tablist" style="border-bottom: 1px solid var(--p-border);">
     <li class="nav-item" role="presentation">
-      <button class="nav-link active fw-bold rounded-pill px-4 shadow-sm" id="tab-subject" data-bs-toggle="pill" data-bs-target="#pane-subject" type="button" role="tab">
+      <button class="nav-link active fw-medium px-3" id="tab-subject" data-bs-toggle="pill" data-bs-target="#pane-subject" type="button" role="tab" style="border-radius: 6px 6px 0 0;">
         <i class="fas fa-tasks me-2"></i>คะแนนรายวิชา (ปพ.5)
       </button>
     </li>
-    <li class="nav-item ms-2" role="presentation">
-      <button class="nav-link fw-bold rounded-pill px-4 shadow-sm" id="tab-eval" data-bs-toggle="pill" data-bs-target="#pane-eval" type="button" role="tab">
-        <i class="fas fa-star me-2"></i>ประเมินคุณลักษณะฯ / อ่านคิดวิเคราะห์
+    <li class="nav-item" role="presentation">
+      <button class="nav-link fw-medium px-3" id="tab-eval" data-bs-toggle="pill" data-bs-target="#pane-eval" type="button" role="tab" style="border-radius: 6px 6px 0 0;">
+        <i class="fas fa-star me-2"></i>คุณลักษณะ / อ่านคิดวิเคราะห์
       </button>
     </li>
   </ul>
@@ -128,11 +108,11 @@
   <div class="tab-content" id="scoreTabsContent">
     
     <div class="tab-pane fade show active" id="pane-subject" role="tabpanel">
-      <div class="card shadow-sm border-0 d-none w-100" id="scoreGridCard" style="border-radius: 12px;">
-        
-        <div class="card-header bg-dark text-white p-3 d-flex flex-wrap justify-content-between align-items-center print-header" style="border-radius: 12px 12px 0 0;">
-          <h6 class="mb-0 text-truncate" id="scoreGridTitle" style="max-width: 70%;"><i class="fas fa-users me-2"></i>คะแนนเก็บและสอบ</h6>
-          <span class="badge bg-warning text-dark d-print-none" id="scoreRatioBadge">สัดส่วน -</span>
+      <div class="pssms-card p-0 d-none w-100" id="scoreGridCard">
+
+        <div class="pssms-card-header p-3 mb-0 print-header">
+          <span class="text-truncate" id="scoreGridTitle" style="max-width: 70%;"><i class="fas fa-users me-2" style="color: var(--p-text-muted);"></i>คะแนนเก็บและสอบ</span>
+          <span class="pssms-chip d-print-none" id="scoreRatioBadge" style="background: var(--p-accent-soft); color: var(--p-accent);">สัดส่วน -</span>
         </div>
         
         <div class="grid-wrapper">
@@ -148,20 +128,20 @@
     </div>
 
     <div class="tab-pane fade" id="pane-eval" role="tabpanel">
-      <div class="card shadow-sm border-0 w-100" style="border-radius: 12px;">
-        <div class="card-header bg-info text-white p-3 d-flex flex-wrap justify-content-between align-items-center" style="border-radius: 12px 12px 0 0;">
-          <h6 class="mb-0"><i class="fas fa-star me-2"></i>ประเมินคุณลักษณะอันพึงประสงค์ และ อ่านคิดวิเคราะห์เขียน</h6>
+      <div class="pssms-card p-0 w-100">
+        <div class="pssms-card-header p-3 mb-0">
+          <span><i class="fas fa-star me-2" style="color: var(--p-text-muted);"></i>ประเมินคุณลักษณะอันพึงประสงค์ และ อ่านคิดวิเคราะห์เขียน</span>
         </div>
-        
-        <div class="alert alert-light border-start border-4 border-info m-3 p-3 shadow-sm" style="font-size: 0.9rem;">
-          <h6 class="fw-bold text-info text-darken-2 mb-2"><i class="fas fa-info-circle me-2"></i>คำชี้แจงการประเมิน:</h6>
-          <ul class="mb-0 ps-3 text-muted">
-            <li class="mb-1">การประเมินแบ่งออกเป็น <b>4 ช่วง ทุกๆ 5 สัปดาห์</b> โดยให้คะแนน <b>ช่วงละ 25 คะแนน</b></li>
-            <li>เมื่อกรอกครบ ระบบจะตัดสินระดับคะแนนให้อัตโนมัติ: 
-              <span class="text-danger fw-bold">0-49=0</span> | 
-              <span class="text-primary fw-bold">50-69=1</span> | 
-              <span class="text-success fw-bold">70-79=2</span> | 
-              <span class="text-warning text-dark fw-bold">80-100=3</span>
+
+        <div class="m-3 p-3 rounded-3" style="background: var(--p-subtle); border: 1px solid var(--p-border); font-size: 0.88rem;">
+          <div class="fw-semibold mb-2"><i class="fas fa-info-circle me-2" style="color: var(--p-text-muted);"></i>คำชี้แจง</div>
+          <ul class="mb-0 ps-3 text-muted small">
+            <li class="mb-1">การประเมินแบ่งออกเป็น <b>4 ช่วง ทุกๆ 5 สัปดาห์</b> ช่วงละ <b>25 คะแนน</b></li>
+            <li>ตัดสินระดับอัตโนมัติ:
+              <span class="text-danger fw-semibold">0-49=0</span> |
+              <span class="fw-semibold" style="color: var(--p-info);">50-69=1</span> |
+              <span class="text-success fw-semibold">70-79=2</span> |
+              <span class="fw-semibold" style="color: #b08400;">80-100=3</span>
             </li>
           </ul>
         </div>
@@ -204,67 +184,67 @@
   </div> 
 
   <div id="scoreEmptyState" class="text-center p-5 text-muted d-none d-print-none">
-    <div class="bg-white rounded-circle shadow-sm d-inline-flex justify-content-center align-items-center mb-3" style="width: 80px; height: 80px;">
-        <i class="fas fa-cogs fa-2x text-warning"></i>
+    <div class="rounded-circle d-inline-flex justify-content-center align-items-center mb-3" style="width: 64px; height: 64px; background: var(--p-subtle); border: 1px solid var(--p-border);">
+        <i class="fas fa-cogs fa-lg" style="color: var(--p-text-muted);"></i>
     </div>
-    <h5 class="fw-bold">ยังไม่ได้ตั้งค่า "โครงสร้างวิชา"</h5>
-    <p class="small">กรุณากำหนดสัดส่วนคะแนนและตัวชี้วัดก่อนทำการบันทึกคะแนนครับ</p>
-    <button class="btn btn-primary rounded-pill px-4 shadow-sm mt-2 fw-bold" onclick="loadPage('Page_Subject_Config')">
+    <h6 class="fw-semibold mb-1" style="color: var(--p-text);">ยังไม่ได้ตั้งค่า "โครงสร้างวิชา"</h6>
+    <p class="small mb-3">กำหนดสัดส่วนคะแนนและตัวชี้วัดก่อนบันทึก</p>
+    <button class="btn btn-accent btn-sm" onclick="loadPage('Page_Subject_Config')">
        <i class="fas fa-cog me-2"></i>ไปที่หน้าตั้งค่าโครงสร้างวิชา
     </button>
   </div>
 
   <div id="printArea" class="d-none d-print-block bg-white text-dark"></div>
 
-  <div class="modal fade" id="indicatorDetailModal" tabindex="-1" aria-hidden="true">
+  <div class="modal fade pssms-modal" id="indicatorDetailModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
-      <div class="modal-content border-0 shadow-lg" style="border-radius: 12px; overflow: hidden;">
-        <div class="modal-header bg-primary text-white border-0 p-3">
-          <h6 class="modal-title fw-bold" id="indicatorModalTitle"><i class="fas fa-info-circle me-2"></i>รายละเอียดตัวชี้วัด</h6>
-          <button type="button" class="btn-close btn-close-white shadow-none" data-bs-dismiss="modal"></button>
+      <div class="modal-content">
+        <div class="modal-header">
+          <h6 class="modal-title" id="indicatorModalTitle"><i class="fas fa-info-circle me-2" style="color: var(--p-accent);"></i>รายละเอียดตัวชี้วัด</h6>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
-        <div class="modal-body bg-light p-4">
-          <div id="indicatorModalDesc" class="text-dark" style="white-space: pre-wrap; font-size: 0.95rem; line-height: 1.6;"></div>
+        <div class="modal-body p-4">
+          <div id="indicatorModalDesc" style="white-space: pre-wrap; font-size: 0.95rem; line-height: 1.6; color: var(--p-text);"></div>
         </div>
       </div>
     </div>
   </div>
 
-  <div class="modal fade" id="indicatorEditModal" tabindex="-1" aria-hidden="true">
+  <div class="modal fade pssms-modal" id="indicatorEditModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
-      <div class="modal-content border-0 shadow-lg" style="border-radius: 12px; overflow: hidden;">
-        <div class="modal-header bg-primary text-white border-0 p-3">
-          <h6 class="modal-title fw-bold" id="indicatorEditModalTitle"><i class="fas fa-edit me-2"></i>รายละเอียดตัวชี้วัด/จุดประสงค์</h6>
-          <button type="button" class="btn-close btn-close-white shadow-none" data-bs-dismiss="modal"></button>
+      <div class="modal-content">
+        <div class="modal-header">
+          <h6 class="modal-title" id="indicatorEditModalTitle"><i class="fas fa-edit me-2" style="color: var(--p-accent);"></i>รายละเอียดตัวชี้วัด/จุดประสงค์</h6>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
-        <div class="modal-body bg-light p-4">
+        <div class="modal-body p-4">
           <input type="hidden" id="editIndIdx">
           <div class="mb-3">
-            <label class="form-label fw-bold text-muted small">คำอธิบายรายละเอียด / จุดประสงค์การเรียนรู้</label>
-            <textarea id="editIndDesc" class="form-control shadow-sm border-primary" rows="5"></textarea>
+            <label class="form-label fw-medium text-muted small">คำอธิบาย / จุดประสงค์การเรียนรู้</label>
+            <textarea id="editIndDesc" class="form-control" rows="5"></textarea>
           </div>
         </div>
-        <div class="modal-footer bg-light border-top-0 pt-0 d-flex flex-wrap justify-content-between">
+        <div class="modal-footer d-flex justify-content-between">
           <span class="text-muted small"><i class="fas fa-database me-1"></i>เก็บเป็นฐานข้อมูลวิชา</span>
-          <div class="mt-2 mt-md-0 w-100 w-md-auto text-end">
-            <button type="button" class="btn btn-secondary rounded-pill px-3 me-2" data-bs-dismiss="modal">ยกเลิก</button>
-            <button type="button" class="btn btn-success rounded-pill fw-bold px-4 shadow-sm" onclick="saveIndicatorDetail()"><i class="fas fa-save me-2"></i>บันทึกข้อมูล</button>
+          <div>
+            <button type="button" class="btn btn-soft btn-sm me-2" data-bs-dismiss="modal">ยกเลิก</button>
+            <button type="button" class="btn btn-accent btn-sm" onclick="saveIndicatorDetail()"><i class="fas fa-save me-1"></i>บันทึก</button>
           </div>
         </div>
       </div>
     </div>
   </div>
 
-  <div class="modal fade" id="sgsExportModal" tabindex="-1" aria-hidden="true">
+  <div class="modal fade pssms-modal" id="sgsExportModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-xl modal-dialog-centered">
-      <div class="modal-content border-0 shadow-lg" style="border-radius: 12px; overflow: hidden;">
-        <div class="modal-header bg-success text-white border-0 p-3">
-          <h6 class="modal-title fw-bold"><i class="fas fa-file-export me-2"></i>ข้อมูลส่งออก SGS</h6>
-          <button type="button" class="btn-close btn-close-white shadow-none" data-bs-dismiss="modal"></button>
+      <div class="modal-content">
+        <div class="modal-header">
+          <h6 class="modal-title"><i class="fas fa-file-export me-2" style="color: var(--p-success);"></i>ข้อมูลส่งออก SGS</h6>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
-        <div class="modal-body bg-light p-3 p-md-4">
-           <div class="alert alert-success border-0 shadow-sm small">
-             <i class="fas fa-lightbulb me-1"></i> คลิกปุ่ม <b>"คัดลอก <i class="fas fa-copy"></i>"</b> แล้วนำไปกด <b>Ctrl+V</b> ที่โปรแกรม SGS ได้เลย!
+        <div class="modal-body p-3 p-md-4">
+           <div class="rounded-3 p-3 mb-3 small" style="background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534;">
+             <i class="fas fa-lightbulb me-1"></i> คลิกปุ่ม <b>"คัดลอก <i class="fas fa-copy"></i>"</b> แล้วกด <b>Ctrl+V</b> ที่โปรแกรม SGS
            </div>
            <div id="sgsActionButtons" class="d-flex flex-wrap gap-2 mb-3"></div>
            <div class="table-responsive bg-white border rounded shadow-sm" style="max-height: 50vh;">
