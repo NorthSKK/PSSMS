@@ -1,5 +1,73 @@
 <script>
 // ==========================================
+// 0. Debug Toolkit (Frontend)
+// เปิดด้วย ?debug=1 ที่ URL — แสดง overlay panel มุมขวาล่าง + log timing ทุก GAS call
+// ==========================================
+window.PSSMS_DEBUG = (function() {
+  try {
+    return new URLSearchParams(location.search).has('debug')
+        || localStorage.getItem('pssms_debug') === '1';
+  } catch (e) { return false; }
+})();
+
+window.pssmsDebugLog = function(tag, msg, data) {
+  if (!window.PSSMS_DEBUG) return;
+  var line = '[' + tag + '] ' + msg;
+  if (data !== undefined) {
+    try { line += ' ' + JSON.stringify(data); } catch (e) {}
+  }
+  console.log(line);
+  pssmsDebugPanelAppend(tag, msg);
+};
+
+window.pssmsDebugStats = { calls: 0, totalMs: 0, byFn: {} };
+
+window.pssmsDebugPanelAppend = function(tag, msg) {
+  if (!window.PSSMS_DEBUG) return;
+  var panel = document.getElementById('pssms-debug-panel');
+  if (!panel) {
+    panel = document.createElement('div');
+    panel.id = 'pssms-debug-panel';
+    panel.style.cssText = [
+      'position:fixed','bottom:0','right:0','background:rgba(0,0,0,0.85)',
+      'color:#0f0','font:11px/1.35 "SF Mono",Consolas,monospace','padding:6px 8px',
+      'max-height:240px','overflow-y:auto','z-index:99999','max-width:340px',
+      'border-top-left-radius:6px','box-shadow:0 0 8px rgba(0,0,0,0.4)'
+    ].join(';');
+    var header = document.createElement('div');
+    header.style.cssText = 'color:#0ff;font-weight:bold;display:flex;justify-content:space-between;gap:8px;border-bottom:1px solid #333;padding-bottom:3px;margin-bottom:3px;';
+    header.innerHTML = '<span>PSSMS DEBUG</span><span id="pssms-debug-summary"></span>';
+    var body = document.createElement('div');
+    body.id = 'pssms-debug-body';
+    var ctrl = document.createElement('div');
+    ctrl.style.cssText = 'border-top:1px solid #333;padding-top:3px;margin-top:3px;text-align:right;';
+    ctrl.innerHTML = '<a href="#" id="pssms-debug-clear" style="color:#ff0;text-decoration:none;">clear</a> &nbsp; <a href="#" id="pssms-debug-off" style="color:#f88;text-decoration:none;">off</a>';
+    panel.appendChild(header);
+    panel.appendChild(body);
+    panel.appendChild(ctrl);
+    document.body.appendChild(panel);
+    document.getElementById('pssms-debug-clear').onclick = function(e) { e.preventDefault(); document.getElementById('pssms-debug-body').innerHTML = ''; };
+    document.getElementById('pssms-debug-off').onclick = function(e) {
+      e.preventDefault();
+      try { localStorage.removeItem('pssms_debug'); } catch (_) {}
+      panel.remove();
+      window.PSSMS_DEBUG = false;
+    };
+  }
+  var body = document.getElementById('pssms-debug-body');
+  var row = document.createElement('div');
+  row.textContent = '[' + tag + '] ' + msg;
+  if (tag === 'PERF_ERR' || tag === 'ERR') row.style.color = '#f66';
+  else if (tag === 'CACHE') row.style.color = '#fc6';
+  else if (tag === 'CALL') row.style.color = '#9f9';
+  body.appendChild(row);
+  while (body.children.length > 60) body.removeChild(body.firstChild);
+  body.scrollTop = body.scrollHeight;
+  var sum = document.getElementById('pssms-debug-summary');
+  if (sum) sum.textContent = 'calls:' + pssmsDebugStats.calls + ' | ' + pssmsDebugStats.totalMs + 'ms';
+};
+
+// ==========================================
 // 1. Core System & UI
 // ==========================================
 window.onload = function() {
@@ -474,9 +542,26 @@ window.safeRun = function(maxRetries = 3) {
 
       // 3. เมื่อเจอชื่อฟังก์ชันฝั่ง Server (เช่น saveAttendanceBatch) ให้ทำ Auto-Retry
       return function(...args) {
+        const _debugT0 = (window.PSSMS_DEBUG ? performance.now() : 0);
+        const _debugTag = propName;
+        if (window.PSSMS_DEBUG) {
+          window.pssmsDebugStats.calls += 1;
+          window.pssmsDebugLog('CALL', _debugTag + ' start');
+        }
+        const _debugFinish = (status) => {
+          if (!window.PSSMS_DEBUG) return;
+          const dt = Math.round(performance.now() - _debugT0);
+          window.pssmsDebugStats.totalMs += dt;
+          const byFn = window.pssmsDebugStats.byFn;
+          byFn[_debugTag] = byFn[_debugTag] || { n: 0, ms: 0 };
+          byFn[_debugTag].n += 1;
+          byFn[_debugTag].ms += dt;
+          window.pssmsDebugLog(status === 'ok' ? 'CALL' : 'ERR', _debugTag + ' ' + dt + 'ms ' + status);
+        };
         const attemptCall = (retriesLeft) => {
           google.script.run
             .withSuccessHandler((res) => {
+              _debugFinish('ok');
               if (_onSuccess) _onSuccess(res);
             })
             .withFailureHandler((err) => {
@@ -491,6 +576,7 @@ window.safeRun = function(maxRetries = 3) {
                 // สุ่มเวลาดีเลย์ 1.5 - 2 วินาที แล้วลองส่งใหม่ (กันเซิร์ฟเวอร์โดนยิงซ้ำรัวๆ)
                 setTimeout(() => attemptCall(retriesLeft - 1), 1500); 
               } else {
+                _debugFinish('fail');
                 // ถ้าลองจนครบโควตาแล้วยังพัง ค่อยโยน Error ออกมาให้ครูเห็น
                 if (_onFailure) _onFailure(err);
                 else alert("❌ ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้ กรุณาลองใหม่อีกครั้ง");
