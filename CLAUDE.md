@@ -56,6 +56,10 @@ Local (src/)  →  clasp push  →  Google Apps Script
 | ไฟล์ | หน้าที่ |
 |---|---|
 | `Code.js` | Server-side ทั้งหมด |
+| `Debug.js` | Debug toolkit (timing, cache logs, DEBUG_MODE toggle) |
+| `Cache.js` | `getCached(key, ttl, fetcher)` + `getActiveTermYear()` fast-path |
+| `DashboardBundle.js` | `getTeacherDashboardBundle()` / `getAdminDashboardBundle()` |
+| `Precompute.js` | Nightly trigger → `_Computed_Cache` sheet (risk + atRisk) |
 | `appsscript.json` | GAS manifest (timezone, webapp config) |
 
 ### Frontend — Shell & Shared
@@ -263,3 +267,51 @@ verifyTeacherPermission(teacherId, subjectCode, className, term, year)
 - เพิ่มฟีเจอร์ใหม่ → คำนึงถึง role และ term/year เสมอ
 - ภาษาไทยทั้งหมด (UI + error message)
 - Default admin จาก `setupDatabase()`: username `admin` / password `1234` — เปลี่ยนก่อน production
+
+---
+
+## Performance & Debug (2026-05-12 optimization pass)
+
+ดู `PERF_OPTIMIZATION.md` สำหรับรายละเอียดทั้งหมด.
+
+### Cache layers
+1. **ScriptCache** (`src/Cache.js` — `getCached(key, ttl, fetcher)`) — shared across users, 5-30 min TTL
+2. **PropertiesService** (`getActiveTermYear()`) — sub-ms active term/year
+3. **_Computed_Cache sheet** — nightly precomputed risk/atRisk dashboards (TTL 12h on read)
+
+### Cache invalidation hooks
+Every write path เรียก `invalidateCache(key)` หรือ `invalidateCacheKeys([])`:
+- `saveSystemConfig` → system_config, available_terms, all_users + `setActiveTermYear`
+- `addUser`/`editUser`/`deleteUser`/`importStudentCSV`/`importTeacherCSV`/`promoteStudentsToNextYear` → all_users
+- `saveCalendarEvent`/`deleteCalendarEvent`/`importCalendarCSV` → calendar_events
+- `importCurriculumCSV` → curriculum_all
+
+### Debug mode
+**Backend**: GAS Editor → `setDebugMode(true)` / `setDebugMode(false)` → `clasp logs --watch`
+**Frontend**: เปิด URL ลงท้าย `?debug=1` → overlay panel มุมขวาล่าง (CALL/CACHE/PERF/PROPS logs)
+
+### Precompute trigger setup (one-time)
+ใน GAS Editor:
+```javascript
+setupPrecomputeTrigger();  // ตั้ง trigger ทุกคืน 02:00
+precomputeNow();            // prime cache ครั้งแรก
+```
+
+### Bundled GAS calls
+- `getTeacherDashboardBundle(teacherId, term, year)` — return 4 sections (timetable + risk + atRisk + calendar) ใน call เดียว
+- `getAdminDashboardBundle()` — return 5 sections (stats + summary + calendar + terms + config)
+- Frontend dashboard (`Scripts_Teacher.html` → `initTeacherDashboard()`) ใช้ bundle, fallback ฟังก์ชันแยกเมื่อ bundle fail
+
+### Adding new cached function — pattern
+```javascript
+function getMyData() {
+  return getCached('my_data_key', 300, function() {
+    // ... expensive read
+  });
+}
+// + invalidate hook ในทุก write path:
+function saveMyData() {
+  // ... write
+  invalidateCache('my_data_key');
+}
+```
