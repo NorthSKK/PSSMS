@@ -5,14 +5,14 @@
       <p class="text-muted small mb-0">ดูและจัดการแผนปฏิบัติงาน, วันหยุด, และกิจกรรมต่างๆ ภายในโรงเรียน</p>
     </div>
     <div class="d-flex gap-2">
-      <button class="btn btn-outline-secondary shadow-sm fw-bold" onclick="initCalendarDB()">
+      <button class="btn btn-outline-secondary shadow-sm fw-bold pssms-admin-only" onclick="initCalendarDB()">
         <i class="fas fa-tools me-1"></i> Setup DB
       </button>
-      <button class="btn btn-outline-info shadow-sm fw-bold" onclick="openImportCalendarModal()">
+      <button class="btn btn-outline-info shadow-sm fw-bold pssms-admin-only" onclick="openImportCalendarModal()">
         <i class="fas fa-file-import me-1"></i> นำเข้าจากไฟล์
       </button>
-      <button class="btn text-white shadow-sm fw-bold px-4" style="background-color: #e83e8c;" onclick="openCalendarModal('add')">
-        <i class="fas fa-plus-circle me-1"></i> เพิ่มกิจกรรม
+      <button class="btn text-white shadow-sm fw-bold px-4" id="btnAddCalendarEvent" style="background-color: #e83e8c;" onclick="openCalendarModal('add')">
+        <i class="fas fa-plus-circle me-1"></i> <span id="btnAddCalendarEventLabel">เพิ่มกิจกรรม</span>
       </button>
     </div>
   </div>

@@ -6,15 +6,41 @@
 let calendarInstance = null;
 let _calImportBase64 = null;
 
+function _calIsAdmin() {
+    const u = getSessionUser();
+    return u && String(u.role).toUpperCase() === 'ADMIN';
+}
+
+const CAL_PERSONAL_COLOR = '#6f42c1';
+
 window.initCalendarPage = function() {
     const calendarEl = document.getElementById('schoolCalendar');
     if (!calendarEl) return;
+
+    // Toggle admin-only controls (Setup DB + นำเข้าไฟล์)
+    const isAdmin = _calIsAdmin();
+    document.querySelectorAll('.pssms-admin-only').forEach(el => {
+        el.style.display = isAdmin ? '' : 'none';
+    });
+    const addLabel = document.getElementById('btnAddCalendarEventLabel');
+    if (addLabel) addLabel.textContent = isAdmin ? 'เพิ่มกิจกรรม' : 'เพิ่มกิจกรรมส่วนตัว';
 
     // ล้างและวาดใหม่เสมอเมื่อเปิดหน้า
     calendarEl.innerHTML = '<div class="text-center py-5 text-muted"><div class="spinner-border text-danger mb-3"></div><br>กำลังโหลดปฏิทิน...</div>';
 
     safeRun().withSuccessHandler(function(events) {
         calendarEl.innerHTML = ''; // ล้างตัวโหลด
+
+        // Filter: ครูเห็น public + personal events ของตัวเอง
+        const me = getSessionUser();
+        const myId = me ? String(me.id) : '';
+        const filteredEvents = (events || []).filter(ev => {
+            if (isAdmin) return true;
+            if (ev.backgroundColor === CAL_PERSONAL_COLOR) {
+                return String(ev.createdBy || '') === myId;
+            }
+            return true;
+        });
 
         calendarInstance = new FullCalendar.Calendar(calendarEl, {
             locale: 'th',
@@ -25,7 +51,7 @@ window.initCalendarPage = function() {
                 right: 'dayGridMonth,timeGridWeek,listMonth'
             },
             themeSystem: 'bootstrap5',
-            events: events,
+            events: filteredEvents,
             editable: true,
             selectable: true,
             select: function(info) {
@@ -49,10 +75,16 @@ window.initCalendarPage = function() {
 window.openCalendarModal = function(mode, start = '', end = '', eventObj = null) {
     const form = document.getElementById('calendarForm');
     form.reset();
-    
+
+    const isAdmin = _calIsAdmin();
+    const colorSel = document.getElementById('calColor');
+
     document.getElementById('calModalHeader').style.backgroundColor = mode === 'add' ? '#e83e8c' : '#343a40';
-    document.getElementById('calModalTitle').innerHTML = mode === 'add' ? '<i class="fas fa-calendar-plus me-2"></i>เพิ่มกิจกรรมใหม่' : '<i class="fas fa-edit me-2"></i>แก้ไข/รายละเอียด';
-    
+    const addTitle = isAdmin ? 'เพิ่มกิจกรรมใหม่' : 'เพิ่มกิจกรรมส่วนตัว';
+    document.getElementById('calModalTitle').innerHTML = mode === 'add'
+        ? `<i class="fas fa-calendar-plus me-2"></i>${addTitle}`
+        : '<i class="fas fa-edit me-2"></i>แก้ไข/รายละเอียด';
+
     if (mode === 'add') {
         document.getElementById('calEventId').value = '';
         if (start) document.getElementById('calStart').value = start;
@@ -63,6 +95,17 @@ window.openCalendarModal = function(mode, start = '', end = '', eventObj = null)
             document.getElementById('calEnd').value = endDate.toISOString().split('T')[0];
         }
         document.getElementById('btnDeleteEvent').classList.add('d-none');
+
+        // ครู: บังคับเป็นกิจกรรมส่วนตัว — ล็อคสี + ใส่ hint
+        if (!isAdmin) {
+            colorSel.value = CAL_PERSONAL_COLOR;
+            colorSel.style.color = CAL_PERSONAL_COLOR;
+            colorSel.disabled = true;
+            _ensurePersonalHint();
+        } else {
+            colorSel.disabled = false;
+            _removePersonalHint();
+        }
     } else if (mode === 'edit' && eventObj) {
         document.getElementById('calEventId').value = eventObj.id;
         document.getElementById('calTitle').value = eventObj.title;
@@ -77,8 +120,18 @@ window.openCalendarModal = function(mode, start = '', end = '', eventObj = null)
         document.getElementById('calColor').value = eventObj.backgroundColor || '#0d6efd';
         document.getElementById('calColor').style.color = eventObj.backgroundColor || '#0d6efd';
         document.getElementById('calDesc').value = eventObj.extendedProps.description || '';
-        
-        document.getElementById('btnDeleteEvent').classList.remove('d-none');
+
+        // ครู: แก้ได้เฉพาะ event ของตัวเอง (personal); event โรงเรียน read-only
+        const me = getSessionUser();
+        const myId = me ? String(me.id) : '';
+        const isOwner = String(eventObj.extendedProps.createdBy || '') === myId;
+        const eventIsPersonal = eventObj.backgroundColor === CAL_PERSONAL_COLOR;
+        const canEdit = isAdmin || (eventIsPersonal && isOwner);
+        document.getElementById('btnSaveEvent').disabled = !canEdit;
+        if (canEdit) document.getElementById('btnDeleteEvent').classList.remove('d-none');
+        else document.getElementById('btnDeleteEvent').classList.add('d-none');
+        colorSel.disabled = !isAdmin;
+        _removePersonalHint();
     }
 
     new bootstrap.Modal(document.getElementById('calendarModal')).show();
@@ -102,14 +155,22 @@ window.saveCalendarEvent = function() {
         end = ''; // ถ้าใส่วันสิ้นสุดน้อยกว่าวันเริ่ม ให้ล้างทิ้ง
     }
 
+    const isAdmin = _calIsAdmin();
+    const colorVal = document.getElementById('calColor').value;
+    // ครู: บังคับเป็น personal เสมอ (createdBy = user.id เพื่อ filter visibility)
+    const createdBy = isAdmin
+        ? (user ? user.name : 'Unknown')
+        : (user ? String(user.id) : 'Unknown');
+    const finalColor = isAdmin ? colorVal : CAL_PERSONAL_COLOR;
+
     const payload = {
         id: document.getElementById('calEventId').value,
         title: title,
         start: start,
         end: end,
-        color: document.getElementById('calColor').value,
+        color: finalColor,
         description: document.getElementById('calDesc').value,
-        createdBy: user ? user.name : 'Unknown'
+        createdBy: createdBy
     };
 
     const btn = document.getElementById('btnSaveEvent');
@@ -218,6 +279,21 @@ window.previewCalendarCSV = function(input) {
     };
     reader.readAsText(file, 'UTF-8');
 };
+
+function _ensurePersonalHint() {
+    const sel = document.getElementById('calColor');
+    if (!sel || document.getElementById('calPersonalHint')) return;
+    const hint = document.createElement('div');
+    hint.id = 'calPersonalHint';
+    hint.className = 'form-text text-muted small mt-1';
+    hint.innerHTML = '<i class="fas fa-lock me-1"></i>กิจกรรมส่วนตัว (เห็นได้เฉพาะคุณ)';
+    sel.parentNode.appendChild(hint);
+}
+
+function _removePersonalHint() {
+    const h = document.getElementById('calPersonalHint');
+    if (h) h.remove();
+}
 
 function _autoColorJS(text) {
     const t = text.toLowerCase();
