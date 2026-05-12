@@ -174,31 +174,124 @@ function deleteTodoByText(encodedText) {
 function initTeacherDashboard() {
   const user = JSON.parse(localStorage.getItem('pssms_user') || sessionStorage.getItem('pssms_user'));
   if(!user) return;
-  
+
   if(document.getElementById('dashTeacherName')) document.getElementById('dashTeacherName').innerText = user.name;
   if(document.getElementById('dashTodayDate')) document.getElementById('dashTodayDate').innerText = new Date().toLocaleDateString('th-TH', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-  
+
+  // Bundle 4 calls into 1 GAS round-trip (Phase 5).
+  // Falls back to legacy per-call loaders ถ้า bundle fail.
   const now = new Date();
   const localDate = new Date(now.getTime() - (now.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
   const scheduleCacheKey = `today_schedule_v2_${user.id}_${localDate}`;
+  const riskCacheKey = `grade_risk_v2_${user.id}_${user.currentTerm}_${user.currentYear}`;
+  const atRiskCacheKey = `risk_dash_${user.id}_${user.currentTerm}_${user.currentYear}`;
 
+  // Show cached pieces immediately while bundle loads.
   if (sessionStorage.getItem(scheduleCacheKey)) {
-     renderTeacherTodaySchedule(JSON.parse(sessionStorage.getItem(scheduleCacheKey)));
-  } else {
-     google.script.run.withSuccessHandler(data => {
-       sessionStorage.setItem(scheduleCacheKey, JSON.stringify(data));
-       renderTeacherTodaySchedule(data);
-     }).getTeacherTimetableWithStatus(user.id);
+    try { renderTeacherTodaySchedule(JSON.parse(sessionStorage.getItem(scheduleCacheKey))); } catch (e) {}
   }
-  
-  // 🌟 ป้องกัน Error โดมิโน่: ถ้ามีอะไรพังให้มันข้ามไปทำคำสั่งถัดไปเลย ไม่ต้องตายทั้งระบบ
+  if (sessionStorage.getItem(riskCacheKey)) {
+    try { renderTeacherRiskFromCache(JSON.parse(sessionStorage.getItem(riskCacheKey))); } catch (e) {}
+  }
+  if (sessionStorage.getItem(atRiskCacheKey)) {
+    try {
+      const c = document.getElementById('atRiskDashboardContainer') || (function() {
+        const pc = document.getElementById('page-content');
+        if (pc) pc.insertAdjacentHTML('beforeend', '<div id="atRiskDashboardContainer" class="mt-4 pb-5"></div>');
+        return document.getElementById('atRiskDashboardContainer');
+      })();
+      if (c) renderTeacherAtRiskDashboard(JSON.parse(sessionStorage.getItem(atRiskCacheKey)), c);
+    } catch (e) {}
+  }
+
+  safeRun(2).withSuccessHandler(function(bundle) {
+    if (!bundle) { loadTeacherDashboardLegacy(user); return; }
+
+    if (bundle.timetable && bundle.timetable.ok && bundle.timetable.data) {
+      sessionStorage.setItem(scheduleCacheKey, JSON.stringify(bundle.timetable.data));
+      renderTeacherTodaySchedule(bundle.timetable.data);
+    }
+    if (bundle.riskDashboard && bundle.riskDashboard.ok && bundle.riskDashboard.data) {
+      const res = bundle.riskDashboard.data;
+      if (res.status === 'success') {
+        sessionStorage.setItem(riskCacheKey, JSON.stringify(res));
+        renderTeacherRiskFromCache(res);
+      }
+    }
+    if (bundle.atRiskDashboard && bundle.atRiskDashboard.ok && bundle.atRiskDashboard.data) {
+      sessionStorage.setItem(atRiskCacheKey, JSON.stringify(bundle.atRiskDashboard.data));
+      const c = document.getElementById('atRiskDashboardContainer') || (function() {
+        const pc = document.getElementById('page-content');
+        if (pc) pc.insertAdjacentHTML('beforeend', '<div id="atRiskDashboardContainer" class="mt-4 pb-5"></div>');
+        return document.getElementById('atRiskDashboardContainer');
+      })();
+      if (c) renderTeacherAtRiskDashboard(bundle.atRiskDashboard.data, c);
+    }
+    if (bundle.calendarEvents && bundle.calendarEvents.ok && bundle.calendarEvents.data) {
+      renderDashboardCalendarEvents(bundle.calendarEvents.data);
+    }
+  }).withFailureHandler(function() {
+    loadTeacherDashboardLegacy(user);
+  }).getTeacherDashboardBundle(user.id, user.currentTerm, user.currentYear);
+
+  // ToDo loads independently (lightweight, per-user)
+  setTimeout(loadTodoList, 300);
+}
+
+// Fallback: original sequential loaders if bundle endpoint fails or missing.
+function loadTeacherDashboardLegacy(user) {
+  try {
+    const now = new Date();
+    const localDate = new Date(now.getTime() - (now.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
+    const scheduleCacheKey = `today_schedule_v2_${user.id}_${localDate}`;
+    if (!sessionStorage.getItem(scheduleCacheKey)) {
+      google.script.run.withSuccessHandler(data => {
+        sessionStorage.setItem(scheduleCacheKey, JSON.stringify(data));
+        renderTeacherTodaySchedule(data);
+      }).getTeacherTimetableWithStatus(user.id);
+    }
+  } catch (e) { console.error(e); }
   try { loadTeacherRiskDashboard(user.id, user.currentTerm, user.currentYear); } catch(e) { console.error(e); }
   try { loadTeacherAtRiskDashboard(user.id, user.currentTerm, user.currentYear); } catch(e) { console.error(e); }
-  try { loadMorningSummaryDashboard(user.id, user.currentTerm, user.currentYear); } catch(e) { console.error(e); }
-  
-  // 🌟 บังคับ To-Do List ให้โหลดแบบอิสระ ไม่ต้องรอฟังก์ชันข้างบนทำงานเสร็จ
-  setTimeout(loadTodoList, 300);
   try { loadDashboardCalendarEvents(); } catch(e) { console.error(e); }
+}
+
+// Render helper extracted so bundle path can reuse render logic for risk cache.
+function renderTeacherRiskFromCache(res) {
+  const el0 = document.getElementById('riskCount0');
+  const elR = document.getElementById('riskCountR');
+  const elMS = document.getElementById('riskCountMS');
+  if (!el0 || !elR || !elMS) return;
+  el0.innerHTML = `<span class="fs-1">${res.summary.zero}</span> <span class="fs-6 fw-normal">รายการ</span>`;
+  elR.innerHTML = `<span class="fs-1">${res.summary.r}</span> <span class="fs-6 fw-normal">รายการ</span>`;
+  elMS.innerHTML = `<span class="fs-1">${res.summary.ms}</span> <span class="fs-6 fw-normal">รายการ</span>`;
+  if (typeof renderRiskCards === 'function') renderRiskCards(res.details);
+}
+
+// Extracted from loadDashboardCalendarEvents so bundle path can reuse render logic.
+function renderDashboardCalendarEvents(events) {
+  const strip = document.getElementById('dashCalendarStrip');
+  const badges = document.getElementById('dashCalendarBadges');
+  if (!strip || !badges || !events) return;
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const limit = new Date(today); limit.setDate(limit.getDate() + 14);
+  const upcoming = events.filter(function(ev) {
+    if (!ev.start) return false;
+    const start = new Date(ev.start);
+    const end = ev.end ? new Date(ev.end) : start;
+    return start <= limit && end >= today;
+  }).sort(function(a, b) { return new Date(a.start) - new Date(b.start); });
+  if (upcoming.length === 0) return;
+  strip.classList.remove('d-none');
+  badges.innerHTML = upcoming.map(function(ev) {
+    const d = new Date(ev.start);
+    const isToday = d.toDateString() === today.toDateString();
+    const dayLabel = d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' });
+    const color = ev.backgroundColor || '#6c757d';
+    const dot = isToday ? '<i class="fas fa-circle me-1" style="font-size:0.5rem;vertical-align:middle;"></i>' : '';
+    return '<span class="badge rounded-pill shadow-sm" style="background-color:' + color + ';font-size:0.78rem;padding:5px 11px;cursor:default;" title="' + (ev.description || '') + '">'
+      + dot + '<i class="fas fa-calendar-day me-1"></i>' + dayLabel + ' · ' + ev.title + '</span>';
+  }).join('');
 }
 
 function loadDashboardCalendarEvents() {

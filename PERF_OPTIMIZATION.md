@@ -243,8 +243,57 @@ Per call savings: ~100ms + ~80ms = **~180ms** for these 2 hot functions.
 
 - Commit: (pending)
 
-## Phase 5: Bundle dashboard calls
-- Status: pending
+## Phase 5: Bundle dashboard calls ✅
+
+**Goal**: ลด round-trip ไป-กลับ GAS โดยรวม dashboard calls หลายตัวเป็น call เดียว.
+
+### Why bundle
+- ทุก `google.script.run` call: ~500ms-1s overhead (cold start + network round-trip)
+- 4 calls แยก = 4× overhead + max(exec)
+- 1 bundle = 1× overhead + sum(exec) — ส่วนใหญ่ sub-calls hit cache → ~50ms รวม
+
+### Files
+- New: `src/DashboardBundle.js`
+- Edited: `src/Scripts_Teacher.html`
+
+### Backend bundle
+**`getTeacherDashboardBundle(teacherId, term, year)`** — รวม 4 sections:
+- `timetable` ← `getTeacherTimetableWithStatus`
+- `riskDashboard` ← `getTeacherRiskDashboard`
+- `atRiskDashboard` ← `getTeacherAtRiskDashboard`
+- `calendarEvents` ← `getCalendarEvents`
+
+แต่ละ section ห่อ try/catch → ถ้าตัวใดตัวหนึ่ง fail, ตัวอื่นยังกลับ data ได้
+
+**`getAdminDashboardBundle()`** (ready for use) — รวม 5 sections:
+- `adminStats`, `studentSummary`, `calendarEvents`, `availableTerms`, `systemConfig`
+
+### Frontend integration (Teacher dashboard)
+- `initTeacherDashboard()` เรียก `getTeacherDashboardBundle()` ครั้งเดียว
+- Render cached pieces ทันทีจาก sessionStorage ก่อน bundle response กลับมา (fast paint)
+- Bundle response → update + cache แต่ละ section
+- ToDo list ยังโหลดแยก (per-user, lightweight)
+
+### Fallback strategy
+- `loadTeacherDashboardLegacy(user)` — เรียกฟังก์ชันแยกแบบเดิม
+- ทำงานถ้า bundle endpoint fail / response null
+- ฟังก์ชันแยกเดิม (`loadTeacherRiskDashboard`, `loadTeacherAtRiskDashboard`, `loadDashboardCalendarEvents`) ยังคงอยู่ — backward compat
+
+### Render helpers extracted
+- `renderTeacherRiskFromCache(res)` — DRY: bundle path + cache path ใช้ร่วมกัน
+- `renderDashboardCalendarEvents(events)` — DRY: รับ events array ที่ extract แล้ว
+
+### Expected impact
+- Teacher dashboard: 4 GAS calls (~2-3s) → 1 GAS call (~600ms-1s) — **lazy paint จาก cache แทบ instant**
+- Combined with Phase 2 cache: หลังครั้งแรก, sub-calls cache HIT → bundle ~150-300ms
+
+### Verification
+- เปิด `?debug=1` ที่ teacher dashboard
+- Debug panel ต้องเห็น `[CALL] getTeacherDashboardBundle XXms ok` ครั้งเดียว
+- เปิด dashboard อีกครั้ง (cache warm) — bundle response < 500ms
+- หยุด network กลางคัน → fallback path ทำงาน
+
+- Commit: (pending)
 
 ## Phase 6: Precompute reports
 - Status: pending
