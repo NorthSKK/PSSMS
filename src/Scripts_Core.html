@@ -341,10 +341,6 @@ function renderApp(user) {
   if (role === 'ADMIN') {
     menuHTML += `
       <div class="menu-divider">การจัดการระบบ</div>
-      <li class="mb-1"><a href="javascript:void(0)" class="dept-btn" style="border-left-color: #f39c12 !important;" onclick="loadPage('Page_Admin_Users')"><i class="fas fa-users-cog" style="color: #f39c12;"></i> <span>จัดการผู้ใช้งาน</span></a></li>
-      <li class="mb-1"><a href="javascript:void(0)" class="dept-btn" style="border-left-color: #17a2b8 !important;" onclick="loadPage('Page_Admin_Timetable')"><i class="fas fa-calendar-alt" style="color: #17a2b8;"></i> <span>จัดการตารางสอน</span></a></li>
-      <li class="mb-1"><a href="javascript:void(0)" class="dept-btn" style="border-left-color: #2ecc71 !important;" onclick="loadPage('Page_Admin_Curriculum')"><i class="fas fa-layer-group" style="color: #2ecc71;"></i> <span>คลังตัวชี้วัด/ผลการเรียนรู้</span></a></li>
-      <li class="mb-1"><a href="javascript:void(0)" class="dept-btn" style="border-left-color: #9c27b0 !important;" onclick="loadPage('Page_Admin_Clubs')"><i class="fas fa-users-cog" style="color: #9c27b0;"></i> <span>จัดการชุมนุม</span></a></li>
       <li class="mb-2"><a href="javascript:void(0)" class="dept-btn" style="border-left-color: #adb5bd !important;" onclick="loadPage('Page_Admin_Settings')"><i class="fas fa-cogs" style="color: #adb5bd;"></i> <span>ตั้งค่าระบบ</span></a></li>
     `;
   }
@@ -358,6 +354,9 @@ function renderApp(user) {
         menuHTML += `<li class="mb-1"><div class="dept-btn academic" style="cursor: default;"><i class="fas fa-graduation-cap"></i> <span>ฝ่ายวิชาการ</span></div></li>`;
         menuHTML += `<li class="mb-1 ms-3"><a href="javascript:void(0)" class="nav-link-sub text-success py-1" style="font-size: 0.85rem;" onclick="loadPage('Page_Score_Entry')"><i class="fas fa-edit me-2" style="font-size: 0.7rem;"></i>บันทึกคะแนน (ปพ.5)</a></li>`;
         menuHTML += `<li class="mb-1 ms-3"><a href="javascript:void(0)" class="nav-link-sub text-info py-1" style="font-size: 0.85rem;" onclick="loadPage('Page_Academic_Report')"><i class="fas fa-chart-pie me-2" style="font-size: 0.7rem;"></i>รายงานสถิติ (มส.)</a></li>`;
+        menuHTML += `<li class="mb-1 ms-3"><a href="javascript:void(0)" class="nav-link-sub py-1" style="font-size: 0.85rem; color: #17a2b8;" onclick="loadPage('Page_Admin_Timetable')"><i class="fas fa-calendar-alt me-2" style="font-size: 0.7rem;"></i>จัดการตารางสอน</a></li>`;
+        menuHTML += `<li class="mb-1 ms-3"><a href="javascript:void(0)" class="nav-link-sub py-1" style="font-size: 0.85rem; color: #2ecc71;" onclick="loadPage('Page_Admin_Curriculum')"><i class="fas fa-layer-group me-2" style="font-size: 0.7rem;"></i>คลังตัวชี้วัด/ผลการเรียนรู้</a></li>`;
+        menuHTML += `<li class="mb-2 ms-3"><a href="javascript:void(0)" class="nav-link-sub py-1" style="font-size: 0.85rem; color: #9c27b0;" onclick="loadPage('Page_Admin_Clubs')"><i class="fas fa-users-cog me-2" style="font-size: 0.7rem;"></i>จัดการชุมนุม</a></li>`;
     } else {
         // ของครู: เห็นครบทุกอันตามปกติ
         menuHTML += `<li class="mb-1"><a href="javascript:void(0)" class="dept-btn academic" onclick="loadPage('Page_Academic')"><i class="fas fa-graduation-cap"></i> <span>ฝ่ายวิชาการ</span></a></li>`;
@@ -369,9 +368,16 @@ function renderApp(user) {
     }
 
     // เมนูของฝ่ายอื่นๆ (เห็นเหมือนกันทั้งแอดมินและครู)
+    menuHTML += `<li class="mb-2"><a href="javascript:void(0)" class="dept-btn budget" onclick="loadPage('Page_Budget')"><i class="fas fa-wallet"></i> <span>ฝ่ายงบประมาณ</span></a></li>`;
+
+    if (role === 'ADMIN') {
+        menuHTML += `<li class="mb-1"><a href="javascript:void(0)" class="dept-btn personnel" onclick="loadPage('Page_Personnel')"><i class="fas fa-users"></i> <span>ฝ่ายบุคคล</span></a></li>`;
+        menuHTML += `<li class="mb-2 ms-3"><a href="javascript:void(0)" class="nav-link-sub py-1" style="font-size: 0.85rem; color: #f39c12;" onclick="loadPage('Page_Admin_Users')"><i class="fas fa-users-cog me-2" style="font-size: 0.7rem;"></i>จัดการผู้ใช้งาน</a></li>`;
+    } else {
+        menuHTML += `<li class="mb-2"><a href="javascript:void(0)" class="dept-btn personnel" onclick="loadPage('Page_Personnel')"><i class="fas fa-users"></i> <span>ฝ่ายบุคคล</span></a></li>`;
+    }
+
     menuHTML += `
-      <li class="mb-2"><a href="javascript:void(0)" class="dept-btn budget" onclick="loadPage('Page_Budget')"><i class="fas fa-wallet"></i> <span>ฝ่ายงบประมาณ</span></a></li>
-      <li class="mb-2"><a href="javascript:void(0)" class="dept-btn personnel" onclick="loadPage('Page_Personnel')"><i class="fas fa-users"></i> <span>ฝ่ายบุคคล</span></a></li>
       <li class="mb-2"><a href="javascript:void(0)" class="dept-btn general" onclick="loadPage('Page_General')"><i class="fas fa-building"></i> <span>ฝ่ายทั่วไป</span></a></li>
       <li class="mb-2"><a href="javascript:void(0)" class="dept-btn general" style="border-left-color: #e83e8c !important;" onclick="loadPage('Page_Calendar')"><i class="fas fa-calendar-alt" style="color: #e83e8c;"></i> <span>ปฏิทินปฏิบัติงาน</span></a></li>
     `;
