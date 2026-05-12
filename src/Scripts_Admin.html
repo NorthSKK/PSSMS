@@ -822,4 +822,302 @@ function runDebugTimetable() {
     .debugTimetableResult(tid, dateStr);
 }
 
+// ==========================================
+// CLUBS — Admin UI
+// ==========================================
+let _clubList = [];
+let _clubTeacherList = [];
+let _clubSelectedAdvisors = {};       // { teacherId: true }
+let _currentClubForMembers = null;    // { clubId, clubName, term, year }
+let _clubMembersCache = [];
+
+function initAdminClubs() {
+  const user = JSON.parse(localStorage.getItem('pssms_user') || sessionStorage.getItem('pssms_user'));
+  if (!user) return;
+  const termLabel = document.getElementById('clubTermLabel');
+  const yearLabel = document.getElementById('clubYearLabel');
+  if (termLabel) termLabel.textContent = user.currentTerm;
+  if (yearLabel) yearLabel.textContent = user.currentYear;
+
+  // Prime allUsers cache if empty (Page_Admin_Clubs may be opened directly)
+  if (!allUsers || allUsers.length === 0) {
+    google.script.run.withSuccessHandler(d => { allUsers = d; }).getAllUsers();
+  }
+
+  loadClubList();
+  loadTeacherListForClubs();
+}
+
+function setupClubDb() {
+  if (!confirm('สร้าง/ตรวจสอบฐานข้อมูลชุมนุม (Club_Database, Club_Advisors, Club_Members)?')) return;
+  google.script.run.withSuccessHandler(res => { alert(res.message); loadClubList(); }).setupClubDatabase();
+}
+
+function loadClubList() {
+  const tbody = document.getElementById('clubListBody');
+  if (!tbody) return;
+  const user = JSON.parse(localStorage.getItem('pssms_user') || sessionStorage.getItem('pssms_user'));
+  tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted p-5"><div class="spinner-border spinner-border-sm me-2"></div>กำลังโหลด...</td></tr>';
+
+  google.script.run.withSuccessHandler(list => {
+    _clubList = list || [];
+    renderClubList(_clubList);
+    updateClubStats(_clubList);
+  }).withFailureHandler(err => {
+    tbody.innerHTML = `<tr><td colspan="5" class="text-center text-danger p-5">❌ ${err.message}</td></tr>`;
+  }).getClubList(user.currentTerm, user.currentYear);
+}
+
+function updateClubStats(list) {
+  const total = list.length;
+  const open = list.filter(c => c.status === 'open').length;
+  const members = list.reduce((s, c) => s + c.memberCount, 0);
+  const seats = list.reduce((s, c) => s + c.seatsLeft, 0);
+  document.getElementById('statClubTotal').textContent = total;
+  document.getElementById('statClubOpen').textContent = open;
+  document.getElementById('statClubMembers').textContent = members;
+  document.getElementById('statClubSeats').textContent = seats;
+}
+
+function renderClubList(list) {
+  const tbody = document.getElementById('clubListBody');
+  if (!tbody) return;
+  if (!list || list.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted p-5"><i class="fas fa-inbox fa-3x opacity-25 mb-2 d-block"></i>ยังไม่มีชุมนุมในเทอมนี้ — กด "เพิ่มชุมนุม"</td></tr>';
+    return;
+  }
+  let html = '';
+  list.forEach(c => {
+    const advHTML = c.advisors.length === 0
+      ? '<span class="text-muted small">ยังไม่มี</span>'
+      : c.advisors.map(a => `<span class="badge bg-light text-dark border me-1 mb-1">${a.teacherName || a.teacherId}</span>`).join('');
+    const statusBadge = {
+      'open': '<span class="badge bg-success">เปิด</span>',
+      'closed': '<span class="badge bg-secondary">ปิด</span>',
+      'locked': '<span class="badge bg-dark">ล็อค</span>'
+    }[c.status] || `<span class="badge bg-light text-dark">${c.status}</span>`;
+    const capColor = c.full ? 'text-danger fw-bold' : 'text-primary';
+    html += `<tr>
+      <td class="ps-3">
+        <div class="fw-bold">${escapeHtmlSafe(c.clubName)}</div>
+        ${c.description ? `<div class="small text-muted">${escapeHtmlSafe(c.description)}</div>` : ''}
+      </td>
+      <td>${advHTML}</td>
+      <td class="text-center"><span class="${capColor}">${c.memberCount}/${c.capacity || '∞'}</span></td>
+      <td class="text-center">${statusBadge}</td>
+      <td class="text-end pe-3">
+        <button class="btn btn-sm btn-outline-primary me-1" onclick="openClubMembers('${c.clubId}', '${escapeAttr(c.clubName)}', '${c.term}', '${c.year}')"><i class="fas fa-users"></i></button>
+        <button class="btn btn-sm btn-outline-warning me-1" onclick="openClubModal('${c.clubId}')"><i class="fas fa-edit"></i></button>
+        <button class="btn btn-sm btn-outline-danger" onclick="deleteClubBtn('${c.clubId}', '${escapeAttr(c.clubName)}')"><i class="fas fa-trash"></i></button>
+      </td>
+    </tr>`;
+  });
+  tbody.innerHTML = html;
+}
+
+function escapeHtmlSafe(s) {
+  return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+}
+function escapeAttr(s) { return escapeHtmlSafe(s).replace(/'/g, '&#39;'); }
+
+window.filterClubList = (typeof debounce === 'function') ? debounce(_filterClubListImpl, 180) : _filterClubListImpl;
+function _filterClubListImpl() {
+  const q = (document.getElementById('clubSearchInput').value || '').toLowerCase();
+  const filtered = _clubList.filter(c =>
+    c.clubName.toLowerCase().includes(q) ||
+    (c.description || '').toLowerCase().includes(q) ||
+    c.advisors.some(a => (a.teacherName || '').toLowerCase().includes(q))
+  );
+  renderClubList(filtered);
+}
+
+// --- Create / Edit modal ---
+function loadTeacherListForClubs() {
+  google.script.run.withSuccessHandler(list => {
+    _clubTeacherList = list || [];
+  }).getTeacherListForClubDropdown();
+}
+
+function openClubModal(clubId) {
+  document.getElementById('clubFormId').value = clubId || '';
+  document.getElementById('clubModalTitle').textContent = clubId ? 'แก้ไขชุมนุม' : 'เพิ่มชุมนุม';
+  _clubSelectedAdvisors = {};
+
+  if (clubId) {
+    const c = _clubList.find(x => x.clubId === clubId);
+    if (c) {
+      document.getElementById('clubFormName').value = c.clubName;
+      document.getElementById('clubFormDesc').value = c.description || '';
+      document.getElementById('clubFormCapacity').value = c.capacity || 0;
+      document.getElementById('clubFormStatus').value = c.status || 'open';
+      (c.advisors || []).forEach(a => { _clubSelectedAdvisors[a.teacherId] = true; });
+    }
+  } else {
+    document.getElementById('clubFormName').value = '';
+    document.getElementById('clubFormDesc').value = '';
+    document.getElementById('clubFormCapacity').value = 30;
+    document.getElementById('clubFormStatus').value = 'open';
+  }
+  renderAdvisorList(_clubTeacherList);
+}
+
+function renderAdvisorList(list) {
+  const box = document.getElementById('clubFormAdvisors');
+  if (!box) return;
+  if (!list || list.length === 0) {
+    box.innerHTML = '<div class="text-muted text-center p-3">ไม่พบรายชื่อครู</div>';
+    return;
+  }
+  box.innerHTML = list.map(t => {
+    const checked = _clubSelectedAdvisors[t.id] ? 'checked' : '';
+    return `<div class="form-check">
+      <input class="form-check-input" type="checkbox" id="adv_${t.id}" ${checked} onchange="toggleAdvisor('${t.id}', this.checked)">
+      <label class="form-check-label" for="adv_${t.id}">${escapeHtmlSafe(t.name)} <small class="text-muted">(${t.id})</small></label>
+    </div>`;
+  }).join('');
+}
+
+function toggleAdvisor(teacherId, on) {
+  if (on) _clubSelectedAdvisors[teacherId] = true;
+  else delete _clubSelectedAdvisors[teacherId];
+}
+
+window.filterAdvisorList = (typeof debounce === 'function') ? debounce(_filterAdvisorListImpl, 150) : _filterAdvisorListImpl;
+function _filterAdvisorListImpl() {
+  const q = (document.getElementById('clubAdvisorSearch').value || '').toLowerCase();
+  const filtered = _clubTeacherList.filter(t => t.name.toLowerCase().includes(q) || t.id.toLowerCase().includes(q));
+  renderAdvisorList(filtered);
+}
+
+function submitClubForm() {
+  const user = JSON.parse(localStorage.getItem('pssms_user') || sessionStorage.getItem('pssms_user'));
+  const clubId = document.getElementById('clubFormId').value;
+  const clubName = document.getElementById('clubFormName').value.trim();
+  if (!clubName) { alert('กรุณากรอกชื่อชุมนุม'); return; }
+
+  const advisors = Object.keys(_clubSelectedAdvisors).map(tid => {
+    const t = _clubTeacherList.find(x => x.id === tid);
+    return { teacherId: tid, teacherName: t ? t.name : tid, role: 'หัวหน้า' };
+  });
+
+  const payload = {
+    clubId: clubId,
+    clubName: clubName,
+    description: document.getElementById('clubFormDesc').value.trim(),
+    capacity: parseInt(document.getElementById('clubFormCapacity').value) || 0,
+    status: document.getElementById('clubFormStatus').value,
+    term: user.currentTerm,
+    year: user.currentYear,
+    advisors: advisors
+  };
+
+  const btn = document.getElementById('clubFormSubmit');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>กำลังบันทึก...';
+
+  const onDone = (res) => {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-save me-1"></i>บันทึก';
+    if (res.status === 'success') {
+      bootstrap.Modal.getInstance(document.getElementById('clubModal')).hide();
+      loadClubList();
+    } else {
+      alert('❌ ' + res.message);
+    }
+  };
+
+  if (clubId) google.script.run.withSuccessHandler(onDone).updateClub(payload);
+  else google.script.run.withSuccessHandler(onDone).createClub(payload);
+}
+
+function deleteClubBtn(clubId, clubName) {
+  if (!confirm(`ลบชุมนุม "${clubName}" และสมาชิกทั้งหมด?\nการดำเนินการนี้ย้อนกลับไม่ได้`)) return;
+  google.script.run.withSuccessHandler(res => {
+    alert(res.message);
+    if (res.status === 'success') loadClubList();
+  }).deleteClub(clubId);
+}
+
+// --- Members modal ---
+function openClubMembers(clubId, clubName, term, year) {
+  _currentClubForMembers = { clubId, clubName, term, year };
+  document.getElementById('clubMembersName').textContent = clubName;
+  document.getElementById('clubMembersCount').textContent = '0';
+  document.getElementById('clubMembersList').innerHTML = '<div class="text-muted text-center p-3"><div class="spinner-border spinner-border-sm me-2"></div>กำลังโหลด...</div>';
+  document.getElementById('clubMembersStudentList').innerHTML = '<div class="text-muted text-center p-3 small">เลือกชั้นเรียนเพื่อเริ่มเพิ่มนักเรียน</div>';
+
+  // populate class filter from cached user list
+  const classSet = new Set();
+  (allUsers || []).forEach(u => { if (String(u[3]).toLowerCase() === 'student' && u[4]) classSet.add(String(u[4])); });
+  const opts = Array.from(classSet).sort().map(c => `<option value="${c}">${c}</option>`).join('');
+  document.getElementById('clubMembersClassFilter').innerHTML = '<option value="">-- เลือกชั้น --</option>' + opts;
+
+  new bootstrap.Modal(document.getElementById('clubMembersModal')).show();
+  loadClubMembersData();
+}
+
+function loadClubMembersData() {
+  google.script.run.withSuccessHandler(members => {
+    _clubMembersCache = members || [];
+    renderClubMembersList(_clubMembersCache);
+  }).getClubMembers(_currentClubForMembers.clubId);
+}
+
+function renderClubMembersList(members) {
+  const box = document.getElementById('clubMembersList');
+  document.getElementById('clubMembersCount').textContent = members.length;
+  if (!members.length) {
+    box.innerHTML = '<div class="text-muted text-center p-3"><i class="fas fa-inbox fa-2x opacity-25 mb-2 d-block"></i>ยังไม่มีสมาชิก</div>';
+    return;
+  }
+  // group by class
+  const byClass = {};
+  members.forEach(m => { (byClass[m.className] = byClass[m.className] || []).push(m); });
+  const classKeys = Object.keys(byClass).sort();
+  let html = '';
+  classKeys.forEach(cls => {
+    html += `<div class="border-bottom mb-2 pb-1"><strong class="small text-primary">ห้อง ${escapeHtmlSafe(cls)} <span class="text-muted">(${byClass[cls].length} คน)</span></strong></div>`;
+    byClass[cls].forEach(m => {
+      const tag = m.registeredBy === 'admin' ? '<span class="badge bg-info ms-1" style="font-size:0.65rem;">admin</span>' : '';
+      html += `<div class="d-flex justify-content-between align-items-center small py-1 border-bottom border-light">
+        <div><span class="text-muted me-2">${escapeHtmlSafe(m.studentId)}</span> ${escapeHtmlSafe(m.studentName)} ${tag}</div>
+        <button class="btn btn-sm btn-outline-danger" style="font-size:0.7rem;padding:0.1rem 0.4rem;" onclick="adminRemoveMemberBtn('${escapeAttr(m.studentId)}', '${escapeAttr(m.studentName)}')"><i class="fas fa-times"></i></button>
+      </div>`;
+    });
+  });
+  box.innerHTML = html;
+}
+
+function loadMembersStudentList() {
+  const cls = document.getElementById('clubMembersClassFilter').value;
+  const box = document.getElementById('clubMembersStudentList');
+  if (!cls) { box.innerHTML = '<div class="text-muted text-center p-3 small">เลือกชั้นเรียนก่อน</div>'; return; }
+  const existing = new Set(_clubMembersCache.map(m => String(m.studentId).replace(/'/g, '').trim()));
+  const students = (allUsers || []).filter(u => String(u[3]).toLowerCase() === 'student' && String(u[4]) === cls);
+  if (!students.length) { box.innerHTML = '<div class="text-muted text-center p-3 small">ไม่พบนักเรียนในชั้นนี้</div>'; return; }
+  box.innerHTML = students.map(s => {
+    const sid = String(s[0]).replace(/'/g, '').trim();
+    const taken = existing.has(sid);
+    return `<div class="d-flex justify-content-between align-items-center small py-1 border-bottom border-light">
+      <div><span class="text-muted me-2">${escapeHtmlSafe(sid)}</span> ${escapeHtmlSafe(s[2])}</div>
+      ${taken ? '<span class="badge bg-success">อยู่แล้ว</span>' : `<button class="btn btn-sm btn-outline-success" style="font-size:0.7rem;padding:0.1rem 0.5rem;" onclick="adminAddMemberBtn('${escapeAttr(sid)}', '${escapeAttr(s[2])}')"><i class="fas fa-plus"></i></button>`}
+    </div>`;
+  }).join('');
+}
+
+function adminAddMemberBtn(studentId, studentName) {
+  google.script.run.withSuccessHandler(res => {
+    if (res.status === 'success') { loadClubMembersData(); loadClubList(); setTimeout(loadMembersStudentList, 400); }
+    else alert('❌ ' + res.message);
+  }).adminAddMember(_currentClubForMembers.clubId, studentId);
+}
+
+function adminRemoveMemberBtn(studentId, studentName) {
+  if (!confirm(`ลบ ${studentName} ออกจากชุมนุม?`)) return;
+  google.script.run.withSuccessHandler(res => {
+    if (res.status === 'success') { loadClubMembersData(); loadClubList(); setTimeout(loadMembersStudentList, 400); }
+    else alert('❌ ' + res.message);
+  }).adminRemoveMember(_currentClubForMembers.clubId, studentId);
+}
+
 </script>
