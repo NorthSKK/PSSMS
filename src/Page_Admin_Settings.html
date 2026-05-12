@@ -81,49 +81,4 @@
 
   </div>
 
-  <div class="card border-0 shadow-sm rounded-3 mt-4">
-    <div class="card-header bg-warning text-dark fw-bold">
-      <i class="fas fa-bug me-2"></i>Debug: ตรวจสอบรายชื่อนักเรียนตามห้อง
-    </div>
-    <div class="card-body">
-      <div class="input-group mb-3">
-        <input type="text" id="debugClassName" class="form-control" placeholder='ใส่ชื่อห้อง เช่น "ม.1/1" หรือ "1/1"' value="ม.1/1">
-        <button class="btn btn-warning" onclick="runDebugStudents()"><i class="fas fa-search me-1"></i>ตรวจสอบ</button>
-      </div>
-      <pre id="debugOutput" class="bg-dark text-success p-3 rounded small" style="max-height: 400px; overflow: auto; white-space: pre-wrap;">รอผลตรวจสอบ...</pre>
-    </div>
-  </div>
-
-  <div class="card border-0 shadow-sm rounded-3 mt-4">
-    <div class="card-header bg-info text-white fw-bold">
-      <i class="fas fa-chalkboard-teacher me-2"></i>Debug: ตรวจสอบ Homeroom (ครูที่ปรึกษา) ใน Timetable
-    </div>
-    <div class="card-body">
-      <div class="input-group mb-3">
-        <input type="text" id="debugTeacherId" class="form-control" placeholder='ใส่ Teacher ID (ปล่อยว่างเพื่อดู HR ทั้งหมด)'>
-        <button class="btn btn-info" onclick="runDebugHomeroom()"><i class="fas fa-search me-1"></i>ตรวจสอบ HR</button>
-      </div>
-      <pre id="debugHROutput" class="bg-dark text-info p-3 rounded small" style="max-height: 400px; overflow: auto; white-space: pre-wrap;">รอผลตรวจสอบ...</pre>
-    </div>
-  </div>
-
-  <div class="card border-0 shadow-sm rounded-3 mt-4">
-    <div class="card-header bg-danger text-white fw-bold">
-      <i class="fas fa-table me-2"></i>Debug: จำลอง getTeacherTimetableByDate (ดูว่าคาบ 0 ขึ้นไหม)
-    </div>
-    <div class="card-body">
-      <div class="row g-2 mb-3">
-        <div class="col-md-5">
-          <input type="text" id="debugTTTeacherId" class="form-control" placeholder='Teacher ID เช่น teacher12'>
-        </div>
-        <div class="col-md-4">
-          <input type="date" id="debugTTDate" class="form-control">
-        </div>
-        <div class="col-md-3">
-          <button class="btn btn-danger w-100" onclick="runDebugTimetable()"><i class="fas fa-search me-1"></i>จำลองดึงตาราง</button>
-        </div>
-      </div>
-      <pre id="debugTTOutput" class="bg-dark text-warning p-3 rounded small" style="max-height: 400px; overflow: auto; white-space: pre-wrap;">รอผลตรวจสอบ...</pre>
-    </div>
-  </div>
 </div>

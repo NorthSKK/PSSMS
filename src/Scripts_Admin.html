@@ -785,43 +785,6 @@ function executePromotion() {
     .promoteStudentsToNextYear();
 }
 
-// Debug: ตรวจสอบรายชื่อนักเรียนตามห้อง
-function runDebugStudents() {
-  const cls = document.getElementById('debugClassName').value.trim();
-  const out = document.getElementById('debugOutput');
-  if (!out) return;
-  out.innerText = 'กำลังตรวจสอบ...';
-  google.script.run
-    .withFailureHandler(err => { out.innerText = 'ERROR: ' + err.message; })
-    .withSuccessHandler(res => { out.innerText = JSON.stringify(res, null, 2); })
-    .debugStudentsByClass(cls);
-}
-
-// Debug: ตรวจสอบ Homeroom ใน Timetable
-function runDebugHomeroom() {
-  const tid = document.getElementById('debugTeacherId').value.trim();
-  const out = document.getElementById('debugHROutput');
-  if (!out) return;
-  out.innerText = 'กำลังตรวจสอบ...';
-  google.script.run
-    .withFailureHandler(err => { out.innerText = 'ERROR: ' + err.message; })
-    .withSuccessHandler(res => { out.innerText = JSON.stringify(res, null, 2); })
-    .debugHomeroom(tid);
-}
-
-function runDebugTimetable() {
-  const tid = document.getElementById('debugTTTeacherId').value.trim();
-  const dateStr = document.getElementById('debugTTDate').value;
-  const out = document.getElementById('debugTTOutput');
-  if (!out) return;
-  if (!tid) { out.innerText = 'กรุณาใส่ Teacher ID'; return; }
-  out.innerText = 'กำลังตรวจสอบ...';
-  google.script.run
-    .withFailureHandler(err => { out.innerText = 'ERROR: ' + err.message; })
-    .withSuccessHandler(res => { out.innerText = JSON.stringify(res, null, 2); })
-    .debugTimetableResult(tid, dateStr);
-}
-
 // ==========================================
 // CLUBS — Admin UI
 // ==========================================
