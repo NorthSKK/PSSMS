@@ -176,6 +176,7 @@ function checkLogin(username, password) {
 
 function getSystemConfig() {
   return withTiming('getSystemConfig', function() {
+  return getCached('system_config', 300, function() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   let sheet = ss.getSheetByName("System_Settings");
   let config = { term: "1", year: "2568", termStart: "", termEnd: "", termHistory: {} };
@@ -221,6 +222,7 @@ function getSystemConfig() {
 
   return config;
   });
+  });
 }
 
 function saveSystemConfig(term, year, startDate, endDate) {
@@ -262,6 +264,8 @@ function saveSystemConfig(term, year, startDate, endDate) {
     if (!activeUpdated) sheet.appendRow(["Active", "Term", term, year]);
     if (!termDataUpdated) sheet.appendRow(["TermData", targetKey, startDate, endDate]);
 
+    invalidateCacheKeys(['system_config', 'available_terms', 'all_users']);
+
     return { status: 'success', message: `✅ บันทึกและตั้งเป็นภาคเรียนปัจจุบัน (${term}/${year}) เรียบร้อย` };
   } catch(e) {
     return { status: 'error', message: e.message };
@@ -271,6 +275,7 @@ function saveSystemConfig(term, year, startDate, endDate) {
 }
 
 function getAvailableTerms() {
+  return getCached('available_terms', 600, function() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName("System_Settings");
   if (!sheet) return [];
@@ -290,6 +295,7 @@ function getAvailableTerms() {
     return parseInt(b.term) - parseInt(a.term);
   });
   return terms;
+  });
 }
 
 // ==========================================
@@ -401,12 +407,16 @@ function getStudentSummaryStats() {
 // ==========================================
 
 function getAllUsers() {
+  return withTiming('getAllUsers', function() {
+  return getCached('all_users', 300, function() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName("User_Database");
   if (!sheet) return [];
   const config = getSystemConfig();
   const data = sheet.getDataRange().getValues().slice(1);
   return data.filter(r => r[3] !== 'Student' || String(r[6]) === config.year);
+  });
+  });
 }
 
 function addUser(form) {
@@ -414,6 +424,7 @@ function addUser(form) {
   const sheet = ss.getSheetByName("User_Database");
   const config = getSystemConfig();
   sheet.appendRow([form.username, form.password, form.fullname, form.role, form.dept, form.email, config.year, form.status || "ปกติ"]);
+  invalidateCache('all_users');
   return {status: 'success', message: 'เพิ่มผู้ใช้งานสำเร็จ'};
 }
 
@@ -424,6 +435,7 @@ function editUser(form) {
   for(let i=1; i<data.length; i++){
     if(String(data[i][0]) === String(form.username)){
       sheet.getRange(i+1, 2, 1, 7).setValues([[form.password, form.fullname, form.role, form.dept, form.email, data[i][6], form.status]]);
+      invalidateCache('all_users');
       return {status: 'success', message: 'แก้ไขสำเร็จ'};
     }
   }
@@ -435,7 +447,11 @@ function deleteUser(username) {
   const sheet = ss.getSheetByName("User_Database");
   const data = sheet.getValues();
   for(let i=1; i<data.length; i++){
-    if(String(data[i][0]) === String(username)){ sheet.deleteRow(i+1); return {status: 'success', message: 'ลบสำเร็จ'}; }
+    if(String(data[i][0]) === String(username)){
+      sheet.deleteRow(i+1);
+      invalidateCache('all_users');
+      return {status: 'success', message: 'ลบสำเร็จ'};
+    }
   }
   return {status: 'fail', message: 'ไม่พบข้อมูล'};
 }
@@ -454,6 +470,7 @@ function importStudentCSV(base64Data) {
     news.push(["'" + id, "'" + csv[i][2], `${csv[i][6]}${csv[i][7]} ${csv[i][8]}`, "Student", `ม.${csv[i][3]}/${csv[i][4]}`, "-", config.year]);
   }
   if (news.length > 0) sheet.getRange(sheet.getLastRow()+1, 1, news.length, 7).setValues(news);
+  if (news.length > 0) invalidateCache('all_users');
   return { status: 'success', message: `นำเข้าสำเร็จ ${news.length} รายการ` };
 }
 
@@ -469,6 +486,7 @@ function importTeacherCSV(base64Data) {
     news.push(["'" + csv[i][0], "teacher1234", csv[i][1], "Teacher", csv[i][2], "-", ""]);
   }
   if (news.length > 0) sheet.getRange(sheet.getLastRow()+1, 1, news.length, 7).setValues(news);
+  if (news.length > 0) invalidateCache('all_users');
   return { status: 'success', message: `นำเข้าสำเร็จ ${news.length} ท่าน` };
 }
 
@@ -2832,11 +2850,13 @@ function setupCurriculumDatabase() {
 }
 
 function getCurriculumData() {
+  return getCached('curriculum_all', 1800, function() {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Curriculum_Database");
   if (!sheet) return [];
   const data = sheet.getDataRange().getDisplayValues();
   if (data.length <= 1) return [];
   return data.slice(1).map(row => ({ subjectCode: row[0], subjectType: row[1], standardCode: row[2], description: row[3], evalType: row[4] }));
+  });
 }
 
 function importCurriculumCSV(base64Data, clearOldData) {
@@ -2860,6 +2880,7 @@ function importCurriculumCSV(base64Data, clearOldData) {
     }
 
     if (newRows.length > 0) sheet.getRange(sheet.getLastRow() + 1, 1, newRows.length, 5).setValues(newRows);
+    if (clearOldData || newRows.length > 0) invalidateCache('curriculum_all');
     return { status: 'success', message: `✅ นำเข้าข้อมูลตัวชี้วัด/ผลการเรียนรู้ สำเร็จ ${newRows.length} รายการ` };
   } catch (e) { return { status: 'error', message: '❌ ข้อผิดพลาด: ' + e.message }; } finally { lock.releaseLock(); }
 }
@@ -2974,6 +2995,8 @@ function promoteStudentsToNextYear() {
     userSheet.getRange(1, 1, data.length, data[0].length).setValues(data);
     SpreadsheetApp.flush();
 
+    invalidateCache('all_users');
+
     return {
       status: "success",
       message: `✅ เลื่อนชั้นเรียนสำเร็จทั้งหมด ${updateCount} คน\n🎓 จบการศึกษา (ม.3, ม.6) จำนวน ${graduateCount} คน\n\n🛡️ ระบบได้จัดเก็บประวัติห้องเรียนเดิมไว้ใน User_History_Database เรียบร้อยแล้ว (สามารถย้อนปีกลับไปดู/แก้ไขคะแนนปีเก่าได้ปกติ 100%)`
@@ -3005,6 +3028,7 @@ function setupCalendarDatabase() {
 
 function getCalendarEvents() {
   return withTiming('getCalendarEvents', function() {
+  return getCached('calendar_events', 600, function() {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Calendar_Database");
   if (!sheet) return [];
   const data = sheet.getDataRange().getDisplayValues();
@@ -3026,6 +3050,7 @@ function getCalendarEvents() {
   }
   return events;
   });
+  });
 }
 
 function saveCalendarEvent(payload) {
@@ -3044,9 +3069,10 @@ function saveCalendarEvent(payload) {
           for (let i = 1; i < data.length; i++) {
               if (String(data[i][0]) === payload.id) {
                   sheet.getRange(i + 1, 2, 1, 7).setValues([[
-                      payload.title, payload.start, payload.end, payload.color, 
+                      payload.title, payload.start, payload.end, payload.color,
                       payload.description, payload.createdBy, timestamp
                   ]]);
+                  invalidateCache('calendar_events');
                   return { status: "success", message: "อัปเดตกิจกรรมเรียบร้อย" };
               }
           }
@@ -3055,6 +3081,7 @@ function saveCalendarEvent(payload) {
       // ถ้าไม่มี ID แปลว่าสร้างใหม่ สร้าง ID โดยใช้วันที่เวลาชนกัน
       const newId = "EVT" + timestamp.getTime();
       sheet.appendRow([newId, payload.title, payload.start, payload.end, payload.color, payload.description, payload.createdBy, timestamp]);
+      invalidateCache('calendar_events');
       return { status: "success", message: "เพิ่มกิจกรรมเรียบร้อย" };
 
   } catch(e) {
@@ -3073,6 +3100,7 @@ function deleteCalendarEvent(id) {
   for (let i = 1; i < data.length; i++) {
       if (String(data[i][0]) === String(id)) {
           sheet.deleteRow(i + 1);
+          invalidateCache('calendar_events');
           return { status: "success", message: "ลบสำเร็จ" };
       }
   }
@@ -3172,6 +3200,7 @@ function importCalendarCSV(base64Data) {
 
     if (rows.length > 0) {
       sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, 8).setValues(rows);
+      invalidateCache('calendar_events');
     }
 
     return {

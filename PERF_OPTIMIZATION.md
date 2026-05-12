@@ -124,8 +124,53 @@
 - `npx clasp push --force` — sync สำเร็จ
 - Commit: f5b7c44 (Phase 0) → next commit
 
-## Phase 2: CacheService
-- Status: pending
+## Phase 2: CacheService ✅
+
+**Goal**: ลด Sheets I/O ที่ซ้ำซ้อนด้วย ScriptCache (shared across all users).
+
+### Files
+- New: `src/Cache.js` — `getCached(key, ttl, fetcher)` + `invalidateCache(key)` + `invalidateCacheKeys([])`
+- Edited: `src/Code.js`
+
+### Functions cached
+| Function | Key | TTL | Reason |
+|---|---|---|---|
+| `getSystemConfig` | `system_config` | 300s (5 min) | เรียกในทุก request, เปลี่ยนยาก |
+| `getAllUsers` | `all_users` | 300s | dashboard + dropdown ใช้บ่อย |
+| `getCurriculumData` | `curriculum_all` | 1800s (30 min) | เปลี่ยนเฉพาะ admin import |
+| `getCalendarEvents` | `calendar_events` | 600s (10 min) | event-driven invalidation |
+| `getAvailableTerms` | `available_terms` | 600s | derived จาก System_Settings |
+
+### Invalidation hooks (write functions)
+| Write function | Invalidates |
+|---|---|
+| `saveSystemConfig` | system_config, available_terms, all_users |
+| `addUser` / `editUser` / `deleteUser` | all_users |
+| `importStudentCSV` / `importTeacherCSV` | all_users (when news.length > 0) |
+| `promoteStudentsToNextYear` | all_users |
+| `saveCalendarEvent` (update + create) | calendar_events |
+| `deleteCalendarEvent` | calendar_events |
+| `importCalendarCSV` | calendar_events |
+| `importCurriculumCSV` | curriculum_all |
+
+### Safety
+- Cache key prefix `pssms:v1:` — bumpable เมื่อ schema เปลี่ยน
+- Value > 95 KB → skip cache (still returns data, logs warn)
+- Cache read error → fall back to fetcher (transparent)
+- TTL อย่างเดียวก็ค่อนข้างปลอดภัยอยู่แล้ว — ทุก write มี invalidate hook สำคัญด้วย
+
+### Verification
+- Open `?debug=1` → call dashboard 2 ครั้งติด → รอบ 2 ต้องเห็น `[CACHE] HIT system_config`
+- Backend log (clasp logs) → `[CACHE] MISS ... HIT ...`
+- After admin saves new term → next call ต้องเห็น MISS อีกครั้ง
+
+### Expected impact
+- `getSystemConfig` ~50-200ms → <5ms เมื่อ HIT
+- `getAllUsers` 200-800ms → <10ms เมื่อ HIT (User_Database 1000+ rows)
+- `getCurriculumData` ~150ms → <5ms
+- Dashboard ที่เรียก 3-5 cached functions → ลดเวลาจาก ~1s → ~50ms (cold) → ~10ms (warm)
+
+- Commit: (pending)
 
 ## Phase 3: PropertiesService term/year
 - Status: pending
