@@ -60,6 +60,7 @@ Local (src/)  →  clasp push  →  Google Apps Script
 | `Cache.js` | `getCached(key, ttl, fetcher)` + `getActiveTermYear()` fast-path |
 | `DashboardBundle.js` | `getTeacherDashboardBundle()` / `getAdminDashboardBundle()` |
 | `Precompute.js` | Nightly trigger → `_Computed_Cache` sheet (risk + atRisk) |
+| `Clubs.js` | ระบบลงทะเบียนชุมนุม (CRUD + atomic register + permission) |
 | `appsscript.json` | GAS manifest (timezone, webapp config) |
 
 ### Frontend — Shell & Shared
@@ -139,6 +140,10 @@ Local (src/)  →  clasp push  →  Google Apps Script
 | `Calendar_Database` | ปฏิทินกิจกรรม |
 | `Curriculum_Database` | หลักสูตร / ตัวชี้วัด |
 | `User_History_Database` | ประวัติการแก้ไขข้อมูลผู้ใช้ |
+| `Club_Database` | ชุมนุม master list (เทอม/ปี) |
+| `Club_Advisors` | ครูที่ปรึกษา (many-to-many) |
+| `Club_Members` | สมาชิกชุมนุม (1 นักเรียน : 1 ชุมนุม : 1 เทอม) |
+| `_Computed_Cache` | precomputed dashboards (nightly trigger) |
 
 ### System_Settings Format (แบบใหม่)
 ```
