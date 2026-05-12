@@ -1,10 +1,108 @@
 <style>
 /* ==========================================
+   🎨 0. DESIGN TOKENS (70-20-10 minimal palette)
+   Used across all non-dashboard pages.
+========================================== */
+:root {
+  /* 70% Neutral */
+  --p-surface: #ffffff;
+  --p-subtle: #fafbfc;
+  --p-border: #eef0f3;
+  --p-border-strong: #dde1e6;
+  --p-hover: #f6f8fa;
+
+  /* 20% Secondary (text/structure) */
+  --p-text: #1f2937;
+  --p-text-muted: #6c757d;
+  --p-chip-bg: #f5f6f8;
+  --p-chip-text: #444;
+
+  /* 10% Accent (CTA / brand) */
+  --p-accent: #e83e8c;
+  --p-accent-hover: #d1336e;
+  --p-accent-soft: #fff4f7;
+
+  /* State colors — only for true semantic use */
+  --p-info: #0d6efd;
+  --p-success: #198754;
+  --p-warning: #ffc107;
+  --p-danger: #dc3545;
+
+  /* Geometry */
+  --p-radius: 10px;
+  --p-radius-sm: 6px;
+}
+
+/* Page shell shared by every non-dashboard page */
+.pssms-page { padding: 1.5rem; }
+.pssms-page-header { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem; margin-bottom: 1rem; }
+.pssms-page-header h4 { font-weight: 700; letter-spacing: -0.01em; margin-bottom: 0.25rem; color: var(--p-text); }
+.pssms-page-header .pssms-subtitle { font-size: 0.85rem; color: var(--p-text-muted); margin-bottom: 0; }
+.pssms-page-header .pssms-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+
+/* Card pattern (replaces shadow-sm rounded-4 throughout) */
+.pssms-card {
+  background: var(--p-surface);
+  border: 1px solid var(--p-border);
+  border-radius: var(--p-radius);
+  padding: 1rem;
+}
+.pssms-card-header {
+  font-weight: 600; font-size: 0.92rem; color: var(--p-text);
+  padding-bottom: 0.75rem; border-bottom: 1px solid var(--p-border); margin-bottom: 0.75rem;
+  display: flex; justify-content: space-between; align-items: center; gap: 0.5rem;
+}
+
+/* Buttons — minimal */
+.btn-accent { background: var(--p-accent); color: #fff; border: 1px solid var(--p-accent); font-weight: 500; }
+.btn-accent:hover, .btn-accent:focus { background: var(--p-accent-hover); border-color: var(--p-accent-hover); color: #fff; }
+.btn-soft { background: var(--p-surface); border: 1px solid var(--p-border); color: var(--p-text); font-weight: 500; }
+.btn-soft:hover { background: var(--p-hover); border-color: var(--p-border-strong); color: var(--p-text); }
+.btn-soft i { color: var(--p-text-muted); }
+
+/* Forms */
+.form-control:focus, .form-select:focus {
+  border-color: var(--p-accent);
+  box-shadow: 0 0 0 0.15rem rgba(232, 62, 140, 0.15);
+}
+
+/* Tables — minimal */
+.pssms-table { width: 100%; }
+.pssms-table thead th {
+  background: var(--p-subtle);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--p-text-muted);
+  font-weight: 600;
+  border-bottom: 1px solid var(--p-border);
+  padding: 0.6rem 0.75rem;
+}
+.pssms-table tbody td { padding: 0.65rem 0.75rem; border-bottom: 1px solid var(--p-border); vertical-align: middle; font-size: 0.9rem; }
+.pssms-table tbody tr:hover td { background: var(--p-hover); }
+
+/* Chip / soft badge */
+.pssms-chip {
+  display: inline-block;
+  background: var(--p-chip-bg);
+  color: var(--p-chip-text);
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 500;
+}
+
+/* Modal — flat header */
+.pssms-modal .modal-content { border: 1px solid var(--p-border); border-radius: var(--p-radius); }
+.pssms-modal .modal-header { border-bottom: 1px solid var(--p-border); background: var(--p-surface); color: var(--p-text); }
+.pssms-modal .modal-header .modal-title { font-weight: 600; }
+
+/* ==========================================
    🌐 1. BASE & TYPOGRAPHY (ตั้งค่าพื้นฐาน)
 ========================================== */
-body { 
-    font-family: 'Kanit', sans-serif; 
-    background-color: #f4f7f6; 
+body {
+    font-family: 'Kanit', sans-serif;
+    background-color: #f4f7f6;
     overflow-x: hidden !important; /* กันจอโยกซ้ายขวา */
 }
 .wrapper { display: flex; width: 100%; align-items: stretch; }
