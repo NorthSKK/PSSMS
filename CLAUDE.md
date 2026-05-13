@@ -275,6 +275,20 @@ verifyTeacherPermission(teacherId, subjectCode, className, term, year)
 
 ---
 
+## Design System (2026-05-13)
+
+ดู `DESIGN.md` ที่ project root สำหรับ tokens + component patterns ทั้งหมด.
+
+### Quick reference
+- Wrapper: `<div class="container-fluid pssms-page pssms-dept-X">` เลือก dept: `academic` (ฟ้า) / `budget` (เขียว) / `personnel` (น้ำเงิน) / `general` (ส้ม)
+- ทุก color reference ที่ต้องเปลี่ยนตามฝ่าย → `var(--p-accent)` (ห้าม hardcode hex)
+- Card: `pssms-card` + `pssms-card-header`
+- Button: `btn-accent` (primary, dept-colored) / `btn-soft` (secondary)
+- Table: `pssms-table`
+- Modal: add class `pssms-modal` + neutral white header
+
+---
+
 ## Performance & Debug (2026-05-12 optimization pass)
 
 ดู `PERF_OPTIMIZATION.md` สำหรับรายละเอียดทั้งหมด.

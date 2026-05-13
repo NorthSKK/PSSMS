@@ -17,10 +17,29 @@ Minimal 70-20-10 palette + standard component patterns สำหรับทุ�
 - `--p-chip-bg` `#f5f6f8` — passive badge
 - `--p-chip-text` `#444`
 
-### 10% Accent
-- `--p-accent` `#e83e8c` — primary CTA, brand
+### 10% Accent (global brand)
+- `--p-accent` `#e83e8c` — primary CTA, brand (pink) — DEFAULT
 - `--p-accent-hover` `#d1336e`
 - `--p-accent-soft` `#fff4f7` — selected row highlight, today
+
+### Department palette — scoped overrides
+Apply `pssms-dept-<name>` class on page wrapper. The scope re-binds `--p-accent` so every `.btn-accent`, icon, and hover inside inherits automatically.
+
+| Class | สี | Hex |
+|---|---|---|
+| `pssms-dept-academic` | ฟ้า | `#3498db` |
+| `pssms-dept-budget` | เขียว | `#2ecc71` |
+| `pssms-dept-personnel` | น้ำเงิน | `#2563eb` |
+| `pssms-dept-general` | ส้ม | `#f97316` |
+
+Each scope also overrides `--p-accent-hover` and `--p-accent-soft`.
+
+**Pages → dept mapping** (current):
+- Academic, Score_Entry, Subject_Config, Academic_Report, Grade_Summary, Lesson_History, Admin_Timetable, Admin_Curriculum, Admin_Clubs, Student_Clubs, Teacher_Clubs → `academic`
+- Personnel, Admin_Users → `personnel`
+- Budget → `budget`
+- General, Calendar → `general`
+- Admin_Settings, Login → no dept class (keeps global brand pink)
 
 ### Semantic states (sparingly)
 - `--p-info` `#0d6efd`
@@ -44,7 +63,7 @@ Minimal 70-20-10 palette + standard component patterns สำหรับทุ�
 ## Page shell
 
 ```html
-<div class="container-fluid pssms-page">
+<div class="container-fluid pssms-page pssms-dept-academic">
   <div class="pssms-page-header">
     <div>
       <h4><i class="fas fa-X me-2" style="color: var(--p-accent);"></i>ชื่อหน้า</h4>
@@ -62,6 +81,12 @@ Minimal 70-20-10 palette + standard component patterns สำหรับทุ�
   </div>
 </div>
 ```
+
+**สำคัญ**: ทุก color reference ที่ต้องเปลี่ยนตามฝ่าย ใช้ `var(--p-accent)` เท่านั้น — อย่า hardcode hex. ตัวอย่าง:
+- ✅ `style="color: var(--p-accent);"`
+- ✅ `<button class="btn btn-accent">`
+- ❌ `style="color: #3498db;"` (จะไม่เปลี่ยนตามฝ่าย)
+- ❌ `class="text-primary"` (Bootstrap blue, ไม่ใช่ token)
 
 ## Tables
 
@@ -102,6 +127,7 @@ Minimal 70-20-10 palette + standard component patterns สำหรับทุ�
 
 ## Migration checklist (per page)
 
+- [ ] Wrapper: `<div class="container-fluid pssms-page pssms-dept-X">` (เลือก dept ตาม mapping)
 - [ ] Header: title + subtitle + actions pattern
 - [ ] Replace `card shadow-sm rounded-4` → `pssms-card`
 - [ ] Replace primary action color buttons → `btn-accent`
@@ -110,3 +136,14 @@ Minimal 70-20-10 palette + standard component patterns สำหรับทุ�
 - [ ] Modal → add `pssms-modal` class + neutral header
 - [ ] Drop `py-4 mb-4` → use `pssms-page` shell
 - [ ] Drop `animate__animated` noise
+- [ ] Hardcoded colors (#e83e8c, #3498db, ...) → `var(--p-accent)`
+
+## หน้าใหม่ — สร้างยังไง
+
+1. **เริ่มจาก template ใน "Page shell"** ข้างบน
+2. **เลือก dept class** ตาม category (academic / budget / personnel / general)
+3. **Layout**: `row g-3` + cols, ใน col ใส่ `pssms-card`
+4. **Tables**: `<table class="pssms-table">` ใน `<div class="pssms-card p-0">`
+5. **Forms**: `form-control` + `form-select` ปกติ (focus border ใช้ `--p-accent` อัตโนมัติ)
+6. **Modals**: `<div class="modal fade pssms-modal">` + footer มี btn-soft (cancel) + btn-accent (save)
+7. **Status colors**: ใช้ `text-success / text-danger / text-warning` ได้ตามปกติ — แต่อย่าใช้สี state เป็น primary CTA
