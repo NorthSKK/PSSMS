@@ -140,37 +140,65 @@ body {
 
 /* ==========================================
    🗂️ 2. SIDEBAR & MENU (เมนูซ้ายมือ)
+   Aligned with dept palette tokens (--p-dept-*).
 ========================================== */
-#sidebar { 
-    min-width: 250px; max-width: 250px; min-height: 100vh; 
-    transition: all 0.3s ease; z-index: 999; background: #1a1a1a; 
+#sidebar {
+    min-width: 250px; max-width: 250px; min-height: 100vh;
+    transition: all 0.3s ease; z-index: 999;
+    background: #15171b;
+    border-right: 1px solid #1f2228;
 }
 #sidebar.active { margin-left: -250px; }
-#sidebar .sidebar-header { background: #1a1a1a; padding: 20px; }
-#sidebar ul li a { 
-    padding: 12px 20px; display: block; color: #bbb; 
-    text-decoration: none; transition: 0.3s; font-size: 0.95rem; 
+#sidebar .sidebar-header { background: #15171b; padding: 18px 20px; border-bottom: 1px solid #1f2228; }
+#sidebar ul li a {
+    padding: 10px 18px; display: block; color: #cdd1d8;
+    text-decoration: none; transition: background 0.15s, color 0.15s; font-size: 0.92rem;
 }
-#sidebar ul li a:hover { background: rgba(255,255,255,0.1); color: white; }
+#sidebar ul li a:hover { background: rgba(255,255,255,0.06); color: #fff; }
 
 .menu-divider {
-    font-size: 0.75rem; text-transform: uppercase; color: #666;
-    margin: 20px 20px 10px 20px; letter-spacing: normal;
-    border-bottom: 1px solid #333; padding-bottom: 5px;
+    font-size: 0.7rem; text-transform: uppercase; color: #7a808b;
+    margin: 18px 18px 8px 18px; letter-spacing: 0.04em;
+    border-bottom: 1px solid #25282f; padding-bottom: 5px;
 }
+
+/* dept-btn — section label / clickable section */
 .dept-btn {
-    display: flex !important; align-items: center; margin: 5px 15px;
-    padding: 12px 15px !important; border-radius: 10px !important;
-    border-left: 4px solid transparent !important; background: rgba(255,255,255,0.03) !important;
-    color: #ddd !important; border-bottom: none !important; transition: all 0.3s;
+    display: flex !important; align-items: center; margin: 3px 12px;
+    padding: 9px 12px !important; border-radius: 8px !important;
+    border-left: 3px solid transparent !important;
+    background: transparent !important;
+    color: #d4d7dc !important; border-bottom: none !important;
+    transition: background 0.15s, color 0.15s;
 }
-.dept-btn i { width: 25px; font-size: 1.1rem; margin-right: 12px; text-align: center; }
-.dept-btn:hover { background: rgba(255,255,255,0.1) !important; transform: translateX(5px); color: #fff !important; }
-.academic { border-left-color: #3498db !important; } .academic i { color: #3498db; }
-.budget { border-left-color: #2ecc71 !important; } .budget i { color: #2ecc71; }
-.personnel { border-left-color: #17a2b8 !important; } .personnel i { color: #17a2b8; }
-.general { border-left-color: #f39c12 !important; } .general i { color: #f39c12; }
-.nav-link-sub { font-size: 0.85rem !important; padding-left: 45px !important; color: #888 !important; }
+.dept-btn i { width: 22px; font-size: 0.95rem; margin-right: 10px; text-align: center; }
+.dept-btn:hover { background: rgba(255,255,255,0.05) !important; color: #fff !important; }
+
+/* Dept accent (matches --p-dept-* tokens) */
+.academic   { border-left-color: var(--p-dept-academic)   !important; } .academic i   { color: var(--p-dept-academic); }
+.budget     { border-left-color: var(--p-dept-budget)     !important; } .budget i     { color: var(--p-dept-budget); }
+.personnel  { border-left-color: var(--p-dept-personnel)  !important; } .personnel i  { color: var(--p-dept-personnel); }
+.general    { border-left-color: var(--p-dept-general)    !important; } .general i    { color: var(--p-dept-general); }
+
+/* nav-link-custom — top dashboard link */
+.nav-link-custom {
+    display: flex !important; align-items: center; margin: 3px 12px;
+    padding: 10px 14px !important; border-radius: 8px !important;
+    color: #e3e6eb !important; font-weight: 500;
+    background: rgba(255,255,255,0.04) !important;
+}
+.nav-link-custom:hover { background: rgba(255,255,255,0.08) !important; color: #fff !important; }
+
+/* nav-link-sub — sub items under dept */
+.nav-link-sub {
+    font-size: 0.82rem !important;
+    padding: 6px 14px 6px 42px !important;
+    color: #9ba0a8 !important;
+    border-radius: 6px !important;
+    margin: 1px 12px !important;
+    transition: background 0.15s, color 0.15s;
+}
+.nav-link-sub:hover { background: rgba(255,255,255,0.05) !important; color: #fff !important; }
 
 /* ==========================================
    📦 3. UI COMPONENTS (การ์ด & ปุ่ม & อื่นๆ)
@@ -262,10 +290,55 @@ input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer
    🌙 6. DARK MODE
 ========================================== */
 
+/* --- Override design tokens for dark surfaces (pssms-* auto-inherits) --- */
+body.dark-mode {
+  --p-surface: #1e2024;
+  --p-subtle: #25282d;
+  --p-border: #2c2f35;
+  --p-border-strong: #3a3e45;
+  --p-hover: #2a2d33;
+  --p-text: #e8eaed;
+  --p-text-muted: #9aa0a6;
+  --p-chip-bg: #2c2f35;
+  --p-chip-text: #cdd1d8;
+}
+
+/* Explicit pssms-* surfaces in dark (most inherit via tokens) */
+.dark-mode .pssms-card { background: var(--p-surface); border-color: var(--p-border); color: var(--p-text); }
+.dark-mode .pssms-card-header { color: var(--p-text); border-color: var(--p-border); }
+.dark-mode .pssms-table thead th { background: var(--p-subtle); color: var(--p-text-muted); border-color: var(--p-border); }
+.dark-mode .pssms-table tbody td { color: var(--p-text); border-color: var(--p-border); }
+.dark-mode .pssms-table tbody tr:hover td { background: var(--p-hover); }
+.dark-mode .pssms-chip { background: var(--p-chip-bg); color: var(--p-chip-text); }
+.dark-mode .btn-soft { background: var(--p-surface); border-color: var(--p-border); color: var(--p-text); }
+.dark-mode .btn-soft:hover { background: var(--p-hover); border-color: var(--p-border-strong); color: var(--p-text); }
+.dark-mode .btn-soft i { color: var(--p-text-muted); }
+.dark-mode .pssms-page-header h4 { color: var(--p-text); }
+.dark-mode .pssms-subtitle { color: var(--p-text-muted); }
+
+/* Top navbar in dark */
+.dark-mode .navbar.bg-white {
+  background-color: var(--p-surface) !important;
+  border-bottom: 1px solid var(--p-border);
+  box-shadow: none !important;
+}
+.dark-mode #user-display .fw-bold,
+.dark-mode #user-display .theme-text { color: var(--p-text) !important; }
+.dark-mode #user-display .text-muted { color: var(--p-text-muted) !important; }
+.dark-mode .navbar .btn-light {
+  background-color: var(--p-subtle) !important;
+  border-color: var(--p-border) !important;
+  color: var(--p-text) !important;
+}
+.dark-mode .navbar .btn-light:hover {
+  background-color: var(--p-hover) !important;
+  color: var(--p-text) !important;
+}
+
 /* --- Base: override Bootstrap 5.3 CSS variables --- */
 body.dark-mode {
-  background-color: #121212 !important;
-  color: #e0e0e0 !important;
+  background-color: #121316 !important;
+  color: #e8eaed !important;
   --bs-body-color: #e0e0e0;
   --bs-body-bg: #121212;
   --bs-emphasis-color: #fff;
@@ -295,16 +368,14 @@ body.dark-mode {
   --bs-form-control-disabled-bg: #1e1e1e;
 }
 
-/* --- Sidebar & Nav --- */
-.dark-mode #sidebar { background-color: #1a1a1a !important; border-right: 1px solid #2a2a2a !important; }
-.dark-mode .nav-link-custom, .dark-mode .nav-link-sub, .dark-mode .dept-btn { color: #b0b0b0 !important; }
-.dark-mode .nav-link-custom:hover, .dark-mode .nav-link-sub:hover { background-color: #2d2d2d !important; color: #fff !important; }
+/* --- Sidebar already dark by default — no override needed --- */
 
-/* --- Cards & Modals --- */
-.dark-mode .card, .dark-mode .modal-content { background-color: #1e1e1e !important; border: 1px solid #333 !important; }
-.dark-mode .card-header, .dark-mode .modal-header { border-bottom: 1px solid #333 !important; }
-.dark-mode .modal-footer { border-top: 1px solid #333 !important; }
+/* --- Cards & Modals (legacy Bootstrap; pssms-card auto-inherits via tokens) --- */
+.dark-mode .card, .dark-mode .modal-content { background-color: var(--p-surface) !important; border: 1px solid var(--p-border) !important; color: var(--p-text); }
+.dark-mode .card-header, .dark-mode .modal-header { background-color: var(--p-surface) !important; border-bottom: 1px solid var(--p-border) !important; color: var(--p-text); }
+.dark-mode .modal-footer { background-color: var(--p-surface) !important; border-top: 1px solid var(--p-border) !important; }
 .dark-mode .btn-close { filter: invert(1) grayscale(100%) brightness(200%); }
+.dark-mode .modal-body { background-color: var(--p-surface) !important; color: var(--p-text); }
 
 /* --- Contextual Backgrounds (dimmed for dark) --- */
 .dark-mode .bg-white   { background-color: #1e1e1e !important; color: #e0e0e0 !important; }
