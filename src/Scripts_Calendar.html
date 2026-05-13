@@ -88,7 +88,7 @@ window.openCalendarModal = function(mode, start = '', end = '', eventObj = null)
     const isAdmin = _calIsAdmin();
     const colorSel = document.getElementById('calColor');
 
-    document.getElementById('calModalHeader').style.backgroundColor = mode === 'add' ? '#e83e8c' : '#343a40';
+    document.getElementById('calModalHeader').style.backgroundColor = mode === 'add' ? 'var(--p-accent)' : '#343a40';
     const addTitle = isAdmin ? 'เพิ่มกิจกรรมใหม่' : 'เพิ่มกิจกรรมส่วนตัว';
     document.getElementById('calModalTitle').innerHTML = mode === 'add'
         ? `<i class="fas fa-calendar-plus me-2"></i>${addTitle}`
@@ -329,7 +329,7 @@ function _renderTermProgress(cfg) {
         bar.style.background = '#198754';
         document.getElementById('termProgressPct').textContent = 'ปิดเทอมแล้ว';
     } else {
-        bar.style.background = 'linear-gradient(90deg, #e83e8c, #fd7e14)';
+        bar.style.background = 'var(--p-accent)';
     }
 
     wrap.classList.remove('d-none');

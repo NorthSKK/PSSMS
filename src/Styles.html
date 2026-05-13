@@ -31,7 +31,32 @@
   /* Geometry */
   --p-radius: 10px;
   --p-radius-sm: 6px;
+
+  /* Department palette — used by .pssms-dept-* scopes */
+  --p-dept-academic: #3498db;
+  --p-dept-academic-hover: #217dbb;
+  --p-dept-academic-soft: #eaf4fb;
+
+  --p-dept-budget: #2ecc71;
+  --p-dept-budget-hover: #25a25a;
+  --p-dept-budget-soft: #e9faf0;
+
+  --p-dept-personnel: #2563eb;
+  --p-dept-personnel-hover: #1d4ed8;
+  --p-dept-personnel-soft: #eef2ff;
+
+  --p-dept-general: #f97316;
+  --p-dept-general-hover: #c2570c;
+  --p-dept-general-soft: #fff3e8;
 }
+
+/* Department-scoped accent overrides
+   Apply class on the .pssms-page wrapper to swap the accent without
+   touching the rest of the design system. */
+.pssms-dept-academic { --p-accent: var(--p-dept-academic); --p-accent-hover: var(--p-dept-academic-hover); --p-accent-soft: var(--p-dept-academic-soft); }
+.pssms-dept-budget { --p-accent: var(--p-dept-budget); --p-accent-hover: var(--p-dept-budget-hover); --p-accent-soft: var(--p-dept-budget-soft); }
+.pssms-dept-personnel { --p-accent: var(--p-dept-personnel); --p-accent-hover: var(--p-dept-personnel-hover); --p-accent-soft: var(--p-dept-personnel-soft); }
+.pssms-dept-general { --p-accent: var(--p-dept-general); --p-accent-hover: var(--p-dept-general-hover); --p-accent-soft: var(--p-dept-general-soft); }
 
 /* Page shell shared by every non-dashboard page */
 .pssms-page { padding: 1.5rem; }
