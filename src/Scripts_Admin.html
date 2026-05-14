@@ -172,6 +172,20 @@ function toggleStatusField() {
     if(role === 'Student') statusContainer.classList.remove('d-none');
     else statusContainer.classList.add('d-none');
   }
+  const deptText = document.getElementById('inputDept');
+  const deptExec = document.getElementById('inputDeptExec');
+  const deptLabel = document.getElementById('deptLabel');
+  if(deptText && deptExec) {
+    if(role === 'Executive') {
+      deptText.classList.add('d-none');
+      deptExec.classList.remove('d-none');
+      if(deptLabel) deptLabel.textContent = 'ฝ่าย / ตำแหน่ง';
+    } else {
+      deptText.classList.remove('d-none');
+      deptExec.classList.add('d-none');
+      if(deptLabel) deptLabel.textContent = 'ชั้นเรียน / กลุ่มงาน';
+    }
+  }
 }
 
 function openModal(mode, id=null) {
@@ -192,6 +206,7 @@ function openModal(mode, id=null) {
       document.getElementById('inputName').value = user[2];
       document.getElementById('inputRole').value = user[3];
       document.getElementById('inputDept').value = user[4];
+      if(document.getElementById('inputDeptExec')) document.getElementById('inputDeptExec').value = user[4] || 'ผอ.';
       document.getElementById('inputEmail').value = user[5];
       if(document.getElementById('inputStatus')) document.getElementById('inputStatus').value = user[7] || "ปกติ";
     }
@@ -204,7 +219,10 @@ function saveUser() {
   const form = { 
     username: document.getElementById('inputUser').value, password: document.getElementById('inputPass').value, 
     fullname: document.getElementById('inputName').value, role: document.getElementById('inputRole').value, 
-    dept: document.getElementById('inputDept').value, email: document.getElementById('inputEmail').value,
+    dept: (document.getElementById('inputRole').value === 'Executive' && document.getElementById('inputDeptExec'))
+           ? document.getElementById('inputDeptExec').value
+           : document.getElementById('inputDept').value,
+    email: document.getElementById('inputEmail').value,
     status: document.getElementById('inputStatus') ? document.getElementById('inputStatus').value : 'ปกติ'
   };
   if(!form.username || !form.password || !form.fullname) return alert("ข้อมูลไม่ครบ");

@@ -176,11 +176,19 @@
                 <option value="Student">นักเรียน (Student)</option>
                 <option value="Teacher">ครูผู้สอน (Teacher)</option>
                 <option value="Admin">ผู้ดูแลระบบ (Admin)</option>
+                <option value="Executive">ผู้บริหาร (Executive)</option>
               </select>
             </div>
             <div class="col-md-6">
-              <label class="form-label small fw-medium text-muted">ชั้นเรียน / กลุ่มงาน</label>
+              <label class="form-label small fw-medium text-muted" id="deptLabel">ชั้นเรียน / กลุ่มงาน</label>
               <input type="text" class="form-control" id="inputDept" placeholder="เช่น ม.1/1 หรือ บริหาร">
+              <select class="form-select d-none" id="inputDeptExec">
+                <option value="ผอ.">ผู้อำนวยการ (ผอ.)</option>
+                <option value="วิชาการ">ฝ่ายวิชาการ</option>
+                <option value="งบประมาณ">ฝ่ายงบประมาณ</option>
+                <option value="บุคคล">ฝ่ายบุคคล</option>
+                <option value="ทั่วไป">ฝ่ายทั่วไป</option>
+              </select>
             </div>
 
             <div class="col-12" id="statusFieldContainer">

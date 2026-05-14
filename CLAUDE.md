@@ -160,7 +160,7 @@ Row: ["TermData", "1_2568", startDate, endDate]  ← วันเริ่ม-�
 | `ADMIN` | เข้าถึงทุกส่วน, bypass `verifyTeacherPermission` |
 | `TEACHER` | เช็คชื่อ, บันทึกคะแนน, ตารางสอน, ปพ.5 เฉพาะวิชาที่สอน |
 | `STUDENT` | ดูข้อมูลตัวเอง |
-| `EXECUTIVE` | **(planned)** read-only ภาพรวมโรงเรียน, route → `Page_Dashboard_Executive`, dept ใน `User_Database[row][4]` กำหนด layout (ผอ./วิชาการ/งบประมาณ/บุคคล/ทั่วไป) |
+| `EXECUTIVE` | read-only ภาพรวมโรงเรียน, route → `Page_Dashboard_Executive`, dept ใน `User_Database[row][4]` กำหนด layout (ผอ./วิชาการ/งบประมาณ/บุคคล/ทั่วไป) — KPI strip, alerts, dept-scoped sections, calendar strip, bundle via `getExecutiveDashboardBundle(dept)` |
 
 > Role เก็บใน `User_Database[row][3]` — เปรียบเทียบด้วย `.toUpperCase()`
 
