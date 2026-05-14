@@ -564,6 +564,14 @@ body.dark-mode {
     .grid-wrapper { height: 70vh; }
 }
 
+/* iOS PWA standalone — safe area for notch / Dynamic Island */
+@media (display-mode: standalone) {
+  #sidebar { padding-top: env(safe-area-inset-top); }
+  .navbar { padding-top: calc(0.5rem + env(safe-area-inset-top)); }
+  #page-content { padding-bottom: calc(1.5rem + env(safe-area-inset-bottom)); }
+  button, .btn, a { touch-action: manipulation; }
+}
+
 /* ==========================================
    🖨️ 8. PRINT STYLES
 ========================================== */
