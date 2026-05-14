@@ -72,10 +72,18 @@
 
 <script>
 function initExecDashboard() {
-  const user = JSON.parse(localStorage.getItem('pssms_user') || sessionStorage.getItem('pssms_user'));
+  const user = JSON.parse(localStorage.getItem('pssms_user'));
   if (!user) return;
 
   const dept = (user.dept || 'ผอ.').trim();
+  const deptClass = dept === 'วิชาการ' ? 'pssms-dept-academic'
+    : dept === 'งบประมาณ' ? 'pssms-dept-budget'
+    : dept === 'บุคคล' ? 'pssms-dept-personnel'
+    : dept === 'ทั่วไป' ? 'pssms-dept-general'
+    : 'pssms-dept-academic';
+  const root = document.getElementById('execDashPage');
+  if (root) root.className = root.className.replace(/pssms-dept-\S+/g, '').trim() + ' ' + deptClass;
+
   document.getElementById('execDeptLabel').textContent =
     dept === 'ผอ.' ? 'ภาพรวมทั้งโรงเรียน' :
     dept === 'วิชาการ' ? 'รองผู้อำนวยการฝ่ายวิชาการ' :

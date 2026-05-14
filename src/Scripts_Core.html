@@ -496,7 +496,7 @@ function renderApp(user) {
   }
 
   // 🌟 ส่วนที่ปรับปรุงใหม่: แบ่งเมนูแอดมิน และ เมนูครูให้ชัดเจน
-  if (role !== 'STUDENT') {
+  if (role !== 'STUDENT' && role !== 'EXECUTIVE') {
     menuHTML += `<div class="menu-divider">บริหาร 4 ฝ่าย</div>`;
     
     if (role === 'ADMIN') {
