@@ -252,13 +252,17 @@ function getClubList(term, year) {
 function getClubMembers(clubId) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName(CLUB_MEMBER_SHEET);
-  if (!sheet) return [];
+  if (!sheet) { Logger.log('[getClubMembers] sheet missing'); return []; }
   var data = sheet.getDataRange().getValues();
+  var target = String(clubId).trim();
   var out = [];
+  var seen = [];
   for (var i = 1; i < data.length; i++) {
-    if (String(data[i][0]) === String(clubId)) {
+    var rowClubId = String(data[i][0]).trim();
+    if (i <= 3) seen.push(rowClubId);
+    if (rowClubId === target) {
       out.push({
-        studentId: String(data[i][1]),
+        studentId: String(data[i][1]).replace(/^'/, '').trim(),
         studentName: String(data[i][2]),
         className: String(data[i][3]),
         term: String(data[i][4]),
@@ -268,6 +272,7 @@ function getClubMembers(clubId) {
       });
     }
   }
+  Logger.log('[getClubMembers] target="%s" rows=%s matched=%s sample=%s', target, data.length - 1, out.length, JSON.stringify(seen));
   return out.sort(function(a, b) { return a.className.localeCompare(b.className) || a.studentId.localeCompare(b.studentId); });
 }
 

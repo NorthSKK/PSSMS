@@ -922,6 +922,12 @@ function openClubModal(clubId) {
     document.getElementById('clubFormStatus').value = 'open';
   }
   renderAdvisorList(_clubTeacherList);
+  // Ensure modal is shown (edit button doesn't have data-bs-toggle)
+  const modalEl = document.getElementById('clubModal');
+  if (modalEl) {
+    const inst = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+    inst.show();
+  }
 }
 
 function renderAdvisorList(list) {

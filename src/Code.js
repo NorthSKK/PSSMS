@@ -102,13 +102,32 @@ function getPage(pageName) {
 // 🛡️ ระบบรักษาความปลอดภัย: ตรวจสอบสิทธิ์ครูผู้สอน
 function verifyTeacherPermission(teacherId, subjectCode, className, term, year) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  
+
   // 1. สิทธิพิเศษ: ถ้าเป็น Admin ให้ผ่านได้เลยทุกกรณี
   const userSheet = ss.getSheetByName("User_Database");
   if (userSheet) {
     const users = userSheet.getDataRange().getValues();
     const userRow = users.find(r => String(r[0]).trim() === String(teacherId).trim());
     if (userRow && String(userRow[3]).toUpperCase() === 'ADMIN') return true;
+  }
+
+  // 1.5 Club mode: subjectCode = "CLUB_<clubId>" → ตรวจ Club_Advisors
+  const sCode = String(subjectCode || '').trim();
+  if (sCode.indexOf('CLUB_') === 0) {
+    const clubId = sCode.substring(5);
+    const advSheet = ss.getSheetByName('Club_Advisors');
+    if (!advSheet) return false;
+    const adv = advSheet.getDataRange().getValues();
+    const tid = String(teacherId).trim().toLowerCase();
+    const t = String(term).trim();
+    const y = String(year).trim();
+    for (let i = 1; i < adv.length; i++) {
+      if (String(adv[i][0]).trim() === clubId &&
+          String(adv[i][1]).trim().toLowerCase() === tid &&
+          String(adv[i][4]).trim() === t &&
+          String(adv[i][5]).trim() === y) return true;
+    }
+    return false;
   }
 
   // 2. เช็คจากตารางสอน (Timetable)
@@ -620,34 +639,72 @@ function getTeacherAtRiskDashboard(teacherId, term, year) {
   return { critical, ms, risk };
 }
 
+function _getTeacherClubForTerm(teacherId, term, year) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const advisorSheet = ss.getSheetByName('Club_Advisors');
+  if (!advisorSheet) return null;
+  const adv = advisorSheet.getDataRange().getValues();
+  const tid = String(teacherId).trim().toLowerCase();
+  const t = String(term).trim();
+  const y = String(year).trim();
+  let clubId = null;
+  for (let i = 1; i < adv.length; i++) {
+    if (String(adv[i][1]).trim().toLowerCase() === tid &&
+        String(adv[i][4]).trim() === t &&
+        String(adv[i][5]).trim() === y) {
+      clubId = String(adv[i][0]).trim();
+      break;
+    }
+  }
+  if (!clubId) return null;
+  const clubSheet = ss.getSheetByName('Club_Database');
+  if (!clubSheet) return null;
+  const c = clubSheet.getDataRange().getValues();
+  for (let j = 1; j < c.length; j++) {
+    if (String(c[j][0]).trim() === clubId) {
+      return { clubId: clubId, clubName: String(c[j][1]) };
+    }
+  }
+  return null;
+}
+
+function _applyClubOverride(row, club) {
+  // row = [SubjectCode, SubjectName, ClassID, Room, Location, Period, Day]
+  if (!club) return row;
+  const name = String(row[1] || '');
+  if (name.indexOf('ชุมนุม') < 0) return row;
+  return ['CLUB_' + club.clubId, club.clubName, 'ชุมนุม', row[3], row[4], row[5], row[6]];
+}
+
 function getTeacherTimetableByDate(teacherId, dateStr) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName("Timetable_Database");
   const config = getSystemConfig();
   const days = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์'];
-  
+
   let targetDateObj = dateStr ? new Date(dateStr) : new Date();
-  const targetDayName = days[targetDateObj.getDay()]; 
-  
+  const targetDayName = days[targetDateObj.getDay()];
+
   if (!sheet) return [];
   const data = sheet.getDataRange().getValues();
-  
+
   const searchTeacherId = String(teacherId).trim().toLowerCase();
   const searchTerm = String(config.term).trim();
   const searchYear = String(config.year).trim();
+  const club = _getTeacherClubForTerm(teacherId, searchTerm, searchYear);
 
   return data.slice(1).map(r => {
       const tTeacherID = String(r[5]).trim().toLowerCase();
-      const tDay = String(r[6]).trim(); 
+      const tDay = String(r[6]).trim();
       const tTerm = String(r[8]).trim();
       const tYear = String(r[9]).trim();
-      
+
       if (tTeacherID === searchTeacherId && tDay === targetDayName && tTerm === searchTerm && tYear === searchYear) {
          const tLevel = String(r[2]).trim();
          const tRoom = String(r[3]).trim();
          const tLoc = String(r[4]).trim();
-         const tClassID = `${tLevel}/${tRoom}`; 
-         return [r[0], r[1], tClassID, tRoom, tLoc, r[7], r[6]]; 
+         const tClassID = `${tLevel}/${tRoom}`;
+         return _applyClubOverride([r[0], r[1], tClassID, tRoom, tLoc, r[7], r[6]], club);
       }
       return null;
   }).filter(item => item !== null);
@@ -659,26 +716,27 @@ function getTeacherTimetable(teacherId) {
   const config = getSystemConfig();
   const days = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์'];
   const today = days[new Date().getDay()];
-  
+
   if (!sheet) return [];
   const data = sheet.getDataRange().getValues();
-  
+
   const searchTeacherId = String(teacherId).trim().toLowerCase();
   const searchTerm = String(config.term).trim();
   const searchYear = String(config.year).trim();
+  const club = _getTeacherClubForTerm(teacherId, searchTerm, searchYear);
 
   return data.slice(1).map(r => {
       const tTeacherID = String(r[5]).trim().toLowerCase();
       const tDay = String(r[6]).trim();
       const tTerm = String(r[8]).trim();
       const tYear = String(r[9]).trim();
-      
+
       if (tTeacherID === searchTeacherId && tDay === today && tTerm === searchTerm && tYear === searchYear) {
          const tLevel = String(r[2]).trim();
          const tRoom = String(r[3]).trim();
          const tLoc = String(r[4]).trim();
-         const tClassID = `${tLevel}/${tRoom}`; 
-         return [r[0], r[1], tClassID, tRoom, tLoc, r[7], r[6]]; 
+         const tClassID = `${tLevel}/${tRoom}`;
+         return _applyClubOverride([r[0], r[1], tClassID, tRoom, tLoc, r[7], r[6]], club);
       }
       return null;
   }).filter(item => item !== null);
@@ -700,12 +758,13 @@ function getTeacherTimetableWithStatus(teacherId) {
   const searchTerm = String(config.term).trim();
   const searchYear = String(config.year).trim();
 
+  const club = _getTeacherClubForTerm(teacherId, searchTerm, searchYear);
   const items = ttData.slice(1).map(r => {
     if (String(r[5]).trim().toLowerCase() !== searchTeacherId) return null;
     if (String(r[6]).trim() !== today) return null;
     if (String(r[8]).trim() !== searchTerm || String(r[9]).trim() !== searchYear) return null;
     const tClassID = `${String(r[2]).trim()}/${String(r[3]).trim()}`;
-    return [r[0], r[1], tClassID, r[3], r[4], r[7], r[6]];
+    return _applyClubOverride([r[0], r[1], tClassID, r[3], r[4], r[7], r[6]], club);
   }).filter(Boolean);
 
   if (items.length === 0) return [];
@@ -801,6 +860,32 @@ function getStudentsByClass(className, year) {
   }
 
   return filtered;
+  });
+}
+
+function getStudentsByClub(clubId) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const memberSheet = ss.getSheetByName('Club_Members');
+  const userSheet = ss.getSheetByName('User_Database');
+  if (!memberSheet || !userSheet) return [];
+
+  const target = String(clubId).trim();
+  const memberData = memberSheet.getDataRange().getValues();
+  const memberIds = {};
+  for (let i = 1; i < memberData.length; i++) {
+    if (String(memberData[i][0]).trim() === target) {
+      const sid = String(memberData[i][1]).replace(/^'/, '').trim();
+      memberIds[sid] = true;
+    }
+  }
+  if (Object.keys(memberIds).length === 0) return [];
+
+  const userData = userSheet.getDataRange().getDisplayValues();
+  return userData.slice(1).filter(r => {
+    const role = String(r[3]).trim().toLowerCase();
+    if (role !== 'student' && role !== 'นักเรียน') return false;
+    const id = String(r[0]).replace(/^'/, '').trim();
+    return memberIds[id];
   });
 }
 

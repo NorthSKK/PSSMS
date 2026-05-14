@@ -129,9 +129,13 @@ function loadStudentList(forceRefresh = false) {
   let dateStr = dateInput && dateInput.value ? dateInput.value : new Date().toISOString().split('T')[0];
   
   const isHR = (item[0].toUpperCase() === 'HR' || item[1].includes('โฮมรูม'));
+  const isClub = String(item[0]).indexOf('CLUB_') === 0;
+  const clubId = isClub ? String(item[0]).substring(5) : null;
 
   document.getElementById('classInfoCard')?.classList.remove('d-none');
-  if(document.getElementById('dispClass')) document.getElementById('dispClass').innerText = `กำลังดึงรายชื่อห้อง: ${fullClassName}`;
+  if(document.getElementById('dispClass')) document.getElementById('dispClass').innerText = isClub
+    ? `กำลังดึงรายชื่อสมาชิกชุมนุม: ${item[1]}`
+    : `กำลังดึงรายชื่อห้อง: ${fullClassName}`;
 
   const topicInput = document.getElementById('inputTopic');
   if(topicInput) {
@@ -143,7 +147,7 @@ function loadStudentList(forceRefresh = false) {
   }
 
   showLoader(true);
-  const cacheKey = `v5_stdlist_${fullClassName}`;
+  const cacheKey = isClub ? `v5_stdlist_CLUB_${clubId}` : `v5_stdlist_${fullClassName}`;
 
   const fetchHistoryAndRender = (studentsData) => {
       if (isHR) {
@@ -201,18 +205,21 @@ function loadStudentList(forceRefresh = false) {
       currentStudents = cached;
       fetchHistoryAndRender(currentStudents);
   } else {
-      google.script.run
-      .withFailureHandler(err => { showLoader(false); alert("Error: " + err.message); })
-      .withSuccessHandler(function(students) {
-          currentStudents = students;
-          if(!students || students.length === 0) {
-              showLoader(false);
-              document.getElementById('studentRows').innerHTML = `<tr><td colspan="5" class="text-center p-4 text-danger">ไม่พบรายชื่อนักเรียนห้อง ${fullClassName}</td></tr>`;
-              if(btn) btn.disabled = true; return;
-          }
-          try { sessionStorage.setItem(cacheKey, JSON.stringify(students)); } catch(e){}
-          fetchHistoryAndRender(students);
-      }).getStudentsByClass(fullClassName);
+      const runner = google.script.run
+        .withFailureHandler(err => { showLoader(false); alert("Error: " + err.message); })
+        .withSuccessHandler(function(students) {
+            currentStudents = students;
+            if(!students || students.length === 0) {
+                showLoader(false);
+                const label = isClub ? `ชุมนุม "${item[1]}"` : `ห้อง ${fullClassName}`;
+                document.getElementById('studentRows').innerHTML = `<tr><td colspan="5" class="text-center p-4 text-danger">ไม่พบรายชื่อนักเรียน${label}</td></tr>`;
+                if(btn) btn.disabled = true; return;
+            }
+            try { sessionStorage.setItem(cacheKey, JSON.stringify(students)); } catch(e){}
+            fetchHistoryAndRender(students);
+        });
+      if (isClub) runner.getStudentsByClub(clubId);
+      else runner.getStudentsByClass(fullClassName);
   }
 }
 
