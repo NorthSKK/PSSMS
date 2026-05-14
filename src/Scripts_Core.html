@@ -130,22 +130,106 @@ function showLoader(status) {
 
 // ==========================================
 // 2. Authentication
+// 30-day persistent session via localStorage + silent re-auth.
 // ==========================================
+const PSSMS_SESSION_MAX_AGE_MS = 30 * 24 * 3600 * 1000; // 30 days
+
 function checkAutoLogin() {
   const savedUser = localStorage.getItem('pssms_user');
   const sessionUser = sessionStorage.getItem('pssms_user');
-  if (savedUser) { 
-      renderApp(JSON.parse(savedUser)); 
-      syncSystemTerm(); // 🌟 แอบเช็คเทอมล่าสุดหลังบ้าน
-  } 
-  else if (sessionUser) { 
-      renderApp(JSON.parse(sessionUser)); 
-      syncSystemTerm(); // 🌟 แอบเช็คเทอมล่าสุดหลังบ้าน
-  } 
-  else { 
-      showLoader(false); 
-      document.getElementById('login-section').classList.remove('d-none'); 
+  const savedAt = parseInt(localStorage.getItem('pssms_user_savedAt') || '0', 10);
+  const creds = localStorage.getItem('pssms_creds');
+  const age = Date.now() - savedAt;
+
+  // Persistent (localStorage) — render immediately, silent re-validate
+  if (savedUser) {
+    if (age > PSSMS_SESSION_MAX_AGE_MS) {
+      // Expired session: try silent re-auth via stored creds
+      if (creds) {
+        _attemptSilentRelogin(creds);
+        return;
+      }
+      _clearSavedSession();
+      showLoader(false);
+      document.getElementById('login-section').classList.remove('d-none');
+      return;
+    }
+    renderApp(JSON.parse(savedUser));
+    syncSystemTerm();
+    // Background: silent re-validate creds (catches password change)
+    if (creds) _silentRevalidate(creds);
+    return;
   }
+
+  // Session-only fallback (tab still open)
+  if (sessionUser) {
+    renderApp(JSON.parse(sessionUser));
+    syncSystemTerm();
+    return;
+  }
+
+  showLoader(false);
+  document.getElementById('login-section').classList.remove('d-none');
+}
+
+function _attemptSilentRelogin(credsB64) {
+  try {
+    const decoded = atob(credsB64);
+    const sep = decoded.indexOf(':');
+    if (sep < 0) throw new Error('bad creds');
+    const u = decoded.substring(0, sep);
+    const p = decoded.substring(sep + 1);
+    showLoader(true);
+    google.script.run.withSuccessHandler(function(res) {
+      showLoader(false);
+      if (res.status === 'success') {
+        localStorage.setItem('pssms_user', JSON.stringify(res));
+        localStorage.setItem('pssms_user_savedAt', String(Date.now()));
+        renderApp(res);
+        syncSystemTerm();
+      } else {
+        _clearSavedSession();
+        document.getElementById('login-section').classList.remove('d-none');
+      }
+    }).withFailureHandler(function() {
+      // Network blip — keep current state, show login
+      showLoader(false);
+      document.getElementById('login-section').classList.remove('d-none');
+    }).checkLogin(u, p);
+  } catch (e) {
+    _clearSavedSession();
+    showLoader(false);
+    document.getElementById('login-section').classList.remove('d-none');
+  }
+}
+
+function _silentRevalidate(credsB64) {
+  try {
+    const decoded = atob(credsB64);
+    const sep = decoded.indexOf(':');
+    if (sep < 0) return;
+    const u = decoded.substring(0, sep);
+    const p = decoded.substring(sep + 1);
+    google.script.run.withSuccessHandler(function(res) {
+      if (res && res.status === 'success') {
+        // Refresh stored user data (catches role/name changes)
+        localStorage.setItem('pssms_user', JSON.stringify(res));
+        localStorage.setItem('pssms_user_savedAt', String(Date.now()));
+      } else if (res && res.status !== 'success') {
+        // Credentials no longer valid (password changed)
+        _clearSavedSession();
+        alert('รหัสผ่านมีการเปลี่ยนแปลง กรุณาเข้าสู่ระบบใหม่');
+        location.reload();
+      }
+    }).checkLogin(u, p);
+  } catch (e) {}
+}
+
+function _clearSavedSession() {
+  localStorage.removeItem('pssms_user');
+  localStorage.removeItem('pssms_user_savedAt');
+  localStorage.removeItem('pssms_creds');
+  sessionStorage.removeItem('pssms_user');
 }
 
 function syncSystemTerm() {
@@ -277,8 +361,18 @@ function processLogin() {
     showLoader(false);
     if (res.status === "success") {
       const userData = JSON.stringify(res);
-      if (rememberMe) localStorage.setItem('pssms_user', userData);
-      else sessionStorage.setItem('pssms_user', userData);
+      if (rememberMe) {
+        localStorage.setItem('pssms_user', userData);
+        localStorage.setItem('pssms_user_savedAt', String(Date.now()));
+        // Store creds for silent re-auth (30 day window). Base64 only — not encryption.
+        try { localStorage.setItem('pssms_creds', btoa(user + ':' + pass)); } catch (e) {}
+      } else {
+        sessionStorage.setItem('pssms_user', userData);
+        // Clear any stale persistent session
+        localStorage.removeItem('pssms_user');
+        localStorage.removeItem('pssms_user_savedAt');
+        localStorage.removeItem('pssms_creds');
+      }
       renderApp(res);
     } else { alert(res.message); }
   }).checkLogin(user, pass);
@@ -286,9 +380,9 @@ function processLogin() {
 
 function logout() {
   if(confirm('ต้องการออกจากระบบใช่หรือไม่?')) {
-    localStorage.removeItem('pssms_user');
-    localStorage.removeItem('pssms_last_page'); 
-    sessionStorage.clear(); 
+    _clearSavedSession();
+    localStorage.removeItem('pssms_last_page');
+    sessionStorage.clear();
     document.getElementById('main-app').classList.add('d-none');
     document.getElementById('login-section').classList.remove('d-none');
     document.getElementById('username').value = '';
