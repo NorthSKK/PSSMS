@@ -58,7 +58,7 @@ Local (src/)  →  clasp push  →  Google Apps Script
 | `Code.js` | Server-side ทั้งหมด |
 | `Debug.js` | Debug toolkit (timing, cache logs, DEBUG_MODE toggle) |
 | `Cache.js` | `getCached(key, ttl, fetcher)` + `getActiveTermYear()` fast-path |
-| `DashboardBundle.js` | `getTeacherDashboardBundle()` / `getAdminDashboardBundle()` |
+| `DashboardBundle.js` | `getTeacherDashboardBundle()` / `getAdminDashboardBundle()` / `getExecutiveDashboardBundle(dept)` |
 | `Precompute.js` | Nightly trigger → `_Computed_Cache` sheet (risk + atRisk) |
 | `Clubs.js` | ระบบลงทะเบียนชุมนุม (CRUD + atomic register + permission) |
 | `appsscript.json` | GAS manifest (timezone, webapp config) |
@@ -67,7 +67,7 @@ Local (src/)  →  clasp push  →  Google Apps Script
 | ไฟล์ | หน้าที่ |
 |---|---|
 | `Index.html` | SPA shell: sidebar nav, navbar, `<div id="page-content">` |
-| `Login.html` | หน้า login (แยกออกมาก่อน auth) |
+| `Login.html` | หน้า login — มี saved-accounts autofill dropdown (จาก `pssms_saved_accounts`) |
 | `Styles.html` | CSS ทั้งหมด (include ใน Index.html) |
 
 ### Frontend — Scripts (แยกตาม role/feature)
@@ -101,6 +101,7 @@ Local (src/)  →  clasp push  →  Google Apps Script
 | `Page_Budget.html` | `Page_Budget` | งบประมาณ |
 | `Page_Personnel.html` | `Page_Personnel` | บุคลากร |
 | `Page_Lesson_History.html.html` | `Page_Lesson_History` | แฟ้มบันทึกหลังสอน |
+| `Page_Dashboard_Executive.html.html` | `Page_Dashboard_Executive` | Dashboard ผู้บริหาร — KPI strip, alerts, dept-scoped sections, calendar (ดู EXECUTIVE role) |
 | `Template_PP5.html` | — | Template พิมพ์ ปพ.5 |
 
 > ไฟล์ที่มีนามสกุล `.html.html` (เช่น `Page_Dashboard_Admin.html.html`) — GAS จะตัดนามสกุลออกชั้นหนึ่ง ชื่อที่ใช้ใน `loadPage()` จึงไม่มี `.html`
@@ -169,20 +170,27 @@ Row: ["TermData", "1_2568", startDate, endDate]  ← วันเริ่ม-�
 ## Authentication & Session
 
 ```javascript
-// หลัง login สำเร็จ ข้อมูลเก็บใน:
-localStorage.getItem('pssms_user')    // Remember Me = true
-sessionStorage.getItem('pssms_user')  // Remember Me = false
+// หลัง login สำเร็จ เก็บใน localStorage เสมอ (ไม่มี sessionStorage สำหรับ session หลัก)
+localStorage.getItem('pssms_user')       // session หลัก — อายุ 90 วัน
+localStorage.getItem('pssms_user_savedAt') // timestamp ที่ save (ms) — สำหรับ expiry check
+localStorage.getItem('pssms_creds')      // btoa(user:pass) — สำหรับ silent re-auth
 
 // Structure ของ pssms_user:
 { id, name, role, dept, currentTerm, currentYear }
 
 // keys อื่นใน localStorage:
-'pssms_last_page'   // หน้าล่าสุดที่เปิด — restore อัตโนมัติเมื่อ reload
-'pssms_theme'       // 'light' | 'dark'
+'pssms_last_page'        // หน้าล่าสุด — restore อัตโนมัติเมื่อ reload
+'pssms_theme'            // 'light' | 'dark'
+'pssms_saved_accounts'   // JSON array [{u, p: btoa(pass), n, r}] — autofill dropdown
+'pssms_debug'            // '1' = เปิด debug overlay
 
-// cache ใน sessionStorage:
-`subjects_${userId}_${term}_${year}`   // list วิชาของครู (cache ระหว่าง session)
+// cache ใน sessionStorage (ไม่ใช่ session หลัก):
+`subjects_${userId}_${term}_${year}`   // list วิชาของครู
+`atRisk_${userId}_${term}_${year}`     // at-risk cache สำหรับ dashboard
 ```
+
+**หมายเหตุ**: ไม่มีปุ่ม "จดจำการเข้าสู่ระบบ" อีกต่อไป — login ทุกครั้งบันทึก session 90 วันอัตโนมัติ  
+Migration path: `checkAutoLogin()` ย้าย session เก่าจาก sessionStorage → localStorage อัตโนมัติครั้งเดียว
 
 `syncSystemTerm()` — เรียกหลัง login เพื่ออัปเดตเทอม/ปีแบบ silent (ไม่ reload หน้า)
 
@@ -330,9 +338,11 @@ precomputeNow();            // prime cache ครั้งแรก
 ```
 
 ### Bundled GAS calls
-- `getTeacherDashboardBundle(teacherId, term, year)` — return 4 sections (timetable + risk + atRisk + calendar) ใน call เดียว
-- `getAdminDashboardBundle()` — return 5 sections (stats + summary + calendar + terms + config)
+- `getTeacherDashboardBundle(teacherId, term, year)` — 4 sections (timetable + risk + atRisk + calendar)
+- `getAdminDashboardBundle()` — 5 sections (stats + summary + calendar + terms + config)
+- `getExecutiveDashboardBundle(dept)` — 6 sections (kpi + academic + budget + personnel + general + calendar)
 - Frontend dashboard (`Scripts_Teacher.html` → `initTeacherDashboard()`) ใช้ bundle, fallback ฟังก์ชันแยกเมื่อ bundle fail
+- Dashboard guard pattern: เช็ค `document.getElementById('<page-root-id>')` ก่อน inject DOM ทุกครั้ง — ป้องกัน race condition เมื่อ navigate ออกก่อน bundle callback กลับ
 
 ### Adding new cached function — pattern
 ```javascript

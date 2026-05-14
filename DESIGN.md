@@ -40,6 +40,11 @@ Each scope also overrides `--p-accent-hover` and `--p-accent-soft`.
 - Budget → `budget`
 - General, Calendar → `general`
 - Admin_Settings, Login → no dept class (keeps global brand pink)
+- Dashboard_Executive → **set dynamically by JS** at runtime (`initExecDashboard()`):
+  - `ผอ.` / `วิชาการ` → `pssms-dept-academic`
+  - `งบประมาณ` → `pssms-dept-budget`
+  - `บุคคล` → `pssms-dept-personnel`
+  - `ทั่วไป` → `pssms-dept-general`
 
 ### Semantic states (sparingly)
 - `--p-info` `#0d6efd`

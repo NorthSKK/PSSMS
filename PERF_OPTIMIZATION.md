@@ -437,3 +437,30 @@ Pattern: rename original to `_xxxImpl()`, assign `window.xxx = debounce(_xxxImpl
 
 ### Total commits
 9 commits on `main` branch: Phase -1 → 8.
+
+---
+
+## Phase 9: Executive Dashboard Bundle (2026-05-15) ✅
+
+**Goal**: EXECUTIVE role ได้ dashboard bundle เหมือน teacher/admin — single GAS round-trip.
+
+### Backend (`src/DashboardBundle.js`)
+**`getExecutiveDashboardBundle(dept)`** — รวม 6 sections:
+- `kpi` ← `_execKPI(config)` — studentCount, teacherCount, attPct, budgetUsedPct
+- `academic` ← `_execAcademic(config)` — attendance trend 14 วัน, riskCount (จาก _Computed_Cache), noAttendanceTeachers
+- `budget` ← `_execBudget(config)` — projects sorted by pct desc
+- `personnel` ← `_execPersonnel(config)` — staffCount, thisMonthLeave, leaveByType
+- `general` ← `_execGeneral(config)` — recent sarabun docs (last 5), pendingFile count
+- `calendar` ← `getCalendarEvents()` — shared cached calendar
+
+แต่ละ section ห่อ `_bundleSection(name, fn)` → partial failure ไม่ทำให้ทั้ง bundle พัง
+
+### Frontend (`src/Page_Dashboard_Executive.html.html`)
+- Guard: `if (!document.getElementById('execDashPage')) return;` — ป้องกัน race condition
+- Dept-scoped rendering: `show = { academic, budget, personnel, general }` กรองตาม `user.dept`
+- ผอ.: `col-md-6` (ทุก section), single dept: `col-12`
+- Dept class set dynamically บน root: `pssms-dept-X` ตาม dept → `--p-accent` resolve ถูก
+
+### Expected impact
+- EXECUTIVE dashboard: 5-6 GAS calls → 1 call
+- sub-calls ทั้งหมด hit ScriptCache (Phase 2): `system_config`, `calendar_events`, `all_users` → bundle ~200-400ms warm
