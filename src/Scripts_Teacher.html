@@ -172,7 +172,7 @@ function deleteTodoByText(encodedText) {
 }
 
 function initTeacherDashboard() {
-  const user = JSON.parse(localStorage.getItem('pssms_user') || sessionStorage.getItem('pssms_user'));
+  const user = JSON.parse(localStorage.getItem('pssms_user'));
   if(!user) return;
 
   if(document.getElementById('dashTeacherName')) document.getElementById('dashTeacherName').innerText = user.name;
@@ -195,12 +195,14 @@ function initTeacherDashboard() {
   }
   if (sessionStorage.getItem(atRiskCacheKey)) {
     try {
-      const c = document.getElementById('atRiskDashboardContainer') || (function() {
-        const pc = document.getElementById('page-content');
-        if (pc) pc.insertAdjacentHTML('beforeend', '<div id="atRiskDashboardContainer" class="mt-4 pb-5"></div>');
-        return document.getElementById('atRiskDashboardContainer');
-      })();
-      if (c) renderTeacherAtRiskDashboard(JSON.parse(sessionStorage.getItem(atRiskCacheKey)), c);
+      if (document.getElementById('dashTeacherName')) {
+        const c = document.getElementById('atRiskDashboardContainer') || (function() {
+          const pc = document.getElementById('page-content');
+          if (pc) pc.insertAdjacentHTML('beforeend', '<div id="atRiskDashboardContainer" class="mt-4 pb-5"></div>');
+          return document.getElementById('atRiskDashboardContainer');
+        })();
+        if (c) renderTeacherAtRiskDashboard(JSON.parse(sessionStorage.getItem(atRiskCacheKey)), c);
+      }
     } catch (e) {}
   }
 
@@ -209,17 +211,18 @@ function initTeacherDashboard() {
 
     if (bundle.timetable && bundle.timetable.ok && bundle.timetable.data) {
       sessionStorage.setItem(scheduleCacheKey, JSON.stringify(bundle.timetable.data));
-      renderTeacherTodaySchedule(bundle.timetable.data);
+      if (document.getElementById('dashTeacherName')) renderTeacherTodaySchedule(bundle.timetable.data);
     }
     if (bundle.riskDashboard && bundle.riskDashboard.ok && bundle.riskDashboard.data) {
       const res = bundle.riskDashboard.data;
       if (res.status === 'success') {
         sessionStorage.setItem(riskCacheKey, JSON.stringify(res));
-        renderTeacherRiskFromCache(res);
+        if (document.getElementById('dashTeacherName')) renderTeacherRiskFromCache(res);
       }
     }
     if (bundle.atRiskDashboard && bundle.atRiskDashboard.ok && bundle.atRiskDashboard.data) {
       sessionStorage.setItem(atRiskCacheKey, JSON.stringify(bundle.atRiskDashboard.data));
+      if (!document.getElementById('dashTeacherName')) return;
       const c = document.getElementById('atRiskDashboardContainer') || (function() {
         const pc = document.getElementById('page-content');
         if (pc) pc.insertAdjacentHTML('beforeend', '<div id="atRiskDashboardContainer" class="mt-4 pb-5"></div>');
@@ -228,7 +231,7 @@ function initTeacherDashboard() {
       if (c) renderTeacherAtRiskDashboard(bundle.atRiskDashboard.data, c);
     }
     if (bundle.calendarEvents && bundle.calendarEvents.ok && bundle.calendarEvents.data) {
-      renderDashboardCalendarEvents(bundle.calendarEvents.data);
+      if (document.getElementById('dashTeacherName')) renderDashboardCalendarEvents(bundle.calendarEvents.data);
     }
   }).withFailureHandler(function() {
     loadTeacherDashboardLegacy(user);
@@ -403,6 +406,7 @@ function jumpToAttendance(encodedData) {
 }
 
 function loadTeacherAtRiskDashboard(teacherId, term, year) {
+  if (!document.getElementById('dashTeacherName')) return; // guard: user navigated away
   let container = document.getElementById('atRiskDashboardContainer');
   if (!container) {
     const pageContent = document.getElementById('page-content');

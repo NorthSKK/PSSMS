@@ -43,7 +43,7 @@ Local (src/)  →  clasp push  →  Google Apps Script
                            (Bootstrap 5.3 + JS)
 ```
 
-- **Backend**: `Code.js` (~2791 บรรทัด) — GAS server-side, ฟังก์ชันทั้งหมดเรียกผ่าน `google.script.run`
+- **Backend**: `Code.js` (~3465 บรรทัด) — GAS server-side, ฟังก์ชันทั้งหมดเรียกผ่าน `google.script.run`
 - **Database**: Google Sheets (`SpreadsheetApp.getActiveSpreadsheet()`)
 - **Frontend**: SPA ใน `Index.html` — routing ด้วย `loadPage()` + `google.script.run.getPage()`
 - **File Storage**: Google Drive (`DriveApp`)
@@ -160,6 +160,7 @@ Row: ["TermData", "1_2568", startDate, endDate]  ← วันเริ่ม-�
 | `ADMIN` | เข้าถึงทุกส่วน, bypass `verifyTeacherPermission` |
 | `TEACHER` | เช็คชื่อ, บันทึกคะแนน, ตารางสอน, ปพ.5 เฉพาะวิชาที่สอน |
 | `STUDENT` | ดูข้อมูลตัวเอง |
+| `EXECUTIVE` | **(planned)** read-only ภาพรวมโรงเรียน, route → `Page_Dashboard_Executive`, dept ใน `User_Database[row][4]` กำหนด layout (ผอ./วิชาการ/งบประมาณ/บุคคล/ทั่วไป) |
 
 > Role เก็บใน `User_Database[row][3]` — เปรียบเทียบด้วย `.toUpperCase()`
 
@@ -228,7 +229,16 @@ verifyTeacherPermission(teacherId, subjectCode, className, term, year)
 // ครูทั่วไป: เช็คว่ามีใน Timetable_Database (ห้อง+วิชา+เทอม+ปีต้องตรง)
 // className format: "ม.1/1" หรือ "1/1"
 // subjectCode "hr" = โฮมรูม (อนุโลม)
+// subjectCode "CLUB_<id>" = ชุมนุม → เช็ค Club_Advisors (teacherId+term+year) แทน Timetable_Database
 ```
+
+### Club–Timetable Integration (2026-05-15)
+
+ตารางสอนของครู/Admin แสดงชื่อชุมนุมจริงแทน "ชุมนุม" generic:
+- `_getTeacherClubForTerm(teacherId, term, year)` — ค้น Club_Advisors + Club_Database → `{clubId, clubName}`
+- `_applyClubOverride(row, club)` — ถ้า SubjectName มี "ชุมนุม" → แทนด้วยชื่อจริง, SubjectCode → `CLUB_<clubId>`
+- ใช้ใน: `getTeacherTimetableByDate`, `getTeacherTimetable`, `getTeacherTimetableWithStatus`, `getFilteredTimetables`
+- Frontend: `CLUB_xxx` ใน SubjectCode = signal ว่าเป็นคาบชุมนุม → แสดง badge "ชุมนุม" + ชื่อ, ดึงรายชื่อด้วย `getStudentsByClub(clubId)` แทน `getStudentsByClass`
 
 ---
 
@@ -249,6 +259,7 @@ verifyTeacherPermission(teacherId, subjectCode, className, term, year)
 
 - **Notion API** — Todo list, credentials เป็น global var ใน `Code.js` บรรทัด 204-206
 - **Google Drive** — อัปโหลดเอกสารสารบรรณ (`DriveApp`)
+- **AMSS** (`https://amss.sesaud.go.th`) — scaffold อยู่ใน `Code.js` (`_amssLogin`, `testAmssConnection`, `syncAmssIncoming`) แต่ **parked** เพราะ Cloudflare บล็อก Google server IPs ทุก request ครูใช้ credential `41042010`/`41042010` เก็บใน PropertiesService หรือ fallback hardcode
 
 > **ระวัง:** `NOTION_TOKEN`, `DATABASE_ID`, `PROJECT_ID` hardcode เป็น `var` ใน `Code.js` — อย่า push ขึ้น public repo
 
@@ -272,6 +283,8 @@ verifyTeacherPermission(teacherId, subjectCode, className, term, year)
 - เพิ่มฟีเจอร์ใหม่ → คำนึงถึง role และ term/year เสมอ
 - ภาษาไทยทั้งหมด (UI + error message)
 - Default admin จาก `setupDatabase()`: username `admin` / password `1234` — เปลี่ยนก่อน production
+- **GAS serialization gotcha**: `google.script.run` คืน `null` ให้ `withSuccessHandler` ถ้า return value มี `Date` object → แก้ด้วย `Utilities.formatDate(d, 'Asia/Bangkok', 'yyyy-MM-dd HH:mm')` หรือ `String(d)` ทุกครั้งก่อน return
+- `getSarabunHistory`: skip row ที่ทั้ง `docNumber` และ `docType` ว่าง (ป้องกัน empty rows จาก deleted sheet data)
 
 ---
 

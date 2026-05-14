@@ -450,6 +450,68 @@ function getClubMembersForTeacher(teacherId, clubId, term, year, userRole) {
 }
 
 // ==========================================
+// Club Attendance Summary
+// ==========================================
+function getClubAttendanceSummary(teacherId, clubId, term, year, userRole) {
+  // Permission: advisor หรือ ADMIN เท่านั้น
+  if (!userRole || String(userRole).toUpperCase() !== 'ADMIN') {
+    var mine = getMyClubs(teacherId, term, year);
+    var allowed = false;
+    for (var x = 0; x < mine.length; x++) { if (mine[x].clubId === clubId) { allowed = true; break; } }
+    if (!allowed) return { error: 'ไม่มีสิทธิ์' };
+  }
+
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var attSheet = ss.getSheetByName('Attendance_Database');
+  if (!attSheet) return { sessions: [], members: [] };
+
+  var members = getClubMembers(clubId);
+  if (!members.length) return { sessions: [], members: [] };
+
+  // Index members
+  var memberMap = {};
+  members.forEach(function(m) { memberMap[String(m.studentId).trim()] = { name: m.studentName, cls: m.className, present: 0, absent: 0, leave: 0 }; });
+
+  // Scan Attendance_Database for CLUB_<clubId> records
+  var attData = attSheet.getDataRange().getValues();
+  var targetCode = 'CLUB_' + clubId;
+  var sessionDates = {};
+
+  for (var i = 1; i < attData.length; i++) {
+    var row = attData[i];
+    var code = String(row[4]).trim(); // SubjectCode col
+    var rowTerm = String(row[2]).trim();
+    var rowYear = String(row[3]).trim();
+    if (code !== targetCode || rowTerm !== String(term) || rowYear !== String(year)) continue;
+
+    var dateStr = row[1] instanceof Date
+      ? Utilities.formatDate(row[1], 'Asia/Bangkok', 'yyyy-MM-dd')
+      : String(row[1]);
+    sessionDates[dateStr] = true;
+
+    var sid = String(row[8]).replace(/^'/, '').trim(); // StudentID col
+    var status = String(row[11]).trim(); // Status col
+    if (memberMap[sid]) {
+      if (status === 'present' || status === 'มาเรียน' || status === '1') memberMap[sid].present++;
+      else if (status === 'leave' || status === 'ลา' || status === 'L') memberMap[sid].leave++;
+      else memberMap[sid].absent++;
+    }
+  }
+
+  var sessions = Object.keys(sessionDates).sort();
+  var totalSessions = sessions.length;
+
+  var memberStats = members.map(function(m) {
+    var sid = String(m.studentId).trim();
+    var stat = memberMap[sid] || { present: 0, absent: 0, leave: 0 };
+    var pct = totalSessions > 0 ? Math.round((stat.present / totalSessions) * 100) : null;
+    return { studentId: sid, studentName: m.studentName, className: m.className, present: stat.present, absent: stat.absent, leave: stat.leave, totalSessions: totalSessions, pct: pct };
+  });
+
+  return { sessions: sessions, members: memberStats };
+}
+
+// ==========================================
 // Admin member management (override)
 // ==========================================
 function adminAddMember(clubId, studentId) {

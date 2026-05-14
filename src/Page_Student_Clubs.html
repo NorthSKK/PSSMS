@@ -36,7 +36,7 @@ let _studentClubList = [];
 let _studentMyClub = null;
 
 function initStudentClubs() {
-  const user = JSON.parse(localStorage.getItem('pssms_user') || sessionStorage.getItem('pssms_user'));
+  const user = JSON.parse(localStorage.getItem('pssms_user'));
   if (!user) return;
   document.getElementById('studentClubTerm').textContent = user.currentTerm;
   document.getElementById('studentClubYear').textContent = user.currentYear;
@@ -59,7 +59,7 @@ function renderMyClubCard(c) {
 }
 
 function loadStudentClubList() {
-  const user = JSON.parse(localStorage.getItem('pssms_user') || sessionStorage.getItem('pssms_user'));
+  const user = JSON.parse(localStorage.getItem('pssms_user'));
   google.script.run.withSuccessHandler(list => {
     _studentClubList = list || [];
     renderStudentClubCards(_studentClubList);
@@ -127,7 +127,7 @@ function _filterStudentClubImpl() {
 
 function studentRegister(clubId, clubName) {
   if (!confirm(`ยืนยันลงทะเบียนชุมนุม "${clubName}"?\nลงแล้วเปลี่ยนต้องยกเลิกก่อน — ขึ้นอยู่กับสิทธิ์ admin`)) return;
-  const user = JSON.parse(localStorage.getItem('pssms_user') || sessionStorage.getItem('pssms_user'));
+  const user = JSON.parse(localStorage.getItem('pssms_user'));
   google.script.run.withSuccessHandler(res => {
     if (res.status === 'success') {
       alert('✅ ' + res.message);
@@ -141,7 +141,7 @@ function studentRegister(clubId, clubName) {
 function studentUnregister() {
   if (!_studentMyClub) return;
   if (!confirm(`ยกเลิกการลงทะเบียนชุมนุม "${_studentMyClub.clubName}"?`)) return;
-  const user = JSON.parse(localStorage.getItem('pssms_user') || sessionStorage.getItem('pssms_user'));
+  const user = JSON.parse(localStorage.getItem('pssms_user'));
   google.script.run.withSuccessHandler(res => {
     if (res.status === 'success') {
       alert('✅ ' + res.message);

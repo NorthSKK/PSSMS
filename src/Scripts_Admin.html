@@ -797,7 +797,7 @@ let _currentClubForMembers = null;    // { clubId, clubName, term, year }
 let _clubMembersCache = [];
 
 function initAdminClubs() {
-  const user = JSON.parse(localStorage.getItem('pssms_user') || sessionStorage.getItem('pssms_user'));
+  const user = JSON.parse(localStorage.getItem('pssms_user'));
   if (!user) return;
   const termLabel = document.getElementById('clubTermLabel');
   const yearLabel = document.getElementById('clubYearLabel');
@@ -821,7 +821,7 @@ function setupClubDb() {
 function loadClubList() {
   const tbody = document.getElementById('clubListBody');
   if (!tbody) return;
-  const user = JSON.parse(localStorage.getItem('pssms_user') || sessionStorage.getItem('pssms_user'));
+  const user = JSON.parse(localStorage.getItem('pssms_user'));
   tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted p-5"><div class="spinner-border spinner-border-sm me-2"></div>กำลังโหลด...</td></tr>';
 
   google.script.run.withSuccessHandler(list => {
@@ -961,7 +961,7 @@ function _filterAdvisorListImpl() {
 }
 
 function submitClubForm() {
-  const user = JSON.parse(localStorage.getItem('pssms_user') || sessionStorage.getItem('pssms_user'));
+  const user = JSON.parse(localStorage.getItem('pssms_user'));
   const clubId = document.getElementById('clubFormId').value;
   const clubName = document.getElementById('clubFormName').value.trim();
   if (!clubName) { alert('กรุณากรอกชื่อชุมนุม'); return; }
@@ -1134,7 +1134,7 @@ function adminRemoveMemberBtn(studentId, studentName) {
 
 // --- Export / Print ---
 function exportClubsPrint() {
-  const user = JSON.parse(localStorage.getItem('pssms_user') || sessionStorage.getItem('pssms_user'));
+  const user = JSON.parse(localStorage.getItem('pssms_user'));
   if (!_clubList.length) { alert('ยังไม่มีชุมนุมในเทอมนี้'); return; }
   google.script.run.withSuccessHandler(payload => {
     if (!payload || !payload.clubs) { alert('ไม่สามารถดึงข้อมูลได้'); return; }
@@ -1184,7 +1184,7 @@ function exportClubsPrint() {
 }
 
 function exportClubsCSV() {
-  const user = JSON.parse(localStorage.getItem('pssms_user') || sessionStorage.getItem('pssms_user'));
+  const user = JSON.parse(localStorage.getItem('pssms_user'));
   google.script.run.withSuccessHandler(payload => {
     if (!payload || !payload.clubs) { alert('ไม่สามารถดึงข้อมูลได้'); return; }
     let csv = '﻿'; // UTF-8 BOM for Excel Thai support

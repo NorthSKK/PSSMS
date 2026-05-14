@@ -10,9 +10,18 @@
           <p class="text-muted small mb-0">โรงเรียนภูพระบาทวิทยา</p>
         </div>
 
-        <div class="form-floating mb-3 text-start">
-          <input type="text" class="form-control" id="username" placeholder="Username" onkeydown="if(event.key === 'Enter') document.getElementById('password').focus()">
-          <label for="username"><i class="fas fa-user me-2"></i>รหัสผู้ใช้งาน</label>
+        <div class="mb-3 text-start position-relative" id="usernameWrapper">
+          <div class="form-floating">
+            <input type="text" class="form-control" id="username" placeholder="Username"
+                   autocomplete="off"
+                   onkeydown="if(event.key==='Enter'){hideSavedAccounts();document.getElementById('password').focus();}"
+                   oninput="filterSavedAccounts(this.value)"
+                   onfocus="showSavedAccounts()">
+            <label for="username"><i class="fas fa-user me-2"></i>รหัสผู้ใช้งาน</label>
+          </div>
+          <div id="savedAccountsList" class="position-absolute w-100 bg-white border rounded-3 shadow"
+               style="top:100%;left:0;z-index:1050;display:none;max-height:220px;overflow-y:auto;margin-top:2px;">
+          </div>
         </div>
 
         <div class="form-floating mb-3 text-start position-relative">
@@ -28,15 +37,7 @@
           </span>
         </div>
 
-        <div class="form-check mb-3 text-start ms-2">
-          <input class="form-check-input" type="checkbox" id="rememberMe" checked
-                 onkeydown="if(event.key === 'Enter') processLogin()">
-          <label class="form-check-label text-muted small" for="rememberMe">
-            จดจำการเข้าสู่ระบบ (30 วัน)
-          </label>
-        </div>
-
-        <button class="btn btn-accent w-100 py-2 fw-medium" onclick="processLogin()">
+        <button class="btn btn-accent w-100 py-2 fw-medium" onclick="hideSavedAccounts();processLogin()">
           เข้าสู่ระบบ
         </button>
 
@@ -52,15 +53,19 @@
   function togglePasswordVisibility() {
     const passwordInput = document.getElementById('password');
     const toggleIcon = document.getElementById('toggleIcon');
-
     if (passwordInput.type === 'password') {
       passwordInput.type = 'text';
-      toggleIcon.classList.remove('fa-eye-slash');
-      toggleIcon.classList.add('fa-eye');
+      toggleIcon.classList.replace('fa-eye-slash', 'fa-eye');
     } else {
       passwordInput.type = 'password';
-      toggleIcon.classList.remove('fa-eye');
-      toggleIcon.classList.add('fa-eye-slash');
+      toggleIcon.classList.replace('fa-eye', 'fa-eye-slash');
     }
   }
+
+  // Close dropdown when clicking outside
+  document.addEventListener('click', function(e) {
+    if (!document.getElementById('usernameWrapper')?.contains(e.target)) {
+      hideSavedAccounts();
+    }
+  });
 </script>

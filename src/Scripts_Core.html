@@ -130,25 +130,31 @@ function showLoader(status) {
 
 // ==========================================
 // 2. Authentication
-// 30-day persistent session via localStorage + silent re-auth.
+// Always-persistent session via localStorage + silent re-auth.
 // ==========================================
-const PSSMS_SESSION_MAX_AGE_MS = 30 * 24 * 3600 * 1000; // 30 days
+const PSSMS_SESSION_MAX_AGE_MS = 90 * 24 * 3600 * 1000; // 90 days
 
 function checkAutoLogin() {
-  const savedUser = localStorage.getItem('pssms_user');
-  const sessionUser = sessionStorage.getItem('pssms_user');
+  let savedUser = localStorage.getItem('pssms_user');
+
+  // Migrate old sessionStorage session → localStorage (one-time, seamless)
+  if (!savedUser) {
+    const sessionUser = sessionStorage.getItem('pssms_user');
+    if (sessionUser) {
+      localStorage.setItem('pssms_user', sessionUser);
+      localStorage.setItem('pssms_user_savedAt', String(Date.now()));
+      sessionStorage.removeItem('pssms_user');
+      savedUser = sessionUser;
+    }
+  }
+
   const savedAt = parseInt(localStorage.getItem('pssms_user_savedAt') || '0', 10);
   const creds = localStorage.getItem('pssms_creds');
   const age = Date.now() - savedAt;
 
-  // Persistent (localStorage) — render immediately, silent re-validate
   if (savedUser) {
     if (age > PSSMS_SESSION_MAX_AGE_MS) {
-      // Expired session: try silent re-auth via stored creds
-      if (creds) {
-        _attemptSilentRelogin(creds);
-        return;
-      }
+      if (creds) { _attemptSilentRelogin(creds); return; }
       _clearSavedSession();
       showLoader(false);
       document.getElementById('login-section').classList.remove('d-none');
@@ -156,15 +162,7 @@ function checkAutoLogin() {
     }
     renderApp(JSON.parse(savedUser));
     syncSystemTerm();
-    // Background: silent re-validate creds (catches password change)
     if (creds) _silentRevalidate(creds);
-    return;
-  }
-
-  // Session-only fallback (tab still open)
-  if (sessionUser) {
-    renderApp(JSON.parse(sessionUser));
-    syncSystemTerm();
     return;
   }
 
@@ -229,24 +227,22 @@ function _clearSavedSession() {
   localStorage.removeItem('pssms_user');
   localStorage.removeItem('pssms_user_savedAt');
   localStorage.removeItem('pssms_creds');
-  sessionStorage.removeItem('pssms_user');
 }
 
 function syncSystemTerm() {
-  const userStr = localStorage.getItem('pssms_user') || sessionStorage.getItem('pssms_user');
+  const userStr = localStorage.getItem('pssms_user');
   if (!userStr) return;
   let user = JSON.parse(userStr);
   // ถ้าครูเลือกดูเทอมเก่าอยู่ ไม่ต้อง sync ทับ
   if (user.termOverride) return;
 
   safeRun(3).withSuccessHandler(function(config) {
-      let u = JSON.parse(localStorage.getItem('pssms_user') || sessionStorage.getItem('pssms_user'));
-      if (u.termOverride) return;
+      let u = JSON.parse(localStorage.getItem('pssms_user') || '{}');
+      if (!u.id || u.termOverride) return;
       if (config.term && config.year && (u.currentTerm !== config.term || u.currentYear !== config.year)) {
           u.currentTerm = config.term;
           u.currentYear = config.year;
-          if (localStorage.getItem('pssms_user')) localStorage.setItem('pssms_user', JSON.stringify(u));
-          if (sessionStorage.getItem('pssms_user')) sessionStorage.setItem('pssms_user', JSON.stringify(u));
+          localStorage.setItem('pssms_user', JSON.stringify(u));
           window.currentUser = u;
           renderTermBadge(u);
       }
@@ -254,8 +250,7 @@ function syncSystemTerm() {
 }
 
 function saveUserSession(user) {
-  if (localStorage.getItem('pssms_user')) localStorage.setItem('pssms_user', JSON.stringify(user));
-  else sessionStorage.setItem('pssms_user', JSON.stringify(user));
+  localStorage.setItem('pssms_user', JSON.stringify(user));
   window.currentUser = user;
 }
 
@@ -351,28 +346,77 @@ function resetToSystemTerm() {
   }).getSystemConfig();
 }
 
+// ==========================================
+// Saved Accounts (autofill dropdown)
+// ==========================================
+function _getSavedAccounts() {
+  try { return JSON.parse(localStorage.getItem('pssms_saved_accounts') || '[]'); } catch (e) { return []; }
+}
+
+function _saveAccount(username, password, res) {
+  try {
+    let accounts = _getSavedAccounts().filter(a => a.u !== username);
+    accounts.unshift({ u: username, p: btoa(unescape(encodeURIComponent(password))), n: res.name || username, r: res.role || '' });
+    if (accounts.length > 10) accounts = accounts.slice(0, 10);
+    localStorage.setItem('pssms_saved_accounts', JSON.stringify(accounts));
+  } catch (e) {}
+}
+
+function showSavedAccounts() {
+  const accounts = _getSavedAccounts();
+  if (!accounts.length) return;
+  filterSavedAccounts(document.getElementById('username').value || '');
+}
+
+function hideSavedAccounts() {
+  const el = document.getElementById('savedAccountsList');
+  if (el) el.style.display = 'none';
+}
+
+function filterSavedAccounts(query) {
+  const box = document.getElementById('savedAccountsList');
+  if (!box) return;
+  const q = query.toLowerCase();
+  const accounts = _getSavedAccounts().filter(a =>
+    !q || a.u.toLowerCase().includes(q) || a.n.toLowerCase().includes(q)
+  );
+  if (!accounts.length) { box.style.display = 'none'; return; }
+  const roleIcon = { ADMIN: 'fa-shield-alt text-danger', TEACHER: 'fa-chalkboard-teacher text-primary', STUDENT: 'fa-user-graduate text-success', EXECUTIVE: 'fa-user-tie text-warning' };
+  box.innerHTML = accounts.map(a => {
+    const icon = roleIcon[(a.r || '').toUpperCase()] || 'fa-user text-muted';
+    return `<div class="d-flex align-items-center gap-2 px-3 py-2 border-bottom"
+                 style="cursor:pointer;transition:.15s"
+                 onmouseover="this.style.background='#f8f9fa'" onmouseout="this.style.background=''"
+                 onmousedown="fillAccount('${a.u.replace(/'/g,"\\'")}','${a.p}')">
+              <i class="fas ${icon} fa-fw"></i>
+              <div class="flex-grow-1 overflow-hidden">
+                <div class="fw-medium text-truncate" style="font-size:13px;">${a.n}</div>
+                <div class="text-muted text-truncate" style="font-size:11px;">${a.u}</div>
+              </div>
+            </div>`;
+  }).join('');
+  box.style.display = 'block';
+}
+
+function fillAccount(username, encodedPass) {
+  document.getElementById('username').value = username;
+  try { document.getElementById('password').value = decodeURIComponent(escape(atob(encodedPass))); } catch (e) {}
+  hideSavedAccounts();
+  document.getElementById('password').focus();
+}
+
 function processLogin() {
-  const user = document.getElementById('username').value;
+  const user = document.getElementById('username').value.trim();
   const pass = document.getElementById('password').value;
-  const rememberMe = document.getElementById('rememberMe').checked;
-  if(!user || !pass) return alert('กรุณากรอกข้อมูลให้ครบ');
+  if (!user || !pass) return alert('กรุณากรอกข้อมูลให้ครบ');
   showLoader(true);
   google.script.run.withSuccessHandler(function(res) {
     showLoader(false);
-    if (res.status === "success") {
-      const userData = JSON.stringify(res);
-      if (rememberMe) {
-        localStorage.setItem('pssms_user', userData);
-        localStorage.setItem('pssms_user_savedAt', String(Date.now()));
-        // Store creds for silent re-auth (30 day window). Base64 only — not encryption.
-        try { localStorage.setItem('pssms_creds', btoa(user + ':' + pass)); } catch (e) {}
-      } else {
-        sessionStorage.setItem('pssms_user', userData);
-        // Clear any stale persistent session
-        localStorage.removeItem('pssms_user');
-        localStorage.removeItem('pssms_user_savedAt');
-        localStorage.removeItem('pssms_creds');
-      }
+    if (res.status === 'success') {
+      localStorage.setItem('pssms_user', JSON.stringify(res));
+      localStorage.setItem('pssms_user_savedAt', String(Date.now()));
+      try { localStorage.setItem('pssms_creds', btoa(unescape(encodeURIComponent(user + ':' + pass)))); } catch (e) {}
+      _saveAccount(user, pass, res);
       renderApp(res);
     } else { alert(res.message); }
   }).checkLogin(user, pass);

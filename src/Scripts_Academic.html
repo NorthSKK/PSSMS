@@ -420,11 +420,8 @@ function submitMorningCheckAcademic() {
       btn.innerHTML = oldText;
       btn.disabled = false;
       alert(res.message);
-      const userData = sessionStorage.getItem('pssms_user');
       sessionStorage.clear();
-      if(userData) sessionStorage.setItem('pssms_user', userData);
-      
-      loadStudentList(true); 
+      loadStudentList(true);
       clearSignature();
     })
     .withFailureHandler(err => {
@@ -436,7 +433,7 @@ function submitMorningCheckAcademic() {
     .saveMorningActivityBatch(payload);
 }
 
-function getSessionUser() { return JSON.parse(localStorage.getItem('pssms_user') || sessionStorage.getItem('pssms_user')); }
+function getSessionUser() { try { return JSON.parse(localStorage.getItem('pssms_user') || 'null'); } catch(e) { return null; } }
 
 function viewTodayHistory() {
   const classVal = document.getElementById('selectClass').value;
@@ -680,9 +677,7 @@ function submitAcademicData() {
         .withFailureHandler(function(err) { showLoader(false); btn.disabled = false; btn.innerHTML = 'บันทึกข้อมูลทั้งหมด'; alert("❌ เกิดข้อผิดพลาดตอนบันทึกการสอน: " + err.message); })
         .withSuccessHandler(function() {
           showLoader(false);
-          const userData = sessionStorage.getItem('pssms_user');
           sessionStorage.clear();
-          if(userData) sessionStorage.setItem('pssms_user', userData);
           alert("✅ บันทึกข้อมูลเช็คชื่อและผลการสอนเรียบร้อยแล้ว");
           loadStudentList(true); 
           clearSignature(); 
