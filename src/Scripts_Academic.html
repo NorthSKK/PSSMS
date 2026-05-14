@@ -83,7 +83,10 @@ function buildTimetableDropdown(timetable) {
   timetable.forEach(item => {
     let opt = document.createElement('option');
     opt.value = JSON.stringify(item);
-    opt.text = `คาบ ${item[5]}: ${item[0]} ${item[1]} (${String(item[2]).trim()})`;
+    const _isClub = String(item[0]).indexOf('CLUB_') === 0;
+    opt.text = _isClub
+      ? `คาบ ${item[5]}: [ชุมนุม] ${item[1]}`
+      : `คาบ ${item[5]}: ${item[0]} ${item[1]} (${String(item[2]).trim()})`;
     select.add(opt);
   });
 
