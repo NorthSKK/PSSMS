@@ -370,7 +370,7 @@ function renderTeacherTodaySchedule(timetable) {
     html += `<tr class="${isTeaching ? 'table-primary' : ''}" style="cursor: pointer; transition: background-color 0.2s;" onmouseover="this.style.backgroundColor='#f1f3f5'" onmouseout="this.style.backgroundColor=''" onclick="jumpToAttendance('${encodedItem}')" title="👆 คลิกเพื่อไปหน้าเช็คชื่อวิชานี้">
       <td class="ps-3 fw-bold align-middle">คาบ ${p}</td>
       <td class="align-middle">
-        <div class="fw-bold text-primary">${r[0]} - ${r[1]}</div>
+        <div class="fw-bold text-primary">${String(r[0]).indexOf('CLUB_') === 0 ? '<span class="badge bg-success me-1" style="font-size:0.7rem;">ชุมนุม</span>' + r[1] : r[0] + ' - ' + r[1]}</div>
         <div class="small text-muted"><i class="fas fa-door-open me-1"></i>ห้อง ${r[2]} (${r[4]}) | <i class="fas fa-clock me-1"></i>${timeRange} น.</div>
       </td>
       <td class="text-center align-middle">
@@ -385,7 +385,8 @@ function renderTeacherTodaySchedule(timetable) {
   tbody.innerHTML = html;
   
   if(nextTitle && nextClass) {
-    nextTitle.innerHTML = `คาบ ${nextClass[5]}: <span class="text-warning">${nextClass[0]}</span> ${nextClass[1]}`;
+    const _nc0 = String(nextClass[0]); const _ncIsClub = _nc0.indexOf('CLUB_') === 0;
+    nextTitle.innerHTML = `คาบ ${nextClass[5]}: ${_ncIsClub ? '<span class="badge bg-success me-1">ชุมนุม</span>' : `<span class="text-warning">${_nc0}</span>`} ${nextClass[1]}`;
     nextDetail.innerHTML = `<i class="fas fa-door-open me-1"></i>ห้อง ${nextClass[2]} (${nextClass[4]}) | <i class="fas fa-clock me-1"></i>${timeMap[nextClass[5]]} น.`;
   } else if(nextTitle) { 
     nextTitle.innerText = "สอนเสร็จสิ้นแล้ว"; nextDetail.innerText = "ไม่มีภาระงานสอนเพิ่มในวันนี้แล้ว"; 

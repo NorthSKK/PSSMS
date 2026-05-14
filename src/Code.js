@@ -1563,14 +1563,20 @@ function getFilteredTimetables(tid, term, year) {
   const targetTerm = String(term).trim();
   const targetYear = String(year).trim();
   const results = [];
-  
+  const clubCache = {};
+
   for (let i = 1; i < data.length; i++) {
-    const row = data[i];
-    const rowTid  = String(row[5]).trim(); 
+    const row = data[i].slice(); // copy row to avoid mutating sheet data
+    const rowTid  = String(row[5]).trim();
     const rowTerm = String(row[8]).trim();
     const rowYear = String(row[9]).trim();
 
-    if ((rowTerm === targetTerm) && (rowYear === targetYear) && (tid === "" || rowTid === tid)) {
+    if ((rowTerm === targetTerm) && (rowYear === targetYear) && (tid === '' || rowTid === tid)) {
+      if (String(row[1]).indexOf('ชุมนุม') >= 0) {
+        if (!clubCache[rowTid]) clubCache[rowTid] = _getTeacherClubForTerm(rowTid, targetTerm, targetYear);
+        const club = clubCache[rowTid];
+        if (club) { row[0] = 'CLUB_' + club.clubId; row[1] = club.clubName; }
+      }
       results.push({ rowIndex: i + 1, data: row });
     }
   }
