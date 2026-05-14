@@ -326,7 +326,8 @@ function setViewTerm(term, year) {
   saveUserSession(user);
   clearTermCaches();
   renderTermBadge(user);
-  const lastPage = localStorage.getItem('pssms_last_page') || (user.role.toUpperCase() === 'ADMIN' ? 'Page_Dashboard_Admin' : 'Page_Dashboard_Teacher');
+  const _r = user.role.toUpperCase();
+  const lastPage = localStorage.getItem('pssms_last_page') || (_r === 'ADMIN' ? 'Page_Dashboard_Admin' : _r === 'EXECUTIVE' ? 'Page_Dashboard_Executive' : 'Page_Dashboard_Teacher');
   loadPage(lastPage);
 }
 
@@ -470,6 +471,17 @@ function renderApp(user) {
     startPage = 'Page_Dashboard_Student';
     menuHTML += `<li class="mb-3"><a href="javascript:void(0)" class="nav-link-custom active" onclick="loadPage('Page_Dashboard_Student')"><i class="fas fa-home me-2"></i>หน้าแรกนักเรียน</a></li>`;
     menuHTML += `<li class="mb-2"><a href="javascript:void(0)" class="dept-btn" style="border-left-color: #9c27b0 !important;" onclick="loadPage('Page_Student_Clubs')"><i class="fas fa-flag-checkered" style="color: #9c27b0;"></i> <span>ลงทะเบียนชุมนุม</span></a></li>`;
+  } else if (role === 'EXECUTIVE') {
+    startPage = 'Page_Dashboard_Executive';
+    const dept = (user.dept || '').trim();
+    menuHTML += `<li class="mb-3"><a href="javascript:void(0)" class="nav-link-custom active" onclick="loadPage('Page_Dashboard_Executive')"><i class="fas fa-chart-line me-2"></i>แดชบอร์ดผู้บริหาร</a></li>`;
+    menuHTML += `<div class="menu-divider">ข้อมูลฝ่าย</div>`;
+    menuHTML += `<li class="mb-2"><a href="javascript:void(0)" class="dept-btn academic" onclick="loadPage('Page_Academic_Report')"><i class="fas fa-graduation-cap"></i> <span>รายงานวิชาการ</span></a></li>`;
+    menuHTML += `<li class="mb-2"><a href="javascript:void(0)" class="dept-btn budget" onclick="loadPage('Page_Budget')"><i class="fas fa-wallet"></i> <span>งบประมาณ</span></a></li>`;
+    menuHTML += `<li class="mb-2"><a href="javascript:void(0)" class="dept-btn personnel" onclick="loadPage('Page_Personnel')"><i class="fas fa-users"></i> <span>บุคลากร</span></a></li>`;
+    menuHTML += `<li class="mb-1"><div class="dept-btn general" style="cursor:default;"><i class="fas fa-building"></i> <span>ฝ่ายทั่วไป</span></div></li>`;
+    menuHTML += `<li class="mb-1 ms-3"><a href="javascript:void(0)" class="nav-link-sub py-1" style="font-size:0.85rem;color:#6f42c1;" onclick="loadPage('Page_General')"><i class="fas fa-file-alt me-2" style="font-size:0.7rem;"></i>งานสารบรรณ</a></li>`;
+    menuHTML += `<li class="mb-2 ms-3"><a href="javascript:void(0)" class="nav-link-sub py-1" style="font-size:0.85rem;color:#e83e8c;" onclick="loadPage('Page_Calendar')"><i class="fas fa-calendar-alt me-2" style="font-size:0.7rem;"></i>ปฏิทินปฏิบัติงาน</a></li>`;
   } else {
     startPage = (role === 'ADMIN') ? 'Page_Dashboard_Admin' : 'Page_Dashboard_Teacher';
     const homeLabel = (role === 'ADMIN') ? 'แดชบอร์ดผู้บริหาร' : 'แดชบอร์ดครู';
