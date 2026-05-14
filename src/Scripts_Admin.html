@@ -1089,16 +1089,34 @@ function loadMembersStudentList() {
 function adminAddMemberBtn(studentId, studentName) {
   if (!_currentClubForMembers) return;
   const clubId = _currentClubForMembers.clubId;
+
+  // Optimistic update — show immediately, sync later
+  const student = (allUsers || []).find(u => String(u[0]).replace(/'/g, '').trim() === studentId);
+  const className = student ? String(student[4]) : '';
+  const tempMember = { studentId, studentName: student ? String(student[2]) : studentName, className, registeredBy: 'admin', registeredAt: '' };
+  if (!_clubMembersCache.find(m => m.studentId === studentId)) {
+    _clubMembersCache = [..._clubMembersCache, tempMember];
+    renderClubMembersList(_clubMembersCache);
+    loadMembersStudentList();
+  }
+
   google.script.run
     .withSuccessHandler(res => {
       if (res && (res.status === 'success' || res.status === 'already')) {
         loadClubMembersData(loadMembersStudentList);
         loadClubList();
       } else {
+        // Rollback optimistic update
+        _clubMembersCache = _clubMembersCache.filter(m => m.studentId !== studentId);
+        renderClubMembersList(_clubMembersCache);
+        loadMembersStudentList();
         alert('❌ ' + (res ? res.message : 'ไม่ทราบสาเหตุ'));
       }
     })
     .withFailureHandler(err => {
+      _clubMembersCache = _clubMembersCache.filter(m => m.studentId !== studentId);
+      renderClubMembersList(_clubMembersCache);
+      loadMembersStudentList();
       alert('❌ เพิ่มสมาชิกล้มเหลว: ' + err.message);
     })
     .adminAddMember(clubId, studentId);
