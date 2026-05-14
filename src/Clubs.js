@@ -334,6 +334,9 @@ function registerToClub(studentId, clubId, registeredBy) {
       var rYear = String(memberData[k][5]);
       if (rClubId === club.clubId) memberCount++;
       if (rStdId === _normID(studentId) && rTerm === club.term && rYear === club.year) {
+        if (rClubId === club.clubId) {
+          return { status: 'already', message: 'นักเรียนอยู่ในชุมนุมนี้แล้ว' };
+        }
         return { status: 'error', message: 'นักเรียนได้ลงทะเบียนชุมนุมอื่นในเทอมนี้แล้ว', existingClubId: rClubId };
       }
     }

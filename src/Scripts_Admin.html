@@ -1019,11 +1019,18 @@ function openClubMembers(clubId, clubName, term, year) {
   loadClubMembersData();
 }
 
-function loadClubMembersData() {
-  google.script.run.withSuccessHandler(members => {
-    _clubMembersCache = members || [];
-    renderClubMembersList(_clubMembersCache);
-  }).getClubMembers(_currentClubForMembers.clubId);
+function loadClubMembersData(onDone) {
+  google.script.run
+    .withSuccessHandler(members => {
+      _clubMembersCache = members || [];
+      renderClubMembersList(_clubMembersCache);
+      if (onDone) onDone();
+    })
+    .withFailureHandler(err => {
+      const box = document.getElementById('clubMembersList');
+      if (box) box.innerHTML = `<div class="text-danger p-3 small">❌ โหลดไม่สำเร็จ: ${err.message}</div>`;
+    })
+    .getClubMembers(_currentClubForMembers.clubId);
 }
 
 function renderClubMembersList(members) {
@@ -1070,8 +1077,12 @@ function loadMembersStudentList() {
 
 function adminAddMemberBtn(studentId, studentName) {
   google.script.run.withSuccessHandler(res => {
-    if (res.status === 'success') { loadClubMembersData(); loadClubList(); setTimeout(loadMembersStudentList, 400); }
-    else alert('❌ ' + res.message);
+    if (res.status === 'success' || res.status === 'already') {
+      loadClubMembersData(loadMembersStudentList);
+      loadClubList();
+    } else {
+      alert('❌ ' + res.message);
+    }
   }).adminAddMember(_currentClubForMembers.clubId, studentId);
 }
 
