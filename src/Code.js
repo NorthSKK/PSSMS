@@ -2898,6 +2898,7 @@ function getSarabunHistory(requesterName, role) {
   // 🌟 ยกเลิกการกรองตาม "ปีการศึกษา" เพื่อให้เห็นประวัติย้อนหลังของปี พ.ศ. เก่าๆ ด้วย
   for (let i = data.length - 1; i >= 1; i--) {
      const row = data[i];
+     if (!String(row[2]).trim() && !String(row[1]).trim()) continue; // skip empty rows
      // ถ้าเป็น Admin ให้เห็นทั้งหมด / ถ้าเป็นครูให้เห็นเฉพาะของตัวเอง
      if (role.toUpperCase() === 'ADMIN' || String(row[12]).trim() === requesterName) {
         results.push({ 
@@ -2938,6 +2939,146 @@ function uploadSarabunFile(id, base64Data, filename, docNumber) {
     }
     return { status: "success", message: "แนบไฟล์เสร็จสมบูรณ์" };
   } catch(e) { return { status: "error", message: e.message }; } finally { lock.releaseLock(); }
+}
+
+// ==========================================
+// 🔗 AMSS Integration (ระบบสารบรรณ สพม.)
+// ==========================================
+const AMSS_BASE = 'https://amss.sesaud.go.th';
+const AMSS_HEADERS = {
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0 Safari/537.36',
+  'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+  'Accept-Language': 'th-TH,th;q=0.9,en;q=0.8'
+};
+
+function _amssGetCredentials() {
+  const props = PropertiesService.getScriptProperties();
+  return {
+    username: props.getProperty('AMSS_USERNAME') || '41042010',
+    password: props.getProperty('AMSS_PASSWORD') || '41042010'
+  };
+}
+
+function saveAmssCredentials(username, password) {
+  const props = PropertiesService.getScriptProperties();
+  props.setProperty('AMSS_USERNAME', username);
+  props.setProperty('AMSS_PASSWORD', password);
+  return { status: 'success' };
+}
+
+function _extractCookies(resp) {
+  const h = resp.getHeaders();
+  const raw = h['Set-Cookie'] || h['set-cookie'] || '';
+  const arr = Array.isArray(raw) ? raw : (raw ? [raw] : []);
+  return arr.map(c => c.split(';')[0]).join('; ');
+}
+
+function _amssLogin() {
+  const cred = _amssGetCredentials();
+  if (!cred.username) return null;
+
+  // Step 1: GET login page — เอา initial session cookie + CSRF token
+  const getResp = UrlFetchApp.fetch(AMSS_BASE + '/index.php', {
+    method: 'get',
+    followRedirects: true,
+    muteHttpExceptions: true,
+    headers: AMSS_HEADERS
+  });
+  Logger.log('[AMSS] GET login HTTP: ' + getResp.getResponseCode());
+
+  const initCookies = _extractCookies(getResp);
+  Logger.log('[AMSS] init cookies: ' + initCookies);
+
+  const loginHtml = getResp.getContentText('UTF-8');
+
+  // หา CSRF token ชื่อต่างๆ ที่ใช้ใน PHP framework
+  let csrfToken = '';
+  let csrfName = '';
+  const csrfPatterns = [
+    /name="csrf_token"\s+value="([^"]+)"/i,
+    /name="token"\s+value="([^"]+)"/i,
+    /name="_token"\s+value="([^"]+)"/i,
+    /name="csrf"\s+value="([^"]+)"/i
+  ];
+  const csrfNames = ['csrf_token', 'token', '_token', 'csrf'];
+  for (let i = 0; i < csrfPatterns.length; i++) {
+    const m = loginHtml.match(csrfPatterns[i]);
+    if (m) { csrfToken = m[1]; csrfName = csrfNames[i]; break; }
+  }
+  Logger.log('[AMSS] csrf: ' + csrfName + '=' + csrfToken);
+  Logger.log('[AMSS] login page HTML (500): ' + loginHtml.substring(0, 500));
+
+  // Step 2: POST login
+  const payload = { username: cred.username, pass: cred.password, user_os: 'desktop', login_submit: 'Login' };
+  if (csrfToken) payload[csrfName] = csrfToken;
+
+  const postHeaders = Object.assign({}, AMSS_HEADERS, {
+    'Referer': AMSS_BASE + '/index.php',
+    'Origin': AMSS_BASE
+  });
+  if (initCookies) postHeaders['Cookie'] = initCookies;
+
+  const resp = UrlFetchApp.fetch(AMSS_BASE + '/index.php', {
+    method: 'post',
+    payload: payload,
+    followRedirects: false,
+    muteHttpExceptions: true,
+    headers: postHeaders
+  });
+
+  const code = resp.getResponseCode();
+  Logger.log('[AMSS] POST login HTTP: ' + code);
+
+  const newCookies = _extractCookies(resp);
+  const cookies = [initCookies, newCookies].filter(Boolean).join('; ');
+  Logger.log('[AMSS] session cookies: ' + cookies);
+
+  const h = resp.getHeaders();
+  const location = h['Location'] || h['location'] || '';
+  Logger.log('[AMSS] redirect: ' + location);
+
+  if (code !== 200 && code !== 302) return null;
+  return { cookies, location };
+}
+
+// ฟังก์ชัน diagnostic — รันใน GAS Editor เพื่อดู structure
+function testAmssConnection() {
+  const session = _amssLogin();
+  if (!session) { Logger.log('[AMSS] login failed'); return { success: false, error: 'login failed' }; }
+
+  const targetUrl = session.location
+    ? (session.location.startsWith('http') ? session.location : AMSS_BASE + '/' + session.location.replace(/^\//, ''))
+    : AMSS_BASE + '/main.php';
+
+  Logger.log('[AMSS] fetching: ' + targetUrl);
+  const mainResp = UrlFetchApp.fetch(targetUrl, {
+    method: 'get', followRedirects: true, muteHttpExceptions: true,
+    headers: Object.assign({}, AMSS_HEADERS, { 'Cookie': session.cookies, 'Referer': AMSS_BASE + '/index.php' })
+  });
+
+  const html = mainResp.getContentText('UTF-8');
+  Logger.log('[AMSS] main page HTTP: ' + mainResp.getResponseCode() + ' len: ' + html.length);
+
+  // เก็บ links ทั้งหมด
+  const links = [];
+  const re = /href="([^"#][^"]*\.php[^"]*)"/gi;
+  let m;
+  while ((m = re.exec(html)) !== null) {
+    const l = m[1];
+    if (!links.includes(l)) links.push(l);
+  }
+  Logger.log('[AMSS] PHP links: ' + JSON.stringify(links.slice(0, 40)));
+
+  const receiveLinks = links.filter(l => /receive|inbox|รับ|recv|rec_doc|doc_rec/i.test(l));
+  Logger.log('[AMSS] receive links: ' + JSON.stringify(receiveLinks));
+  Logger.log('[AMSS] HTML (first 3000): ' + html.substring(0, 3000));
+
+  return { success: true, links: links.slice(0, 40), receiveLinks };
+}
+
+function syncAmssIncoming() {
+  // placeholder — จะ implement หลังรู้ URL จาก testAmssConnection()
+  return { status: 'error', message: 'ยังไม่ได้ตั้งค่า — รัน testAmssConnection() ใน GAS Editor ก่อน' };
 }
 
 // ==========================================

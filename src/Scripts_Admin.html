@@ -354,8 +354,8 @@ function renderTimetableGrid() {
       if(match) {
         const r = match.data;
         const isClub = String(r[0]).indexOf('CLUB_') === 0;
-        html += `<td class="p-2" onclick="openEditTimetable(${match.rowIndex})" style="cursor:pointer; background-color: ${isClub ? '#e8f5e9' : '#e7f1ff'}; min-width: 110px; border: 1px solid #dee2e6; transition: 0.2s;" title="คลิกเพื่อแก้ไข">
-                    ${isClub ? '<span class="badge bg-success mb-1" style="font-size:10px;">ชุมนุม</span>' : `<div class="text-primary fw-bold" style="font-size: 13px;">${r[0]}</div>`}
+        html += `<td class="p-2" onclick="openEditTimetable(${match.rowIndex})" style="cursor:pointer; background-color: #e7f1ff; min-width: 110px; border: 1px solid #dee2e6; transition: 0.2s;" title="คลิกเพื่อแก้ไข">
+                    ${isClub ? '<div class="text-primary fw-bold" style="font-size: 13px;">ชุมนุม</div>' : `<div class="text-primary fw-bold" style="font-size: 13px;">${r[0]}</div>`}
                     <div class="text-dark truncate-text my-1" style="font-size: 12px; line-height: 1.2;">${r[1]}</div>
                     <span class="badge bg-secondary shadow-sm" style="font-size: 11px;">${r[2]}/${r[3]} (${r[4]})</span>
                  </td>`;
@@ -390,7 +390,7 @@ function renderTimetableList() {
       html += `<tr>
         <td class="ps-4"><span class="badge bg-light text-dark border shadow-sm">${r[6]}</span></td>
         <td class="text-center fw-bold">คาบ ${r[7]}</td>
-        <td class="fw-bold ${isClub ? 'text-success' : 'text-primary'}">${isClub ? 'ชุมนุม' : r[0]}</td>
+        <td class="fw-bold text-primary">${isClub ? 'ชุมนุม' : r[0]}</td>
         <td>${r[1]}</td>
         <td>${r[2]}</td>
         <td>${r[3]}</td>
