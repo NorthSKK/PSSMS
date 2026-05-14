@@ -267,8 +267,8 @@ function getClubMembers(clubId) {
         className: String(data[i][3]),
         term: String(data[i][4]),
         year: String(data[i][5]),
-        registeredAt: data[i][6],
-        registeredBy: data[i][7]
+        registeredAt: data[i][6] instanceof Date ? Utilities.formatDate(data[i][6], 'Asia/Bangkok', 'yyyy-MM-dd HH:mm') : String(data[i][6] || ''),
+        registeredBy: String(data[i][7] || '')
       });
     }
   }
