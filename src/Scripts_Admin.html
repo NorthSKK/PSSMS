@@ -1020,22 +1020,26 @@ function openClubMembers(clubId, clubName, term, year) {
 }
 
 function loadClubMembersData(onDone) {
+  if (!_currentClubForMembers) return;
+  const clubId = _currentClubForMembers.clubId;
   google.script.run
     .withSuccessHandler(members => {
       _clubMembersCache = members || [];
-      renderClubMembersList(_clubMembersCache);
-      if (onDone) onDone();
+      try { renderClubMembersList(_clubMembersCache); } catch(e) { console.error('[Clubs] render error:', e); }
+      if (onDone) { try { onDone(); } catch(e) { console.error('[Clubs] onDone error:', e); } }
     })
     .withFailureHandler(err => {
       const box = document.getElementById('clubMembersList');
       if (box) box.innerHTML = `<div class="text-danger p-3 small">❌ โหลดไม่สำเร็จ: ${err.message}</div>`;
     })
-    .getClubMembers(_currentClubForMembers.clubId);
+    .getClubMembers(clubId);
 }
 
 function renderClubMembersList(members) {
   const box = document.getElementById('clubMembersList');
-  document.getElementById('clubMembersCount').textContent = members.length;
+  const countEl = document.getElementById('clubMembersCount');
+  if (!box) return;
+  if (countEl) countEl.textContent = members.length;
   if (!members.length) {
     box.innerHTML = '<div class="text-muted text-center p-3"><i class="fas fa-inbox fa-2x opacity-25 mb-2 d-block"></i>ยังไม่มีสมาชิก</div>';
     return;
@@ -1076,14 +1080,21 @@ function loadMembersStudentList() {
 }
 
 function adminAddMemberBtn(studentId, studentName) {
-  google.script.run.withSuccessHandler(res => {
-    if (res.status === 'success' || res.status === 'already') {
-      loadClubMembersData(loadMembersStudentList);
-      loadClubList();
-    } else {
-      alert('❌ ' + res.message);
-    }
-  }).adminAddMember(_currentClubForMembers.clubId, studentId);
+  if (!_currentClubForMembers) return;
+  const clubId = _currentClubForMembers.clubId;
+  google.script.run
+    .withSuccessHandler(res => {
+      if (res && (res.status === 'success' || res.status === 'already')) {
+        loadClubMembersData(loadMembersStudentList);
+        loadClubList();
+      } else {
+        alert('❌ ' + (res ? res.message : 'ไม่ทราบสาเหตุ'));
+      }
+    })
+    .withFailureHandler(err => {
+      alert('❌ เพิ่มสมาชิกล้มเหลว: ' + err.message);
+    })
+    .adminAddMember(clubId, studentId);
 }
 
 function adminRemoveMemberBtn(studentId, studentName) {
