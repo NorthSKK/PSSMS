@@ -1030,6 +1030,7 @@ function loadClubMembersData(onDone) {
   const clubId = _currentClubForMembers.clubId;
   google.script.run
     .withSuccessHandler(members => {
+      console.log('[Clubs] success handler fired, count:', members ? members.length : 'null', 'box:', !!document.getElementById('clubMembersList'));
       _clubMembersCache = members || [];
       try { renderClubMembersList(_clubMembersCache); } catch(e) { console.error('[Clubs] render error:', e); }
       if (onDone) { try { onDone(); } catch(e) { console.error('[Clubs] onDone error:', e); } }
