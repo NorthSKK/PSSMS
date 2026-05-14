@@ -868,7 +868,7 @@ function renderClubList(list) {
       <td>${advHTML}</td>
       <td class="text-center"><span class="${capColor}">${c.memberCount}/${c.capacity || '∞'}</span></td>
       <td class="text-center">${statusBadge}</td>
-      <td class="text-end pe-3">
+      <td class="text-end pe-3" style="white-space: nowrap">
         <button class="btn btn-sm btn-outline-primary me-1" onclick="openClubMembers('${c.clubId}', '${escapeAttr(c.clubName)}', '${c.term}', '${c.year}')"><i class="fas fa-users"></i></button>
         <button class="btn btn-sm btn-outline-warning me-1" onclick="openClubModal('${c.clubId}')"><i class="fas fa-edit"></i></button>
         <button class="btn btn-sm btn-outline-danger" onclick="deleteClubBtn('${c.clubId}', '${escapeAttr(c.clubName)}')"><i class="fas fa-trash"></i></button>
