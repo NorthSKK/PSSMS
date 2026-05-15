@@ -199,8 +199,22 @@ function saveConfig() {
 var allUsers = [];
 var _staffHomeroomMap = {};
 
-function loadUserData() {
+function loadUserData(forceRefresh) {
   var user = getSessionUser();
+  var _cacheKey = 'admin_users_' + (user.currentTerm||'') + '_' + (user.currentYear||'');
+  if (forceRefresh) localStorage.removeItem(_cacheKey);
+  var cached = _dashCacheGet(_cacheKey);
+  if (cached) {
+    allUsers = cached.users || [];
+    _staffHomeroomMap = cached.hrMap || {};
+    renderTable(allUsers);
+  } else {
+    var tbS = document.getElementById('tableBodyStudent');
+    var tbT = document.getElementById('tableBodyStaff');
+    var skel = '<tr>' + ['25%','30%','15%','15%','10%'].map(function(w){ return '<td><span class="pssms-skel d-inline-block" style="height:14px;width:'+w+'"></span></td>'; }).join('') + '</tr>';
+    if (tbS) tbS.innerHTML = skel.repeat(5);
+    if (tbT) tbT.innerHTML = skel.repeat(4);
+  }
   google.script.run.withSuccessHandler(function(d) {
     allUsers = d;
     google.script.run
@@ -209,6 +223,7 @@ function loadUserData() {
         (hrData || []).forEach(function(h) {
           (h.teacherIds || []).forEach(function(tid) { if (tid) _staffHomeroomMap[tid] = h.level + '/' + h.room; });
         });
+        _dashCacheSet(_cacheKey, {users: d, hrMap: _staffHomeroomMap});
         renderTable(d);
       })
       .withFailureHandler(function() { renderTable(d); })
@@ -340,12 +355,12 @@ function saveUser() {
   const action = mode === 'add' ? 'addUser' : 'editUser';
   google.script.run.withSuccessHandler(res => { 
     showLoader(false); showAlert(res.message); 
-    if(res.status === 'success') { bootstrap.Modal.getInstance(document.getElementById('userModal')).hide(); loadUserData(); } 
+    if(res.status === 'success') { bootstrap.Modal.getInstance(document.getElementById('userModal')).hide(); loadUserData(true); }
   })[action](form);
 }
 
 function confirmDelete(id) {
-  if(confirm('ยืนยันลบ ' + id + '?')) { showLoader(true); google.script.run.withSuccessHandler(res => { showLoader(false); showAlert(res.message); loadUserData(); }).deleteUser(id); }
+  if(confirm('ยืนยันลบ ' + id + '?')) { showLoader(true); google.script.run.withSuccessHandler(res => { showLoader(false); showAlert(res.message); loadUserData(true); }).deleteUser(id); }
 }
 
 function _filterTableImpl() {
@@ -364,7 +379,7 @@ function handleFileUpload(input, type) {
   reader.onload = e => {
     const content = e.target.result.split(',')[1];
     const func = type === 'student' ? 'importStudentCSV' : 'importTeacherCSV';
-    google.script.run.withSuccessHandler(res => { document.getElementById('uploadStatus').classList.add('d-none'); showAlert(res.message); input.value = ''; loadUserData(); })[func](content);
+    google.script.run.withSuccessHandler(res => { document.getElementById('uploadStatus').classList.add('d-none'); showAlert(res.message); input.value = ''; loadUserData(true); })[func](content);
   };
   reader.readAsDataURL(file);
 }
@@ -1017,8 +1032,7 @@ function executePromotion() {
         // 🌟 โชว์สรุปผลให้แอดมินดูแบบชัดเจน
         showAlert(res.message); 
         
-        // โหลดข้อมูลตารางนักเรียนมาแสดงใหม่
-        loadUserData(); 
+        loadUserData(true);
       } else {
         btn.disabled = false;
         // ถ้าขึ้น Error จากหลังบ้าน (เช่น ลืมเปลี่ยนปีการศึกษา) จะเด้ง Alert

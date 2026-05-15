@@ -583,6 +583,8 @@ function renderApp(user) {
   if (lastPage) loadPage(lastPage); else loadPage(startPage);
   setTimeout(preloadTeacherDataBackground, 2000);
   setTimeout(_syncSchoolBrandingFromServer, 1000);
+  _setupMenuPrefetch();
+  _setupIdlePrefetch(role);
 }
 
 function _syncSchoolBrandingFromServer() {
@@ -593,6 +595,56 @@ function _syncSchoolBrandingFromServer() {
     if (logo) { localStorage.setItem('pssms_school_logo', logo); _applySchoolLogo(logo); }
     if (name) { localStorage.setItem('pssms_school_name', name); _applySchoolName(name); }
   }).withFailureHandler(function(){}).getSystemConfig();
+}
+
+// ==========================================
+// Prefetch: hover + idle
+// ==========================================
+function _setupMenuPrefetch() {
+  var menuList = document.getElementById('menu-list');
+  if (!menuList) return;
+  menuList.querySelectorAll('a[onclick*="loadPage"]').forEach(function(a) {
+    var m = (a.getAttribute('onclick') || '').match(/loadPage\('([^']+)'\)/);
+    if (!m) return;
+    var pageName = m[1];
+    var timer = null;
+    a.addEventListener('mouseenter', function() {
+      timer = setTimeout(function() {
+        if (!_pgCacheGet(pageName)) {
+          google.script.run
+            .withSuccessHandler(function(html) { if (html) _pgCacheSet(pageName, html); })
+            .withFailureHandler(function() {})
+            .getPage(pageName);
+        }
+      }, 200);
+    });
+    a.addEventListener('mouseleave', function() { clearTimeout(timer); });
+  });
+}
+
+function _setupIdlePrefetch(role) {
+  var rolePages = {
+    ADMIN:     ['Page_Admin_Users','Page_Academic','Page_Score_Entry','Page_Calendar','Page_Budget'],
+    TEACHER:   ['Page_Academic','Page_Score_Entry','Page_Calendar','Page_Teacher_Timetable','Page_Lesson_History'],
+    STUDENT:   ['Page_Student_Clubs','Page_Calendar'],
+    EXECUTIVE: ['Page_Academic_Report','Page_Budget','Page_Personnel','Page_Calendar']
+  };
+  var pages = rolePages[(role || '').toUpperCase()] || [];
+  if (!pages.length) return;
+  var _idle = (typeof requestIdleCallback !== 'undefined')
+    ? function(cb) { requestIdleCallback(cb, {timeout: 2000}); }
+    : function(cb) { setTimeout(cb, 800); };
+  var i = 0;
+  function _next() {
+    if (i >= pages.length) return;
+    var pg = pages[i++];
+    if (_pgCacheGet(pg)) { _idle(_next); return; }
+    google.script.run
+      .withSuccessHandler(function(html) { if (html) _pgCacheSet(pg, html); _idle(_next); })
+      .withFailureHandler(function() { _idle(_next); })
+      .getPage(pg);
+  }
+  setTimeout(function() { _idle(_next); }, 4000);
 }
 
 const pageCache = {};
@@ -1020,8 +1072,9 @@ function applyThaiDatePickers() {
 // 6. Toast & Shortcut
 // ==========================================
 
-function showToast(msg, type) {
+function showToast(msg, type, duration) {
   type = type || 'success';
+  duration = duration || 3000;
   let container = document.getElementById('toastContainer');
   if (!container) {
     container = document.createElement('div');
@@ -1037,7 +1090,7 @@ function showToast(msg, type) {
   toast.style.cssText = 'min-width:260px;max-width:380px;border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,.18);animation:toastIn .25s ease;';
   toast.innerHTML = `<div class="d-flex p-2 gap-2 align-items-start"><i class="fas ${icon} mt-1 ms-1" style="font-size:1rem;opacity:.9;flex-shrink:0;"></i><div class="toast-body flex-grow-1 py-0 fw-medium" style="font-size:.88rem;line-height:1.4;">${msg}</div><button type="button" class="${btnClose} me-1 m-auto shadow-none flex-shrink-0" style="font-size:.7rem;" onclick="this.closest('.toast').remove()"></button></div>`;
   container.appendChild(toast);
-  setTimeout(() => { toast.style.animation = 'toastOut .3s ease forwards'; setTimeout(() => toast.remove(), 300); }, 3000);
+  setTimeout(() => { toast.style.animation = 'toastOut .3s ease forwards'; setTimeout(() => toast.remove(), 300); }, duration);
 }
 
 function showAlert(msg) {
