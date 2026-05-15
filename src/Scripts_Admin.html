@@ -115,7 +115,9 @@ function loadUserData() {
     google.script.run
       .withSuccessHandler(function(hrData) {
         _staffHomeroomMap = {};
-        (hrData || []).forEach(function(h) { if (h.teacherId) _staffHomeroomMap[h.teacherId] = h.level + '/' + h.room; });
+        (hrData || []).forEach(function(h) {
+          (h.teacherIds || []).forEach(function(tid) { if (tid) _staffHomeroomMap[tid] = h.level + '/' + h.room; });
+        });
         renderTable(d);
       })
       .withFailureHandler(function() { renderTable(d); })
@@ -1624,10 +1626,13 @@ function _ttoRenderHomeroomTable() {
   }
   var html = '';
   _ttoHomeroomData.forEach(function(h) {
+    var t1 = (h.teacherIds && h.teacherIds[0]) || '';
+    var t2 = (h.teacherIds && h.teacherIds[1]) || '';
     html += '<tr data-level="' + _ttoEsc(h.level) + '" data-room="' + _ttoEsc(h.room) + '">';
     html += '<td><select class="form-select form-select-sm hr-level" onchange="ttoHrLevelChange(this)">' + _ttoLevelOpts(h.level) + '</select></td>';
     html += '<td><select class="form-select form-select-sm hr-room">' + _ttoRoomOpts(h.level, h.room) + '</select></td>';
-    html += '<td><select class="form-select form-select-sm hr-teacher">' + _ttoHrTeacherOpts(h.teacherId) + '</select></td>';
+    html += '<td><select class="form-select form-select-sm hr-teacher-1 mb-1">' + _ttoHrTeacherOpts(t1) + '</select>'
+          + '<select class="form-select form-select-sm hr-teacher-2">' + _ttoHrTeacherOpts(t2) + '</select></td>';
     html += '<td><input type="text" class="form-control form-control-sm hr-advisory-loc" value="' + _ttoEsc(h.advisoryLoc || '') + '" placeholder="ห้อง/อาคาร"></td>';
     html += '<td><input type="text" class="form-control form-control-sm hr-buddhist-loc" value="' + _ttoEsc(h.buddhistLoc || '') + '" placeholder="ห้อง/อาคาร"></td>';
     html += '<td class="text-center"><button class="btn btn-accent btn-sm" onclick="ttoSaveHomeroomRow(this)"><i class="fas fa-save me-1"></i>บันทึก</button></td>';
@@ -1643,7 +1648,8 @@ function ttoAddHomeroomRow() {
   var tr = document.createElement('tr');
   tr.innerHTML = '<td><select class="form-select form-select-sm hr-level" onchange="ttoHrLevelChange(this)">' + _ttoLevelOpts('') + '</select></td>'
     + '<td><select class="form-select form-select-sm hr-room"><option value="">-- ห้อง --</option></select></td>'
-    + '<td><select class="form-select form-select-sm hr-teacher">' + _ttoHrTeacherOpts('') + '</select></td>'
+    + '<td><select class="form-select form-select-sm hr-teacher-1 mb-1">' + _ttoHrTeacherOpts('') + '</select>'
+    + '<select class="form-select form-select-sm hr-teacher-2">' + _ttoHrTeacherOpts('') + '</select></td>'
     + '<td><input type="text" class="form-control form-control-sm hr-advisory-loc" placeholder="ห้อง/อาคาร"></td>'
     + '<td><input type="text" class="form-control form-control-sm hr-buddhist-loc" placeholder="ห้อง/อาคาร"></td>'
     + '<td class="text-center"><button class="btn btn-accent btn-sm" onclick="ttoSaveHomeroomRow(this)"><i class="fas fa-save me-1"></i>บันทึก</button></td>';
@@ -1655,10 +1661,11 @@ function ttoSaveHomeroomRow(btn) {
   var tr = btn.closest('tr');
   var level = tr.querySelector('.hr-level').value.trim();
   var room = tr.querySelector('.hr-room').value.trim();
-  var teacherId = tr.querySelector('.hr-teacher').value;
+  var t1El = tr.querySelector('.hr-teacher-1'), t2El = tr.querySelector('.hr-teacher-2');
   var advisoryLocEl = tr.querySelector('.hr-advisory-loc');
   var buddhistLocEl = tr.querySelector('.hr-buddhist-loc');
   if (!level || !room) { showAlert('⚠️ กรอกระดับชั้นและห้องก่อน'); return; }
+  var teacherIds = [t1El ? t1El.value : '', t2El ? t2El.value : ''].filter(function(t){ return t !== ''; });
   var termEl = document.getElementById('ttoTerm'), yearEl = document.getElementById('ttoYear');
   var opts = {
     advisoryLoc: advisoryLocEl ? advisoryLocEl.value.trim() : '',
@@ -1672,13 +1679,13 @@ function ttoSaveHomeroomRow(btn) {
       showAlert(res.status === 'success' ? '✅ ' + res.message : '❌ ' + res.message);
       if (res.status === 'success') {
         if (typeof _staffHomeroomMap !== 'undefined') {
-          if (teacherId) _staffHomeroomMap[teacherId] = level + '/' + room;
+          teacherIds.forEach(function(tid) { _staffHomeroomMap[tid] = level + '/' + room; });
         }
         ttoLoadHomeroom();
       }
     })
     .withFailureHandler(function(err) { btn.disabled = false; btn.innerHTML = origHTML; showAlert('❌ ' + err.message); })
-    .setHomeroomTeacher(level, room, teacherId, termEl ? termEl.value : '', yearEl ? yearEl.value : '', opts);
+    .setHomeroomTeacher(level, room, teacherIds, termEl ? termEl.value : '', yearEl ? yearEl.value : '', opts);
 }
 
 function ttoCheckDuplicates() {

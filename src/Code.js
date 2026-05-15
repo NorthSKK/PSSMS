@@ -1787,7 +1787,9 @@ function getHomeroomAssignments(term, year) {
     const code = String(r[0]).trim().toUpperCase(), name = String(r[1]).trim();
     if (code !== 'HR' && !name.includes('โฮมรูม')) continue;
     const key = String(r[2]).trim() + '/' + String(r[3]).trim();
-    map[key] = { level: String(r[2]).trim(), room: String(r[3]).trim(), teacherId: String(r[5]).trim(), advisoryLoc: '', buddhistLoc: '' };
+    const tid = String(r[5]).trim();
+    if (!map[key]) map[key] = { level: String(r[2]).trim(), room: String(r[3]).trim(), teacherIds: [], advisoryLoc: '', buddhistLoc: '' };
+    if (tid && !map[key].teacherIds.includes(tid)) map[key].teacherIds.push(tid);
   }
   // pass 2: แนะแนว (Monday คาบ7) → fill advisoryLoc by Level+Room
   for (let i = 1; i < data.length; i++) {
@@ -1808,8 +1810,9 @@ function getHomeroomAssignments(term, year) {
   return Object.values(map).sort(function(a,b){ return (a.level+'/'+a.room).localeCompare(b.level+'/'+b.room,'th',{numeric:true}); });
 }
 
-// opts = { advisoryLoc: '405', buddhistLoc: '104' }  — omit key to skip that activity
-function setHomeroomTeacher(level, room, teacherId, term, year, opts) {
+// teacherIds = ['id1','id2'] or ['id1'] or []
+// opts = { advisoryLoc: '405', buddhistLoc: '104' }
+function setHomeroomTeacher(level, room, teacherIds, term, year, opts) {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Timetable_Database');
   if (!sheet) return { status: 'error', message: 'ไม่พบ Timetable_Database' };
   const data = sheet.getDataRange().getValues();
@@ -1824,24 +1827,31 @@ function setHomeroomTeacher(level, room, teacherId, term, year, opts) {
       toDelete.push(i + 1);
   }
   toDelete.sort(function(a,b){return b-a;}).forEach(function(idx){ sheet.deleteRow(idx); });
-  if (!teacherId || !String(teacherId).trim()) {
+
+  const tids = (Array.isArray(teacherIds) ? teacherIds : [teacherIds])
+    .map(function(t){ return String(t||'').trim(); })
+    .filter(function(t){ return t !== ''; });
+
+  if (tids.length === 0) {
     return { status: 'success', message: 'ลบครูที่ปรึกษา ' + lv + '/' + rm + ' เรียบร้อย' };
   }
-  const tid = String(teacherId).trim();
-  // HR rows (Mon-Fri คาบ0)
-  ['จันทร์','อังคาร','พุธ','พฤหัสบดี','ศุกร์'].forEach(function(day) {
-    sheet.appendRow(['HR','กิจกรรมโฮมรูมหน้าเสาธง',lv,rm,'ลานหน้าเสาธง',tid,day,'0',tm,yr]);
+  // HR rows (Mon-Fri คาบ0) — one set per teacher
+  const days = ['จันทร์','อังคาร','พุธ','พฤหัสบดี','ศุกร์'];
+  tids.forEach(function(tid) {
+    days.forEach(function(day) {
+      sheet.appendRow(['HR','กิจกรรมโฮมรูมหน้าเสาธง',lv,rm,'ลานหน้าเสาธง',tid,day,'0',tm,yr]);
+    });
   });
-  // แนะแนว (Monday คาบ7)
+  // แนะแนว / วิถีพุทธ — use first teacher
+  const primaryTid = tids[0];
   if (opts && opts.advisoryLoc !== undefined) {
-    sheet.appendRow(['','แนะแนว',lv,rm,String(opts.advisoryLoc||'').trim(),tid,'จันทร์','7',tm,yr]);
+    sheet.appendRow(['','แนะแนว',lv,rm,String(opts.advisoryLoc||'').trim(),primaryTid,'จันทร์','7',tm,yr]);
   }
-  // วิถีพุทธ (Friday คาบ7)
   if (opts && opts.buddhistLoc !== undefined) {
-    sheet.appendRow(['','วิถีพุทธ',lv,rm,String(opts.buddhistLoc||'').trim(),tid,'ศุกร์','7',tm,yr]);
+    sheet.appendRow(['','วิถีพุทธ',lv,rm,String(opts.buddhistLoc||'').trim(),primaryTid,'ศุกร์','7',tm,yr]);
   }
   invalidateCacheKeys(['timetable_'+term+'_'+year, 'teacher_timetable']);
-  return { status: 'success', message: 'บันทึกครูที่ปรึกษา ' + lv + '/' + rm + ' เรียบร้อย' };
+  return { status: 'success', message: 'บันทึกครูที่ปรึกษา ' + lv + '/' + rm + ' (' + tids.length + ' คน) เรียบร้อย' };
 }
 
 function findDuplicateTimetableRows(term, year) {
