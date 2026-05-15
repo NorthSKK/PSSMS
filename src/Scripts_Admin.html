@@ -1294,8 +1294,11 @@ function ttoPopulateTeacherDropdowns() {
 function ttoSwitchTab(tab, btn) {
   document.getElementById('ttoTabOverview').classList.toggle('d-none', tab !== 'overview');
   document.getElementById('ttoTabSwap').classList.toggle('d-none', tab !== 'swap');
+  var dupTab = document.getElementById('ttoTabDup');
+  if (dupTab) dupTab.classList.toggle('d-none', tab !== 'dup');
   document.querySelectorAll('#ttOverviewPage .nav-link').forEach(function(b) { b.classList.remove('active'); });
   if (btn) btn.classList.add('active');
+  if (tab === 'dup') ttoCheckDuplicates();
 }
 
 function ttoRenderGrid() {
@@ -1445,5 +1448,67 @@ function ttoConfirmSwap() {
 }
 
 function _ttoEsc(s) { return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function ttoCheckDuplicates() {
+  var result = document.getElementById('ttoDupResult');
+  var badge = document.getElementById('ttoDupBadge');
+  var btnRemove = document.getElementById('ttoBtnRemoveDup');
+  if (!result) return;
+  var termEl = document.getElementById('ttoTerm'), yearEl = document.getElementById('ttoYear');
+  result.innerHTML = '<div class="text-center text-muted p-4"><div class="spinner-border spinner-border-sm me-2"></div>กำลังตรวจสอบ...</div>';
+  google.script.run
+    .withSuccessHandler(function(groups) {
+      var total = groups.reduce(function(s,g){ return s + g.length - 1; }, 0);
+      if (badge) { badge.textContent = total; badge.classList.toggle('d-none', total === 0); }
+      if (btnRemove) btnRemove.classList.toggle('d-none', total === 0);
+      if (groups.length === 0) {
+        result.innerHTML = '<div class="text-center text-success p-5"><i class="fas fa-check-circle fa-2x mb-3 d-block"></i>ไม่พบแถวซ้ำในเทอมนี้</div>';
+        return;
+      }
+      var teacherMap = {};
+      _ttoTeachers.forEach(function(t){ teacherMap[t.id] = t.name; });
+      var html = '<div class="alert alert-warning mb-3"><i class="fas fa-exclamation-triangle me-2"></i>พบ <strong>' + groups.length + ' กลุ่ม</strong> ที่ซ้ำกัน รวม <strong>' + total + ' แถวส่วนเกิน</strong> (เก็บไว้ 1 แถวต่อกลุ่ม)</div>';
+      groups.forEach(function(g, gi) {
+        var first = g[0].data;
+        var tName = teacherMap[first[5]] || first[5];
+        html += '<div class="pssms-card mb-2 p-3">';
+        html += '<div class="fw-bold mb-2" style="font-size:.85rem;"><span class="badge bg-danger me-2">' + g.length + ' แถว</span>';
+        html += _ttoEsc(first[1]) + ' — ' + _ttoEsc(first[2]) + '/' + _ttoEsc(first[3]) + ' — วัน' + _ttoEsc(first[6]) + ' คาบ ' + _ttoEsc(first[7]);
+        html += '<span class="text-muted ms-2" style="font-size:.78rem;"><i class="fas fa-user me-1"></i>' + _ttoEsc(tName) + '</span></div>';
+        html += '<table class="table table-sm mb-0" style="font-size:.76rem;"><thead><tr><th>แถวที่</th><th>SubjectCode</th><th>ชั้น/ห้อง</th><th>วัน</th><th>คาบ</th><th>สถานะ</th></tr></thead><tbody>';
+        g.forEach(function(row, ri) {
+          var d = row.data;
+          html += '<tr' + (ri === 0 ? ' class="table-success"' : ' class="table-danger"') + '>';
+          html += '<td>' + row.rowIdx + '</td><td>' + _ttoEsc(d[0]) + '</td><td>' + _ttoEsc(d[2]) + '/' + _ttoEsc(d[3]) + '</td><td>' + _ttoEsc(d[6]) + '</td><td>' + _ttoEsc(d[7]) + '</td>';
+          html += '<td>' + (ri === 0 ? '<span class="badge bg-success">เก็บ</span>' : '<span class="badge bg-danger">ลบ</span>') + '</td>';
+          html += '</tr>';
+        });
+        html += '</tbody></table></div>';
+      });
+      result.innerHTML = html;
+    })
+    .withFailureHandler(function(err) {
+      result.innerHTML = '<div class="text-center text-danger p-4">ตรวจสอบไม่สำเร็จ: ' + _ttoEsc(err.message) + '</div>';
+    })
+    .findDuplicateTimetableRows(termEl ? termEl.value : '', yearEl ? yearEl.value : '');
+}
+
+function ttoRemoveDuplicates() {
+  var termEl = document.getElementById('ttoTerm'), yearEl = document.getElementById('ttoYear');
+  if (!confirm('ยืนยันลบแถวซ้ำทั้งหมด?\n\nระบบจะเก็บไว้ 1 แถวต่อกลุ่ม และลบแถวส่วนเกินออก')) return;
+  showLoader(true);
+  google.script.run
+    .withSuccessHandler(function(res) {
+      showLoader(false);
+      showAlert(res.status === 'success' ? '✅ ' + res.message : '❌ ' + res.message);
+      if (res.status === 'success') {
+        _ttoAllRows = [];
+        initTimetableOverview();
+        ttoSwitchTab('dup', document.getElementById('ttoTabDupBtn'));
+      }
+    })
+    .withFailureHandler(function(err) { showLoader(false); showAlert('❌ ' + err.message); })
+    .removeDuplicateTimetableRows(termEl ? termEl.value : '', yearEl ? yearEl.value : '');
+}
 
 </script>

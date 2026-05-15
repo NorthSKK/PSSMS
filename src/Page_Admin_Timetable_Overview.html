@@ -21,6 +21,12 @@
         <i class="fas fa-exchange-alt me-1"></i>แลกตารางสอน
       </button>
     </li>
+    <li class="nav-item">
+      <button class="nav-link" id="ttoTabDupBtn" onclick="ttoSwitchTab('dup',this)">
+        <i class="fas fa-copy me-1"></i>ตรวจสอบซ้ำ
+        <span class="badge bg-danger ms-1 d-none" id="ttoDupBadge">0</span>
+      </button>
+    </li>
   </ul>
 
   <!-- Tab: ตารางรวม -->
@@ -100,6 +106,22 @@
           </div>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- Tab: ตรวจสอบซ้ำ -->
+  <div id="ttoTabDup" class="d-none">
+    <div class="pssms-card mb-3">
+      <div class="d-flex align-items-center justify-content-between gap-3 flex-wrap">
+        <div class="text-muted small">ตรวจหาแถวที่มี SubjectCode + TeacherID + วัน + คาบ + ระดับ + ห้อง เหมือนกันทุกอย่าง (เกิดจาก import ซ้ำ)</div>
+        <div class="d-flex gap-2">
+          <button class="btn btn-soft btn-sm" onclick="ttoCheckDuplicates()"><i class="fas fa-search me-1"></i>ตรวจสอบ</button>
+          <button class="btn btn-danger btn-sm d-none" id="ttoBtnRemoveDup" onclick="ttoRemoveDuplicates()"><i class="fas fa-trash me-1"></i>ลบแถวซ้ำทั้งหมด</button>
+        </div>
+      </div>
+    </div>
+    <div id="ttoDupResult">
+      <div class="text-center text-muted p-5"><i class="fas fa-search fa-2x mb-3 d-block"></i>กด "ตรวจสอบ" เพื่อค้นหาแถวซ้ำ</div>
     </div>
   </div>
 </div>

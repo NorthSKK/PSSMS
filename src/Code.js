@@ -1776,6 +1776,46 @@ function swapTimetableTeacher(rowIdx1, rowIdx2) {
   return { status: 'success', message: 'แลกตารางสอนสำเร็จ' };
 }
 
+function findDuplicateTimetableRows(term, year) {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Timetable_Database");
+  if (!sheet) return [];
+  const data = sheet.getDataRange().getValues();
+  const map = {};
+  for (let i = 1; i < data.length; i++) {
+    const row = data[i];
+    const t = String(row[8]).trim(), y = String(row[9]).trim();
+    if (term && t !== String(term).trim()) continue;
+    if (year && y !== String(year).trim()) continue;
+    // key: SubjectCode|TeacherID|Day|Period|Level|Room|Term|Year
+    const key = [row[0],row[5],row[6],row[7],row[2],row[3],row[8],row[9]].map(function(v){return String(v).trim();}).join('|');
+    if (!map[key]) map[key] = [];
+    map[key].push({ rowIdx: i + 1, data: row.map(String) });
+  }
+  return Object.values(map).filter(function(g) { return g.length > 1; });
+}
+
+function removeDuplicateTimetableRows(term, year) {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Timetable_Database");
+  if (!sheet) return { status: 'error', message: 'ไม่พบ Timetable_Database' };
+  const data = sheet.getDataRange().getValues();
+  const seen = {};
+  const toDelete = [];
+  for (let i = 1; i < data.length; i++) {
+    const row = data[i];
+    const t = String(row[8]).trim(), y = String(row[9]).trim();
+    if (term && t !== String(term).trim()) continue;
+    if (year && y !== String(year).trim()) continue;
+    const key = [row[0],row[5],row[6],row[7],row[2],row[3],row[8],row[9]].map(function(v){return String(v).trim();}).join('|');
+    if (!seen[key]) {
+      seen[key] = true;
+    } else {
+      toDelete.push(i + 1);
+    }
+  }
+  toDelete.sort(function(a,b){return b-a;}).forEach(function(idx){ sheet.deleteRow(idx); });
+  return { status: 'success', count: toDelete.length, message: 'ลบ ' + toDelete.length + ' แถวซ้ำเรียบร้อย' };
+}
+
 // ==========================================
 // 7. DATABASE SETUP & FIX
 // ==========================================

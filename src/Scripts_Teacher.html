@@ -1219,6 +1219,12 @@ function ttConfirmSwap() {
     .swapTimetableTeacher(_ttSelectedMy.rowIndex, _ttSelectedOther.rowIndex);
 }
 
+const _TT_SHARED_KEYWORDS = ['แนะแนว','วิถีพุทธ','ผู้บำเพ็ญ','ลูกเสือ','เนตรนารี','กิจกรรมพัฒนา','ยุวกาชาด'];
+function _ttIsSharedActivity(subjectName) {
+  const s = String(subjectName || '');
+  return _TT_SHARED_KEYWORDS.some(k => s.includes(k));
+}
+
 function _ttConflict(forTeacherId, day, period, excludeRows, level, room) {
   const errors = [], classWarnings = [];
   const dayStr = String(day).trim(), pStr = String(period);
@@ -1229,8 +1235,11 @@ function _ttConflict(forTeacherId, day, period, excludeRows, level, room) {
     if (String(r.data[6]).trim() !== dayStr || String(r.data[7]).trim() !== pStr) return;
     const rTid = String(r.data[5]).trim();
     if (rTid === tid) errors.push(`คุณมีคาบ "${r.data[1]}" (${r.data[2]}/${r.data[3]}) วัน${dayStr} คาบ ${period} อยู่แล้ว`);
-    if (level && room && String(r.data[2]).trim() === level && String(r.data[3]).trim() === room && rTid !== tid)
-      classWarnings.push(`ห้อง ${level}/${room} มีครู ${_ttEsc(_ttGetTeacherName(rTid))} สอนอยู่แล้ว วัน${dayStr} คาบ ${period}`);
+    if (level && room && String(r.data[2]).trim() === level && String(r.data[3]).trim() === room && rTid !== tid) {
+      // ข้ามคำเตือนห้องซ้ำสำหรับคาบกิจกรรมร่วมทั้งโรงเรียน (แนะแนว, วิถีพุทธ ฯลฯ)
+      if (!_ttIsSharedActivity(r.data[1]))
+        classWarnings.push(`ห้อง ${level}/${room} มีครู ${_ttEsc(_ttGetTeacherName(rTid))} สอนอยู่แล้ว วัน${dayStr} คาบ ${period}`);
+    }
   });
   return { errors, classWarnings };
 }
