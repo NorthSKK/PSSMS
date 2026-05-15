@@ -1760,7 +1760,7 @@ function getTeachersForTimetable() {
   for (let i = 1; i < data.length; i++) {
     const role = String(data[i][3]).trim().toUpperCase();
     if (role === 'TEACHER' || role === 'ADMIN') {
-      result.push({ id: String(data[i][0]).trim(), name: String(data[i][2]).trim() });
+      result.push({ id: String(data[i][0]).trim(), name: String(data[i][2]).trim(), role: role });
     }
   }
   return result.sort(function(a, b) { return a.name.localeCompare(b.name, 'th'); });

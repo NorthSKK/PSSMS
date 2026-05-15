@@ -398,6 +398,7 @@ function initAdminTimetable() {
       google.script.run
         .withSuccessHandler(function(rows) {
           _ttoAllRows = rows || [];
+          _ttoBuildClassList();
           ttoRenderGrid();
         })
         .withFailureHandler(function(err) {
@@ -1543,6 +1544,60 @@ function ttoConfirmSwap() {
 function _ttoEsc(s) { return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
 var _ttoHomeroomData = [];
+var _ttoClassList = [];
+
+function _ttoBuildClassList() {
+  var seen = {};
+  _ttoClassList = [];
+  _ttoAllRows.forEach(function(r) {
+    var lv = String(r.data[2]).trim(), rm = String(r.data[3]).trim();
+    if (!lv || !rm) return;
+    var key = lv + '/' + rm;
+    if (seen[key]) return;
+    seen[key] = true;
+    _ttoClassList.push({ level: lv, room: rm });
+  });
+  _ttoClassList.sort(function(a, b) {
+    return (a.level + '/' + a.room).localeCompare(b.level + '/' + b.room, 'th', { numeric: true });
+  });
+}
+
+function _ttoLevelOpts(selected) {
+  var seen = {}, levels = [];
+  _ttoClassList.forEach(function(c) { if (!seen[c.level]) { seen[c.level] = true; levels.push(c.level); } });
+  var html = '<option value="">-- ชั้น --</option>';
+  levels.forEach(function(lv) {
+    html += '<option value="' + _ttoEsc(lv) + '"' + (lv === selected ? ' selected' : '') + '>' + _ttoEsc(lv) + '</option>';
+  });
+  return html;
+}
+
+function _ttoRoomOpts(level, selected) {
+  var html = '<option value="">-- ห้อง --</option>';
+  _ttoClassList.filter(function(c) { return c.level === level; }).forEach(function(c) {
+    html += '<option value="' + _ttoEsc(c.room) + '"' + (c.room === selected ? ' selected' : '') + '>' + _ttoEsc(c.room) + '</option>';
+  });
+  return html;
+}
+
+function _ttoHrTeacherOpts(selectedId) {
+  var teacherOnly = _ttoTeachers.filter(function(t) { return t.role === 'TEACHER'; });
+  var html = '<option value="">-- ยังไม่กำหนด --</option>';
+  teacherOnly.forEach(function(t) {
+    html += '<option value="' + _ttoEsc(t.id) + '"' + (t.id === selectedId ? ' selected' : '') + '>' + _ttoEsc(t.name) + '</option>';
+  });
+  if (selectedId && !teacherOnly.some(function(t) { return t.id === selectedId; })) {
+    var found = _ttoTeachers.find(function(t) { return t.id === selectedId; });
+    var label = found ? found.name + (found.role === 'ADMIN' ? ' (แอดมิน)' : '') : selectedId + ' (ไม่มีในระบบ)';
+    html += '<option value="' + _ttoEsc(selectedId) + '" selected>' + _ttoEsc(label) + '</option>';
+  }
+  return html;
+}
+
+function ttoHrLevelChange(sel) {
+  var roomSel = sel.closest('tr').querySelector('.hr-room');
+  if (roomSel) roomSel.innerHTML = _ttoRoomOpts(sel.value, '');
+}
 
 function ttoLoadHomeroom() {
   var tbody = document.getElementById('ttoHomeroomBody');
@@ -1567,21 +1622,12 @@ function _ttoRenderHomeroomTable() {
     tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted p-5">ยังไม่มีข้อมูลครูที่ปรึกษาในเทอมนี้ กด "เพิ่มห้อง" เพื่อเพิ่ม</td></tr>';
     return;
   }
-  var teacherMap = {};
-  _ttoTeachers.forEach(function(t){ teacherMap[t.id] = t.name; });
   var html = '';
   _ttoHomeroomData.forEach(function(h) {
-    var opts = '<option value="">-- ยังไม่กำหนด --</option>';
-    _ttoTeachers.forEach(function(t) {
-      opts += '<option value="' + _ttoEsc(t.id) + '"' + (t.id === h.teacherId ? ' selected' : '') + '>' + _ttoEsc(t.name) + '</option>';
-    });
-    if (h.teacherId && !teacherMap[h.teacherId]) {
-      opts += '<option value="' + _ttoEsc(h.teacherId) + '" selected>' + _ttoEsc(h.teacherId) + ' (ไม่มีในระบบ)</option>';
-    }
     html += '<tr data-level="' + _ttoEsc(h.level) + '" data-room="' + _ttoEsc(h.room) + '">';
-    html += '<td><input type="text" class="form-control form-control-sm hr-level" value="' + _ttoEsc(h.level) + '" placeholder="ม.1"></td>';
-    html += '<td><input type="text" class="form-control form-control-sm hr-room" value="' + _ttoEsc(h.room) + '" placeholder="1"></td>';
-    html += '<td><select class="form-select form-select-sm hr-teacher">' + opts + '</select></td>';
+    html += '<td><select class="form-select form-select-sm hr-level" onchange="ttoHrLevelChange(this)">' + _ttoLevelOpts(h.level) + '</select></td>';
+    html += '<td><select class="form-select form-select-sm hr-room">' + _ttoRoomOpts(h.level, h.room) + '</select></td>';
+    html += '<td><select class="form-select form-select-sm hr-teacher">' + _ttoHrTeacherOpts(h.teacherId) + '</select></td>';
     html += '<td><input type="text" class="form-control form-control-sm hr-advisory-loc" value="' + _ttoEsc(h.advisoryLoc || '') + '" placeholder="ห้อง/อาคาร"></td>';
     html += '<td><input type="text" class="form-control form-control-sm hr-buddhist-loc" value="' + _ttoEsc(h.buddhistLoc || '') + '" placeholder="ห้อง/อาคาร"></td>';
     html += '<td class="text-center"><button class="btn btn-accent btn-sm" onclick="ttoSaveHomeroomRow(this)"><i class="fas fa-save me-1"></i>บันทึก</button></td>';
@@ -1594,14 +1640,10 @@ function ttoAddHomeroomRow() {
   var tbody = document.getElementById('ttoHomeroomBody');
   if (!tbody) return;
   if (tbody.querySelector('td[colspan]')) tbody.innerHTML = '';
-  var opts = '<option value="">-- ยังไม่กำหนด --</option>';
-  _ttoTeachers.forEach(function(t) {
-    opts += '<option value="' + _ttoEsc(t.id) + '">' + _ttoEsc(t.name) + '</option>';
-  });
   var tr = document.createElement('tr');
-  tr.innerHTML = '<td><input type="text" class="form-control form-control-sm hr-level" placeholder="ม.1"></td>'
-    + '<td><input type="text" class="form-control form-control-sm hr-room" placeholder="1"></td>'
-    + '<td><select class="form-select form-select-sm hr-teacher">' + opts + '</select></td>'
+  tr.innerHTML = '<td><select class="form-select form-select-sm hr-level" onchange="ttoHrLevelChange(this)">' + _ttoLevelOpts('') + '</select></td>'
+    + '<td><select class="form-select form-select-sm hr-room"><option value="">-- ห้อง --</option></select></td>'
+    + '<td><select class="form-select form-select-sm hr-teacher">' + _ttoHrTeacherOpts('') + '</select></td>'
     + '<td><input type="text" class="form-control form-control-sm hr-advisory-loc" placeholder="ห้อง/อาคาร"></td>'
     + '<td><input type="text" class="form-control form-control-sm hr-buddhist-loc" placeholder="ห้อง/อาคาร"></td>'
     + '<td class="text-center"><button class="btn btn-accent btn-sm" onclick="ttoSaveHomeroomRow(this)"><i class="fas fa-save me-1"></i>บันทึก</button></td>';
