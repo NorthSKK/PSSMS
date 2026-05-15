@@ -954,4 +954,301 @@ function _tcEsc(s) {
   return String(s==null?'':s).replace(/[&<>"']/g,function(c){return({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]);});
 }
 
+// ==========================================
+// Teacher Timetable Page (Page_Teacher_Timetable)
+// ==========================================
+
+let _ttAllRows = [], _ttMyRows = [], _ttTeachers = [];
+let _ttSelectedMy = null, _ttSelectedOther = null;
+
+const TT_DAYS = ['จันทร์','อังคาร','พุธ','พฤหัสบดี','ศุกร์'];
+const TT_TIMES = {1:'08.30',2:'09.20',3:'10.20',4:'11.10',5:'13.00',6:'13.50',7:'14.40',8:'15.30'};
+
+function initTeacherTimetable() {
+  if (!document.getElementById('teacherTimetablePage')) return;
+  const user = getSessionUser();
+  const termEl = document.getElementById('ttTerm');
+  const yearEl = document.getElementById('ttYear');
+  if (!termEl.value) termEl.value = user.currentTerm || '1';
+  if (!yearEl.value) yearEl.value = user.currentYear || '';
+  _ttSelectedMy = null; _ttSelectedOther = null;
+  document.getElementById('ttLoadingState').classList.remove('d-none');
+  document.getElementById('ttMainContent').classList.add('d-none');
+  google.script.run
+    .withSuccessHandler(teachers => {
+      _ttTeachers = teachers || [];
+      const sel = document.getElementById('ttOtherTeacher');
+      if (sel) {
+        const first = sel.options[0]; sel.innerHTML = ''; sel.appendChild(first);
+        _ttTeachers.forEach(t => {
+          if (String(t.id).trim() === String(user.id).trim()) return;
+          const o = document.createElement('option'); o.value = t.id; o.textContent = t.name; sel.appendChild(o);
+        });
+      }
+      google.script.run
+        .withSuccessHandler(rows => {
+          _ttAllRows = rows || [];
+          _ttMyRows = _ttAllRows.filter(r => String(r.data[5]).trim() === String(user.id).trim());
+          document.getElementById('ttLoadingState').classList.add('d-none');
+          document.getElementById('ttMainContent').classList.remove('d-none');
+          const badge = document.getElementById('ttPeriodBadge');
+          if (badge) badge.textContent = _ttMyRows.length;
+          const sub = document.getElementById('ttSubtitle');
+          if (sub) sub.textContent = 'เทอม ' + termEl.value + '/' + yearEl.value + ' — ' + _ttMyRows.length + ' คาบ/สัปดาห์';
+          ttRenderGrid();
+          ttRenderMySlots();
+          _ttRenderConflictSummary();
+        })
+        .withFailureHandler(err => { document.getElementById('ttLoadingState').innerHTML = '<i class="fas fa-exclamation-triangle text-danger me-2"></i>' + err.message; })
+        .getFilteredTimetables('', termEl.value, yearEl.value);
+    })
+    .withFailureHandler(() => { document.getElementById('ttLoadingState').innerHTML = '<i class="fas fa-exclamation-triangle text-danger me-2"></i>โหลดไม่สำเร็จ'; })
+    .getTeachersForTimetable();
+}
+
+function ttRenderGrid() {
+  const tbody = document.getElementById('ttGridBody');
+  if (!tbody) return;
+  const user = getSessionUser();
+  const myMap = {};
+  _ttMyRows.forEach(r => { const k = String(r.data[6]).trim()+'|'+String(r.data[7]).trim(); if(!myMap[k])myMap[k]=[]; myMap[k].push(r); });
+  let html = '';
+  for (let p = 1; p <= 8; p++) {
+    if (p === 5) html += '<tr style="background:#fefce8;"><td colspan="6" class="text-center text-muted py-1" style="font-size:.7rem;">— พักกลางวัน —</td></tr>';
+    html += '<tr>';
+    html += `<td class="fw-bold" style="background:var(--p-subtle);white-space:nowrap;font-size:.78rem;">คาบ ${p}<br><span class="text-muted" style="font-size:.66rem;">${TT_TIMES[p]}</span></td>`;
+    TT_DAYS.forEach(day => {
+      const entries = myMap[day+'|'+p] || [];
+      if (!entries.length) { html += '<td style="color:var(--p-border-strong);">—</td>'; return; }
+      html += '<td style="vertical-align:top;padding:4px;">';
+      entries.forEach(r => {
+        const c = _ttConflict(user.id, day, p, [r.rowIndex], String(r.data[2]).trim(), String(r.data[3]).trim());
+        const hasErr = c.errors.length > 0, hasWarn = c.classWarnings.length > 0;
+        const border = hasErr ? '#dc3545' : hasWarn ? '#f59e0b' : 'var(--p-border)';
+        const bg = hasErr ? '#fef2f2' : hasWarn ? '#fffbeb' : 'var(--p-accent-soft)';
+        const badge = hasErr
+          ? `<span class="badge bg-danger ms-1" style="font-size:.58rem;" title="${_ttEsc(c.errors[0])}"><i class="fas fa-exclamation"></i></span>`
+          : hasWarn ? `<span class="badge bg-warning text-dark ms-1" style="font-size:.58rem;" title="${_ttEsc(c.classWarnings[0])}"><i class="fas fa-exclamation-triangle"></i></span>` : '';
+        html += `<div style="border:1.5px solid ${border};border-radius:7px;padding:4px 6px;background:${bg};cursor:pointer;margin-bottom:3px;" onclick="ttOpenEditModal(${r.rowIndex})">`;
+        html += `<div class="fw-bold" style="color:var(--p-accent);font-size:.79rem;line-height:1.2;">${_ttEsc(r.data[1])}${badge}</div>`;
+        html += `<div class="text-muted" style="font-size:.69rem;">${_ttEsc(r.data[2])}/${_ttEsc(r.data[3])}</div>`;
+        if (r.data[4]) html += `<div class="text-muted" style="font-size:.67rem;"><i class="fas fa-map-marker-alt me-1"></i>${_ttEsc(r.data[4])}</div>`;
+        html += '</div>';
+      });
+      html += '</td>';
+    });
+    html += '</tr>';
+  }
+  tbody.innerHTML = html;
+}
+
+function _ttRenderConflictSummary() {
+  const el = document.getElementById('ttConflictSummary');
+  if (!el) return;
+  const user = getSessionUser();
+  let errs = 0, warns = 0;
+  _ttMyRows.forEach(r => {
+    const c = _ttConflict(user.id, String(r.data[6]).trim(), parseInt(r.data[7]), [r.rowIndex], String(r.data[2]).trim(), String(r.data[3]).trim());
+    errs += c.errors.length; warns += c.classWarnings.length;
+  });
+  el.innerHTML = errs > 0
+    ? `<span class="badge bg-danger"><i class="fas fa-exclamation-circle me-1"></i>พบ ${errs} ข้อขัดแย้ง</span>`
+    : warns > 0 ? `<span class="badge bg-warning text-dark"><i class="fas fa-exclamation-triangle me-1"></i>${warns} คำเตือน</span>`
+    : `<span class="badge bg-success"><i class="fas fa-check me-1"></i>ไม่พบข้อขัดแย้ง</span>`;
+}
+
+function ttOpenEditModal(rowIdx) {
+  const row = _ttAllRows.find(r => r.rowIndex === rowIdx);
+  if (!row) return;
+  document.getElementById('ttEditRowIdx').value = rowIdx;
+  document.getElementById('ttEditOrigData').value = JSON.stringify(row.data);
+  document.getElementById('ttEditSubjectName').value = row.data[1];
+  document.getElementById('ttEditLevel').value = row.data[2];
+  document.getElementById('ttEditRoom').value = row.data[3];
+  document.getElementById('ttEditLocation').value = row.data[4] || '';
+  document.getElementById('ttEditDay').value = String(row.data[6]).trim();
+  document.getElementById('ttEditPeriod').value = String(row.data[7]).trim();
+  document.getElementById('ttEditConflictMsg').classList.add('d-none');
+  document.getElementById('ttEditSaveBtn').disabled = false;
+  ttCheckEditConflict();
+  new bootstrap.Modal(document.getElementById('ttEditModal')).show();
+}
+
+function ttCheckEditConflict() {
+  const rowIdx = parseInt(document.getElementById('ttEditRowIdx').value);
+  if (!rowIdx) return;
+  const user = getSessionUser();
+  const day = document.getElementById('ttEditDay').value;
+  const period = parseInt(document.getElementById('ttEditPeriod').value);
+  const level = document.getElementById('ttEditLevel').value.trim();
+  const room = document.getElementById('ttEditRoom').value.trim();
+  const c = _ttConflict(user.id, day, period, [rowIdx], level, room);
+  const msgEl = document.getElementById('ttEditConflictMsg');
+  const saveBtn = document.getElementById('ttEditSaveBtn');
+  if (c.errors.length > 0) {
+    msgEl.style.cssText = 'background:#fef2f2;color:#b91c1c;border:1px solid #fecaca;';
+    msgEl.innerHTML = '<i class="fas fa-times-circle me-1"></i>' + _ttEsc(c.errors[0]);
+    msgEl.classList.remove('d-none'); saveBtn.disabled = true;
+  } else if (c.classWarnings.length > 0) {
+    msgEl.style.cssText = 'background:#fffbeb;color:#92400e;border:1px solid #fde68a;';
+    msgEl.innerHTML = '<i class="fas fa-exclamation-triangle me-1"></i>' + _ttEsc(c.classWarnings[0]);
+    msgEl.classList.remove('d-none'); saveBtn.disabled = false;
+  } else { msgEl.classList.add('d-none'); saveBtn.disabled = false; }
+}
+
+function ttSaveEdit() {
+  const rowIdx = parseInt(document.getElementById('ttEditRowIdx').value);
+  const orig = JSON.parse(document.getElementById('ttEditOrigData').value || '[]');
+  if (!orig.length) return;
+  const user = getSessionUser();
+  const day = document.getElementById('ttEditDay').value;
+  const period = parseInt(document.getElementById('ttEditPeriod').value);
+  const level = document.getElementById('ttEditLevel').value.trim();
+  const room = document.getElementById('ttEditRoom').value.trim();
+  const c = _ttConflict(user.id, day, period, [rowIdx], level, room);
+  if (c.errors.length > 0) { showAlert('❌ ' + c.errors[0]); return; }
+  if (c.classWarnings.length > 0 && !confirm('⚠️ ' + c.classWarnings[0] + '\n\nบันทึกต่อไปหรือไม่?')) return;
+  const newData = [orig[0], document.getElementById('ttEditSubjectName').value.trim(), level, room, document.getElementById('ttEditLocation').value.trim(), orig[5], day, period, orig[8], orig[9]];
+  const btn = document.getElementById('ttEditSaveBtn');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>บันทึก...';
+  showLoader(true);
+  google.script.run
+    .withSuccessHandler(res => {
+      showLoader(false); btn.disabled = false; btn.innerHTML = '<i class="fas fa-save me-1"></i>บันทึก';
+      showAlert(res.message, res.status === 'success' ? 'success' : 'danger');
+      if (res.status === 'success') { bootstrap.Modal.getInstance(document.getElementById('ttEditModal')).hide(); initTeacherTimetable(); }
+    })
+    .withFailureHandler(err => { showLoader(false); btn.disabled = false; btn.innerHTML = '<i class="fas fa-save me-1"></i>บันทึก'; showAlert('❌ ' + err.message); })
+    .teacherUpdateTimetableRow(user.id, rowIdx, newData);
+}
+
+function ttTabSwitch(tab, btn) {
+  document.getElementById('ttTabGrid').classList.toggle('d-none', tab !== 'grid');
+  document.getElementById('ttTabSwap').classList.toggle('d-none', tab !== 'swap');
+  document.querySelectorAll('#ttNavTabs .nav-link').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+}
+
+function ttRenderMySlots() {
+  const el = document.getElementById('ttMySlotsList');
+  if (!el) return;
+  const user = getSessionUser();
+  if (!_ttMyRows.length) { el.innerHTML = '<div class="text-muted small text-center py-3">ไม่มีตารางสอนในเทอมนี้</div>'; return; }
+  const sorted = [..._ttMyRows].sort((a,b) => { const d = TT_DAYS.indexOf(String(a.data[6]).trim()) - TT_DAYS.indexOf(String(b.data[6]).trim()); return d || Number(a.data[7]) - Number(b.data[7]); });
+  el.innerHTML = sorted.map(r => {
+    const c = _ttConflict(user.id, String(r.data[6]).trim(), parseInt(r.data[7]), [r.rowIndex]);
+    const sel = _ttSelectedMy && _ttSelectedMy.rowIndex === r.rowIndex;
+    return `<div class="pssms-card p-2 mb-2" style="cursor:pointer;border:2px solid ${sel?'var(--p-accent)':c.errors.length?'#dc3545':'var(--p-border)'};background:${sel?'var(--p-accent-soft)':''};transition:all .15s;" onclick="ttSelectMySlot(${r.rowIndex})">
+      <div class="d-flex justify-content-between"><div><span class="badge bg-secondary me-1">วัน${_ttEsc(r.data[6])}</span><span class="badge" style="background:var(--p-accent);">คาบ ${r.data[7]}</span></div><small class="text-muted">${_ttEsc(r.data[2])}/${_ttEsc(r.data[3])}</small></div>
+      <div class="fw-bold mt-1" style="font-size:.85rem;">${_ttEsc(r.data[1])}</div>
+      ${c.errors.length?`<div class="text-danger mt-1" style="font-size:.72rem;"><i class="fas fa-exclamation-circle me-1"></i>${_ttEsc(c.errors[0])}</div>`:''}
+    </div>`;
+  }).join('');
+}
+
+function _ttRenderOtherSlotCards() {
+  const otherId = document.getElementById('ttOtherTeacher').value;
+  const el = document.getElementById('ttOtherSlotsList');
+  if (!el) return;
+  if (!otherId) { el.innerHTML = '<div class="text-muted small text-center py-3">เลือกครูเพื่อดูตาราง</div>'; return; }
+  const rows = _ttAllRows.filter(r => String(r.data[5]).trim() === otherId);
+  if (!rows.length) { el.innerHTML = `<div class="text-muted small text-center py-3">ครู ${_ttEsc(_ttGetTeacherName(otherId))} ไม่มีตารางในเทอมนี้</div>`; return; }
+  const sorted = [...rows].sort((a,b) => { const d = TT_DAYS.indexOf(String(a.data[6]).trim()) - TT_DAYS.indexOf(String(b.data[6]).trim()); return d || Number(a.data[7]) - Number(b.data[7]); });
+  el.innerHTML = sorted.map(r => {
+    const sel = _ttSelectedOther && _ttSelectedOther.rowIndex === r.rowIndex;
+    return `<div class="pssms-card p-2 mb-2" style="cursor:pointer;border:${sel?'2px solid #198754':'2px solid var(--p-border)'};background:${sel?'#f0fdf4':''};transition:all .15s;" onclick="ttSelectOtherSlot(${r.rowIndex})">
+      <div class="d-flex justify-content-between"><div><span class="badge bg-secondary me-1">วัน${_ttEsc(r.data[6])}</span><span class="badge bg-success">คาบ ${r.data[7]}</span></div><small class="text-muted">${_ttEsc(r.data[2])}/${_ttEsc(r.data[3])}</small></div>
+      <div class="fw-bold mt-1" style="font-size:.85rem;">${_ttEsc(r.data[1])}</div>
+    </div>`;
+  }).join('');
+}
+
+function ttLoadOtherTeacherSlots() {
+  _ttSelectedOther = null;
+  document.getElementById('ttSwapPreview').classList.add('d-none');
+  _ttRenderOtherSlotCards();
+}
+
+function ttSelectMySlot(rowIdx) {
+  _ttSelectedMy = _ttAllRows.find(r => r.rowIndex === rowIdx) || null;
+  ttRenderMySlots(); _ttUpdateSwapPreview();
+}
+
+function ttSelectOtherSlot(rowIdx) {
+  _ttSelectedOther = _ttAllRows.find(r => r.rowIndex === rowIdx) || null;
+  _ttRenderOtherSlotCards(); _ttUpdateSwapPreview();
+}
+
+function _ttUpdateSwapPreview() {
+  const preview = document.getElementById('ttSwapPreview');
+  if (!preview || !_ttSelectedMy || !_ttSelectedOther) { if(preview) preview.classList.add('d-none'); return; }
+  preview.classList.remove('d-none');
+  const myName = _ttGetTeacherName(String(_ttSelectedMy.data[5]).trim());
+  const otherName = _ttGetTeacherName(String(_ttSelectedOther.data[5]).trim());
+  document.getElementById('ttPreviewMy').innerHTML = `<strong>${_ttEsc(myName)}</strong> — ${_ttEsc(_ttSelectedMy.data[1])}<br>วัน${_ttEsc(_ttSelectedMy.data[6])} คาบ ${_ttSelectedMy.data[7]} (${_ttEsc(_ttSelectedMy.data[2])}/${_ttEsc(_ttSelectedMy.data[3])})`;
+  document.getElementById('ttPreviewOther').innerHTML = `<strong>${_ttEsc(otherName)}</strong> — ${_ttEsc(_ttSelectedOther.data[1])}<br>วัน${_ttEsc(_ttSelectedOther.data[6])} คาบ ${_ttSelectedOther.data[7]} (${_ttEsc(_ttSelectedOther.data[2])}/${_ttEsc(_ttSelectedOther.data[3])})`;
+  const c = _ttSwapConflicts(_ttSelectedMy, _ttSelectedOther);
+  const msgEl = document.getElementById('ttSwapConflictMsg');
+  const btn = document.getElementById('ttSwapConfirmBtn');
+  if (c.errors.length > 0) {
+    msgEl.style.cssText = 'background:#fef2f2;color:#b91c1c;border:1px solid #fecaca;';
+    msgEl.innerHTML = '<i class="fas fa-times-circle me-1"></i>' + _ttEsc(c.errors[0]);
+    msgEl.classList.remove('d-none'); btn.disabled = true;
+  } else if (c.warnings.length > 0) {
+    msgEl.style.cssText = 'background:#fffbeb;color:#92400e;border:1px solid #fde68a;';
+    msgEl.innerHTML = '<i class="fas fa-exclamation-triangle me-1"></i>' + _ttEsc(c.warnings[0]);
+    msgEl.classList.remove('d-none'); btn.disabled = false;
+  } else { msgEl.classList.add('d-none'); btn.disabled = false; }
+}
+
+function ttConfirmSwap() {
+  if (!_ttSelectedMy || !_ttSelectedOther) { showAlert('กรุณาเลือกคาบทั้งสองฝั่ง'); return; }
+  const c = _ttSwapConflicts(_ttSelectedMy, _ttSelectedOther);
+  if (c.errors.length > 0) { showAlert('❌ ' + c.errors[0]); return; }
+  const otherName = _ttGetTeacherName(String(_ttSelectedOther.data[5]).trim());
+  const msgText = `ยืนยันแลกตารางสอน?\n\nฉัน: ${_ttSelectedMy.data[1]} วัน${_ttSelectedMy.data[6]} คาบ ${_ttSelectedMy.data[7]}\n${otherName}: ${_ttSelectedOther.data[1]} วัน${_ttSelectedOther.data[6]} คาบ ${_ttSelectedOther.data[7]}`;
+  if (!confirm(c.warnings.length ? '⚠️ ' + c.warnings[0] + '\n\n' + msgText : msgText)) return;
+  showLoader(true);
+  google.script.run
+    .withSuccessHandler(res => {
+      showLoader(false);
+      showAlert(res.message, res.status === 'success' ? 'success' : 'danger');
+      if (res.status === 'success') { _ttSelectedMy = null; _ttSelectedOther = null; initTeacherTimetable(); }
+    })
+    .withFailureHandler(err => { showLoader(false); showAlert('❌ ' + err.message); })
+    .swapTimetableTeacher(_ttSelectedMy.rowIndex, _ttSelectedOther.rowIndex);
+}
+
+function _ttConflict(forTeacherId, day, period, excludeRows, level, room) {
+  const errors = [], classWarnings = [];
+  const dayStr = String(day).trim(), pStr = String(period);
+  const tid = String(forTeacherId).trim();
+  excludeRows = excludeRows || [];
+  _ttAllRows.forEach(r => {
+    if (excludeRows.indexOf(r.rowIndex) >= 0) return;
+    if (String(r.data[6]).trim() !== dayStr || String(r.data[7]).trim() !== pStr) return;
+    const rTid = String(r.data[5]).trim();
+    if (rTid === tid) errors.push(`คุณมีคาบ "${r.data[1]}" (${r.data[2]}/${r.data[3]}) วัน${dayStr} คาบ ${period} อยู่แล้ว`);
+    if (level && room && String(r.data[2]).trim() === level && String(r.data[3]).trim() === room && rTid !== tid)
+      classWarnings.push(`ห้อง ${level}/${room} มีครู ${_ttEsc(_ttGetTeacherName(rTid))} สอนอยู่แล้ว วัน${dayStr} คาบ ${period}`);
+  });
+  return { errors, classWarnings };
+}
+
+function _ttSwapConflicts(mySlot, otherSlot) {
+  const user = getSessionUser();
+  const excl = [mySlot.rowIndex, otherSlot.rowIndex];
+  const myId = String(user.id).trim(), otherId = String(otherSlot.data[5]).trim();
+  const c1 = _ttConflict(myId, String(otherSlot.data[6]).trim(), parseInt(otherSlot.data[7]), excl, String(otherSlot.data[2]).trim(), String(otherSlot.data[3]).trim());
+  const c2 = _ttConflict(otherId, String(mySlot.data[6]).trim(), parseInt(mySlot.data[7]), excl, String(mySlot.data[2]).trim(), String(mySlot.data[3]).trim());
+  return { errors: [...c1.errors, ...c2.errors], warnings: [...c1.classWarnings, ...c2.classWarnings] };
+}
+
+function _ttGetTeacherName(id) {
+  const t = _ttTeachers.find(t => String(t.id).trim() === String(id).trim());
+  return t ? t.name : id;
+}
+
+function _ttEsc(s) { return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
 </script>

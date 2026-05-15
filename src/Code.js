@@ -1739,6 +1739,18 @@ function deleteTimetableRow(idx) {
   return { status: "success", message: "ลบเรียบร้อย" };
 }
 
+function teacherUpdateTimetableRow(teacherId, rowIdx, data) {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Timetable_Database");
+  if (!sheet) return { status: 'error', message: 'ไม่พบ Timetable_Database' };
+  const maxRow = sheet.getLastRow();
+  if (rowIdx < 2 || rowIdx > maxRow) return { status: 'error', message: 'row index ไม่ถูกต้อง' };
+  const currentOwnerId = String(sheet.getRange(rowIdx, 6).getValue()).trim();
+  if (currentOwnerId !== String(teacherId).trim()) return { status: 'error', message: 'ไม่มีสิทธิ์แก้ไขคาบนี้' };
+  data[5] = currentOwnerId; // lock TeacherID
+  sheet.getRange(rowIdx, 1, 1, 10).setValues([data]);
+  return { status: 'success', message: 'บันทึกเรียบร้อย' };
+}
+
 function getTeachersForTimetable() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName("User_Database");
