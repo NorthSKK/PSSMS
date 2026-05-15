@@ -1739,6 +1739,31 @@ function deleteTimetableRow(idx) {
   return { status: "success", message: "ลบเรียบร้อย" };
 }
 
+function getTeachersForTimetable() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName("User_Database");
+  if (!sheet) return [];
+  const data = sheet.getDataRange().getValues();
+  const result = [];
+  for (let i = 1; i < data.length; i++) {
+    const role = String(data[i][3]).trim().toUpperCase();
+    if (role === 'TEACHER' || role === 'ADMIN') {
+      result.push({ id: String(data[i][0]).trim(), name: String(data[i][2]).trim() });
+    }
+  }
+  return result.sort(function(a, b) { return a.name.localeCompare(b.name, 'th'); });
+}
+
+function swapTimetableTeacher(rowIdx1, rowIdx2) {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Timetable_Database");
+  if (!sheet) return { status: 'error', message: 'ไม่พบ Timetable_Database' };
+  const t1 = sheet.getRange(rowIdx1, 6).getValue();
+  const t2 = sheet.getRange(rowIdx2, 6).getValue();
+  sheet.getRange(rowIdx1, 6).setValue(t2);
+  sheet.getRange(rowIdx2, 6).setValue(t1);
+  return { status: 'success', message: 'แลกตารางสอนสำเร็จ' };
+}
+
 // ==========================================
 // 7. DATABASE SETUP & FIX
 // ==========================================

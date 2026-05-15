@@ -1,0 +1,105 @@
+<div class="container-fluid pssms-page pssms-dept-academic" id="ttOverviewPage">
+  <div class="pssms-page-header">
+    <div>
+      <h4><i class="fas fa-th me-2" style="color:var(--p-accent);"></i>ตารางสอนรวม</h4>
+      <p class="pssms-subtitle" id="ttoSubtitle">กำลังโหลด...</p>
+    </div>
+    <div class="pssms-actions">
+      <button class="btn btn-soft btn-sm" onclick="initTimetableOverview()"><i class="fas fa-sync me-1"></i>รีเฟรช</button>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <ul class="nav nav-tabs mb-3">
+    <li class="nav-item">
+      <button class="nav-link active" id="ttoTabOverviewBtn" onclick="ttoSwitchTab('overview',this)">
+        <i class="fas fa-th me-1"></i>ตารางรวมทุกครู
+      </button>
+    </li>
+    <li class="nav-item">
+      <button class="nav-link" id="ttoTabSwapBtn" onclick="ttoSwitchTab('swap',this)">
+        <i class="fas fa-exchange-alt me-1"></i>แลกตารางสอน
+      </button>
+    </li>
+  </ul>
+
+  <!-- Tab: ตารางรวม -->
+  <div id="ttoTabOverview">
+    <div class="pssms-card mb-3">
+      <div class="row g-2 align-items-end">
+        <div class="col-md-4">
+          <label class="form-label small fw-medium text-muted">กรองครู</label>
+          <select class="form-select form-select-sm" id="ttoFilterTeacher" onchange="ttoRenderGrid()">
+            <option value="">ครูทั้งหมด</option>
+          </select>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label small fw-medium text-muted">ภาคเรียน</label>
+          <select class="form-select form-select-sm" id="ttoTerm" onchange="initTimetableOverview()">
+            <option value="1">ภาคเรียนที่ 1</option>
+            <option value="2">ภาคเรียนที่ 2</option>
+          </select>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label small fw-medium text-muted">ปีการศึกษา</label>
+          <input type="number" class="form-control form-control-sm" id="ttoYear" onchange="initTimetableOverview()">
+        </div>
+      </div>
+    </div>
+
+    <div id="ttoGridWrap">
+      <div class="text-center text-muted p-5"><div class="spinner-border spinner-border-sm me-2"></div>กำลังโหลด...</div>
+    </div>
+  </div>
+
+  <!-- Tab: แลกตาราง -->
+  <div id="ttoTabSwap" class="d-none">
+    <div class="row g-3">
+      <!-- ครู A -->
+      <div class="col-md-5">
+        <div class="pssms-card h-100">
+          <div class="pssms-card-header" style="color:var(--p-accent);"><i class="fas fa-user me-2"></i>ครู A</div>
+          <div class="p-3">
+            <select class="form-select form-select-sm mb-3" id="ttoSwapTeacherA" onchange="ttoLoadSwapSlots('A')">
+              <option value="">-- เลือกครู --</option>
+            </select>
+            <div id="ttoSlotsA" class="d-flex flex-column gap-2">
+              <div class="text-muted small text-center py-3">เลือกครูเพื่อดูตาราง</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Arrow + Preview -->
+      <div class="col-md-2 d-flex flex-column align-items-center justify-content-center gap-3">
+        <div class="text-muted" style="font-size:1.8rem;"><i class="fas fa-exchange-alt"></i></div>
+        <div id="ttoSwapPreview" class="d-none w-100">
+          <div class="pssms-card p-3 text-center" style="border:2px solid var(--p-accent);">
+            <div class="small fw-bold text-muted mb-2">ตัวอย่างการแลก</div>
+            <div id="ttoPreviewA" class="small mb-1 text-primary"></div>
+            <i class="fas fa-arrows-alt-v text-muted my-1"></i>
+            <div id="ttoPreviewB" class="small mt-1 text-success"></div>
+          </div>
+          <button class="btn btn-accent btn-sm w-100 mt-2" onclick="ttoConfirmSwap()">
+            <i class="fas fa-check me-1"></i>ยืนยันแลกตาราง
+          </button>
+        </div>
+      </div>
+
+      <!-- ครู B -->
+      <div class="col-md-5">
+        <div class="pssms-card h-100">
+          <div class="pssms-card-header" style="color:#198754;"><i class="fas fa-user me-2"></i>ครู B</div>
+          <div class="p-3">
+            <select class="form-select form-select-sm mb-3" id="ttoSwapTeacherB" onchange="ttoLoadSwapSlots('B')">
+              <option value="">-- เลือกครู --</option>
+            </select>
+            <div id="ttoSlotsB" class="d-flex flex-column gap-2">
+              <div class="text-muted small text-center py-3">เลือกครูเพื่อดูตาราง</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

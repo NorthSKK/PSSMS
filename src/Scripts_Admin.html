@@ -1229,4 +1229,221 @@ function exportClubsCSV() {
 
 function csvEsc(s) { return String(s == null ? '' : s).replace(/"/g, '""'); }
 
+// ==========================================
+// Timetable Overview + Swap (Page_Admin_Timetable_Overview)
+// ==========================================
+var _ttoAllRows = [];
+var _ttoTeachers = [];
+var _ttoSwapSlotA = null;
+var _ttoSwapSlotB = null;
+
+var TTO_DAYS = ['จันทร์','อังคาร','พุธ','พฤหัสบดี','ศุกร์'];
+var TTO_PERIODS = [1,2,3,4,5,6,7,8];
+var TTO_TIMES = {1:'08.30',2:'09.20',3:'10.20',4:'11.10',5:'13.00',6:'13.50',7:'14.40',8:'15.30'};
+
+function initTimetableOverview() {
+  if (!document.getElementById('ttOverviewPage')) return;
+  var user = getSessionUser();
+  var termEl = document.getElementById('ttoTerm');
+  var yearEl = document.getElementById('ttoYear');
+  if (!termEl.value) termEl.value = user.currentTerm || '1';
+  if (!yearEl.value) yearEl.value = user.currentYear || '';
+  var subtitle = document.getElementById('ttoSubtitle');
+  if (subtitle) subtitle.textContent = 'เทอม ' + termEl.value + '/' + yearEl.value;
+
+  var wrap = document.getElementById('ttoGridWrap');
+  if (wrap) wrap.innerHTML = '<div class="text-center text-muted p-5"><div class="spinner-border spinner-border-sm me-2"></div>กำลังโหลด...</div>';
+
+  google.script.run
+    .withSuccessHandler(function(teachers) {
+      _ttoTeachers = teachers || [];
+      ttoPopulateTeacherDropdowns();
+      google.script.run
+        .withSuccessHandler(function(rows) {
+          _ttoAllRows = rows || [];
+          ttoRenderGrid();
+        })
+        .withFailureHandler(function(err) {
+          if (wrap) wrap.innerHTML = '<div class="text-center text-danger p-5">โหลดไม่สำเร็จ: ' + err.message + '</div>';
+        })
+        .getFilteredTimetables('', termEl.value, yearEl.value);
+    })
+    .withFailureHandler(function(err) {
+      if (wrap) wrap.innerHTML = '<div class="text-center text-danger p-5">โหลด teachers ไม่สำเร็จ</div>';
+    })
+    .getTeachersForTimetable();
+}
+
+function ttoPopulateTeacherDropdowns() {
+  var selectors = ['ttoFilterTeacher','ttoSwapTeacherA','ttoSwapTeacherB'];
+  selectors.forEach(function(id) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    var first = el.options[0];
+    el.innerHTML = '';
+    el.appendChild(first);
+    _ttoTeachers.forEach(function(t) {
+      var opt = document.createElement('option');
+      opt.value = t.id;
+      opt.textContent = t.name + ' (' + t.id + ')';
+      el.appendChild(opt);
+    });
+  });
+}
+
+function ttoSwitchTab(tab, btn) {
+  document.getElementById('ttoTabOverview').classList.toggle('d-none', tab !== 'overview');
+  document.getElementById('ttoTabSwap').classList.toggle('d-none', tab !== 'swap');
+  document.querySelectorAll('#ttOverviewPage .nav-link').forEach(function(b) { b.classList.remove('active'); });
+  if (btn) btn.classList.add('active');
+}
+
+function ttoRenderGrid() {
+  var wrap = document.getElementById('ttoGridWrap');
+  if (!wrap) return;
+  var filterTeacher = document.getElementById('ttoFilterTeacher').value;
+  var rows = filterTeacher ? _ttoAllRows.filter(function(r) { return String(r.data[5]).trim() === filterTeacher; }) : _ttoAllRows;
+
+  // Build map: day+period → [{subjectName, level, room, teacherName}]
+  var teacherMap = {};
+  _ttoTeachers.forEach(function(t) { teacherMap[t.id] = t.name; });
+
+  var map = {};
+  rows.forEach(function(r) {
+    var d = r.data;
+    var day = String(d[6]).trim();
+    var period = String(d[7]).trim();
+    var key = day + '|' + period;
+    if (!map[key]) map[key] = [];
+    map[key].push({
+      subject: String(d[1]).trim(),
+      level: String(d[2]).trim(),
+      room: String(d[3]).trim(),
+      teacherId: String(d[5]).trim(),
+      teacherName: teacherMap[String(d[5]).trim()] || String(d[5]).trim()
+    });
+  });
+
+  var html = '<div class="pssms-card p-0"><div class="table-responsive"><table class="pssms-table mb-0 text-center" style="min-width:900px;font-size:.8rem;">';
+  html += '<thead><tr><th style="width:80px;">คาบ</th>';
+  TTO_DAYS.forEach(function(d) { html += '<th>' + d + '</th>'; });
+  html += '</tr></thead><tbody>';
+
+  TTO_PERIODS.forEach(function(p) {
+    if (p === 5) {
+      html += '<tr style="background:#fefce8;"><td colspan="6" class="text-center text-muted small py-1" style="font-size:.75rem;">— พักกลางวัน —</td></tr>';
+    }
+    html += '<tr>';
+    html += '<td class="fw-bold" style="background:var(--p-subtle);">คาบ ' + p + '<br><span class="text-muted" style="font-size:.7rem;">' + (TTO_TIMES[p]||'') + '</span></td>';
+    TTO_DAYS.forEach(function(day) {
+      var key = day + '|' + p;
+      var entries = map[key] || [];
+      if (entries.length === 0) {
+        html += '<td style="color:var(--p-border-strong);">—</td>';
+      } else {
+        html += '<td style="vertical-align:top;padding:4px 6px;">';
+        entries.forEach(function(e) {
+          html += '<div style="background:var(--p-accent-soft);border:1px solid var(--p-border);border-radius:6px;padding:3px 6px;margin-bottom:3px;text-align:left;">';
+          html += '<div class="fw-bold" style="color:var(--p-accent);font-size:.78rem;">' + _ttoEsc(e.subject) + '</div>';
+          html += '<div style="font-size:.72rem;color:var(--p-text-muted);">' + _ttoEsc(e.level) + '/' + _ttoEsc(e.room) + '</div>';
+          if (!filterTeacher) html += '<div style="font-size:.7rem;color:#555;"><i class="fas fa-user me-1"></i>' + _ttoEsc(e.teacherName) + '</div>';
+          html += '</div>';
+        });
+        html += '</td>';
+      }
+    });
+    html += '</tr>';
+  });
+
+  html += '</tbody></table></div></div>';
+  wrap.innerHTML = html;
+}
+
+function ttoLoadSwapSlots(side) {
+  var teacherId = document.getElementById('ttoSwapTeacher' + side).value;
+  var container = document.getElementById('ttoSlots' + side);
+  if (!container) return;
+  _ttoSwapSlotA = null; _ttoSwapSlotB = null;
+  document.getElementById('ttoSwapPreview').classList.add('d-none');
+
+  if (!teacherId) { container.innerHTML = '<div class="text-muted small text-center py-3">เลือกครูเพื่อดูตาราง</div>'; return; }
+
+  var teacherName = '';
+  _ttoTeachers.forEach(function(t) { if (t.id === teacherId) teacherName = t.name; });
+  var slots = _ttoAllRows.filter(function(r) { return String(r.data[5]).trim() === teacherId; });
+
+  if (slots.length === 0) {
+    container.innerHTML = '<div class="text-muted small text-center py-3">ไม่มีตารางสอนในเทอมนี้</div>';
+    return;
+  }
+
+  var sortedDays = TTO_DAYS;
+  slots.sort(function(a, b) {
+    var di = sortedDays.indexOf(String(a.data[6]).trim()) - sortedDays.indexOf(String(b.data[6]).trim());
+    return di !== 0 ? di : Number(a.data[7]) - Number(b.data[7]);
+  });
+
+  var html = '';
+  slots.forEach(function(r) {
+    var d = r.data;
+    var day = String(d[6]).trim(); var period = String(d[7]).trim();
+    var subject = String(d[1]).trim(); var level = String(d[2]).trim(); var room = String(d[3]).trim();
+    var selId = 'slot_' + side + '_' + r.rowIndex;
+    html += '<div id="' + selId + '" class="tto-slot-card pssms-card p-2" style="cursor:pointer;border:2px solid var(--p-border);transition:all .15s;" onclick="ttoSelectSlot(\'' + side + '\',' + r.rowIndex + ',\'' + _ttoEsc(day) + '\',' + period + ',\'' + _ttoEsc(subject) + '\',\'' + _ttoEsc(level + '/' + room) + '\',\'' + _ttoEsc(teacherName) + '\')">';
+    html += '<div class="d-flex justify-content-between align-items-start">';
+    html += '<div><span class="badge bg-secondary me-1">วัน' + day + '</span><span class="badge" style="background:var(--p-accent);">คาบ ' + period + '</span></div>';
+    html += '<small class="text-muted">' + _ttoEsc(level) + '/' + _ttoEsc(room) + '</small>';
+    html += '</div>';
+    html += '<div class="fw-bold mt-1" style="font-size:.85rem;">' + _ttoEsc(subject) + '</div>';
+    html += '</div>';
+  });
+  container.innerHTML = html;
+}
+
+function ttoSelectSlot(side, rowIdx, day, period, subject, classRoom, teacherName) {
+  // Deselect previous
+  document.querySelectorAll('#ttoSlots' + side + ' .tto-slot-card').forEach(function(c) {
+    c.style.borderColor = 'var(--p-border)';
+    c.style.background = '';
+  });
+  var selId = 'slot_' + side + '_' + rowIdx;
+  var card = document.getElementById(selId);
+  if (card) { card.style.borderColor = 'var(--p-accent)'; card.style.background = 'var(--p-accent-soft)'; }
+
+  var info = { rowIdx: rowIdx, day: day, period: period, subject: subject, classRoom: classRoom, teacherName: teacherName };
+  if (side === 'A') _ttoSwapSlotA = info;
+  else _ttoSwapSlotB = info;
+
+  ttoUpdatePreview();
+}
+
+function ttoUpdatePreview() {
+  var preview = document.getElementById('ttoSwapPreview');
+  if (!preview) return;
+  if (!_ttoSwapSlotA || !_ttoSwapSlotB) { preview.classList.add('d-none'); return; }
+  preview.classList.remove('d-none');
+  document.getElementById('ttoPreviewA').innerHTML = '<strong>' + _ttoEsc(_ttoSwapSlotA.teacherName) + '</strong> สอน ' + _ttoEsc(_ttoSwapSlotA.subject) + ' (' + _ttoEsc(_ttoSwapSlotA.classRoom) + ')<br>วัน' + _ttoEsc(_ttoSwapSlotA.day) + ' คาบ ' + _ttoSwapSlotA.period;
+  document.getElementById('ttoPreviewB').innerHTML = '<strong>' + _ttoEsc(_ttoSwapSlotB.teacherName) + '</strong> สอน ' + _ttoEsc(_ttoSwapSlotB.subject) + ' (' + _ttoEsc(_ttoSwapSlotB.classRoom) + ')<br>วัน' + _ttoEsc(_ttoSwapSlotB.day) + ' คาบ ' + _ttoSwapSlotB.period;
+}
+
+function ttoConfirmSwap() {
+  if (!_ttoSwapSlotA || !_ttoSwapSlotB) { showAlert('กรุณาเลือกคาบของครูทั้งสองก่อน'); return; }
+  if (!confirm('ยืนยันแลกตารางสอน?\n\n' + _ttoSwapSlotA.teacherName + ' ↔ ' + _ttoSwapSlotB.teacherName + '\n(' + _ttoSwapSlotA.subject + ' วัน' + _ttoSwapSlotA.day + ' คาบ ' + _ttoSwapSlotA.period + ') ↔ (' + _ttoSwapSlotB.subject + ' วัน' + _ttoSwapSlotB.day + ' คาบ ' + _ttoSwapSlotB.period + ')')) return;
+  showLoader(true);
+  google.script.run
+    .withSuccessHandler(function(res) {
+      showLoader(false);
+      showAlert(res.message);
+      if (res.status === 'success') {
+        _ttoSwapSlotA = null; _ttoSwapSlotB = null;
+        initTimetableOverview();
+        ttoSwitchTab('swap', document.getElementById('ttoTabSwapBtn'));
+      }
+    })
+    .withFailureHandler(function(err) { showLoader(false); showAlert('❌ ' + err.message); })
+    .swapTimetableTeacher(_ttoSwapSlotA.rowIdx, _ttoSwapSlotB.rowIdx);
+}
+
+function _ttoEsc(s) { return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
 </script>
