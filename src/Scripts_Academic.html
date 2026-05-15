@@ -195,7 +195,8 @@ function loadStudentList(forceRefresh = false) {
                       btn.className = "btn btn-primary w-100 mt-4 py-3 fw-bold shadow-sm";
                   }
                   let detailBtn = document.getElementById('btnDetailedSubmit');
-                  if(detailBtn) detailBtn.classList.remove('d-none'); 
+                  if(!detailBtn) btn.insertAdjacentHTML('afterend', '<button id="btnDetailedSubmit" class="btn btn-outline-success w-100 py-2 mt-2 fw-bold" onclick="openDetailedLessonModal()"><i class="fas fa-clipboard-list me-2"></i>จบบทเรียน: บันทึกหลังสอนแบบละเอียด (DPA/3R8C)</button>');
+                  else detailBtn.classList.remove('d-none');
               }
               setTimeout(setupSignatureCanvas, 200);
           }).getTodayAttendanceHistory(dateStr, item[0], fullClassName);
@@ -1496,6 +1497,82 @@ function renderAllSubjectsReportTable(data) {
   });
   
   tbody.innerHTML = html;
+}
+
+function openDetailedLessonModal() {
+  var topic = document.getElementById('inputTopic').value;
+  if(!topic) { alert('กรุณากรอก "หัวข้อที่สอน" ก่อนกดบันทึกแบบละเอียด'); document.getElementById('inputTopic').focus(); return; }
+  if(sigCanvas && sigCanvas.toDataURL().length < 1000) { alert('กรุณาลงชื่อผู้สอนก่อน'); return; }
+  document.getElementById('detailedLessonForm').reset();
+  new bootstrap.Modal(document.getElementById('detailedLessonModal')).show();
+}
+
+async function submitDetailedLesson() {
+  var classVal = document.getElementById('selectClass').value;
+  if(!classVal) { alert('กรุณาเลือกวิชาก่อน'); return; }
+  var item = JSON.parse(classVal);
+  var topic = document.getElementById('inputTopic').value;
+  var dateInput = document.getElementById('teachingDate');
+  var user = getSessionUser();
+  var date = (dateInput && dateInput.value) ? dateInput.value : new Date().toISOString().split('T')[0];
+  var normalizedClassName = getRealClassName();
+
+  var dpaValues = Array.from(document.querySelectorAll('.dpa-check:checked')).map(function(el){ return el.value; });
+  var skillValues = Array.from(document.querySelectorAll('.skill-check:checked')).map(function(el){ return el.value; });
+  var workFile = document.getElementById('dl_work_file').files[0];
+  var imageFile = document.getElementById('dl_image_file').files[0];
+
+  var submitBtn = document.querySelector('#detailedLessonModal .btn-primary');
+  var originalBtnText = submitBtn.innerHTML;
+  submitBtn.disabled = true;
+  submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>กำลังบันทึก...';
+  showLoader(true);
+
+  try {
+    var workFileBase64 = await getBase64(workFile);
+    var imageFileBase64 = await getBase64(imageFile);
+
+    var detailedRecord = {
+      date: date, subjectCode: item[0], subjectName: item[1], className: normalizedClassName, period: item[5], topic: topic, teacherId: user.id,
+      outcomes: document.getElementById('dl_outcomes').value,
+      problems: document.getElementById('dl_problems').value,
+      solutions: document.getElementById('dl_solutions').value,
+      dpa: dpaValues, skills: skillValues,
+      studentResults: document.getElementById('dl_student_results').value,
+      workFileBase64: workFileBase64, imageFileBase64: imageFileBase64
+    };
+
+    var attendanceBatch = currentStudents.map(function(s) {
+      var statusEl = document.querySelector('input[name="status_' + s[0] + '"]:checked');
+      return { date: date, term: user.currentTerm, year: user.currentYear, subjectCode: item[0], subjectName: item[1], className: normalizedClassName, period: item[5], studentId: s[0], studentName: s[2], status: statusEl ? statusEl.value : 'มา', teacherId: user.id };
+    });
+
+    var lateCount = document.querySelectorAll('input[value="สาย"]:checked').length;
+    var leaveCount = document.querySelectorAll('input[value="ลา"]:checked').length;
+    var basicRecord = {
+      date: date, subjectCode: item[0], subjectName: item[1], className: normalizedClassName, period: item[5], topic: topic,
+      totalPresent: parseInt(document.getElementById('sumPresent').innerText) + lateCount,
+      totalAbsent: document.getElementById('sumAbsent').innerText, totalLeave: leaveCount,
+      teacherId: user.id, signature: sigCanvas ? sigCanvas.toDataURL() : ''
+    };
+
+    google.script.run.withSuccessHandler(function() {
+      google.script.run.withSuccessHandler(function() {
+        google.script.run.withSuccessHandler(function(res) {
+          showLoader(false);
+          bootstrap.Modal.getInstance(document.getElementById('detailedLessonModal')).hide();
+          sessionStorage.removeItem('risk_dash_' + user.id + '_' + user.currentTerm + '_' + user.currentYear);
+          sessionStorage.removeItem('lesson_history_' + user.id + '_' + user.currentTerm + '_' + user.currentYear);
+          alert(res.message);
+          loadPage('Page_Dashboard_Teacher');
+        }).saveDetailedLessonRecord(detailedRecord);
+      }).saveLessonRecord(basicRecord);
+    }).saveAttendanceBatch(attendanceBatch);
+
+  } catch(err) {
+    showLoader(false); submitBtn.disabled = false; submitBtn.innerHTML = originalBtnText;
+    alert('เกิดข้อผิดพลาด: ' + err.message);
+  }
 }
 
 </script>
