@@ -1234,8 +1234,19 @@ function runSmartAIAnalysis(records, body) {
 }
 
 function loadStudentSummary() {
+  var cached = _dashCacheGet('admin_student_summary');
+  if (cached) {
+    renderStudentTable(cached);
+    renderStudentChart(cached);
+  } else {
+    var tbody = document.getElementById('summaryTableBody');
+    if (tbody) tbody.innerHTML = _skelRows(6, ['35%','15%','15%','15%']);
+  }
   google.script.run.withSuccessHandler(function(data) {
-    if (data && data.length > 0) { renderStudentTable(data); renderStudentChart(data); }
+    if (!data || !data.length) return;
+    _dashCacheSet('admin_student_summary', data);
+    renderStudentTable(data);
+    renderStudentChart(data);
   }).getStudentSummaryStats();
 }
 

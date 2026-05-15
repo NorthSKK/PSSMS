@@ -42,9 +42,100 @@ function loadCurrentConfig() {
     
     if(document.getElementById('currentTermDisplay')) document.getElementById('currentTermDisplay').innerText = `${config.term}/${config.year}`;
     if(document.getElementById('currentRangeDisplay')) document.getElementById('currentRangeDisplay').innerText = `${formatThaiDate(config.termStart)} ถึง ${formatThaiDate(config.termEnd)}`;
-    
+
+    // โหลดข้อมูลโรงเรียน
+    if (config.schoolName && document.getElementById('inputSchoolName')) {
+      document.getElementById('inputSchoolName').value = config.schoolName;
+    }
+    if (config.schoolLogo) {
+      _settingsShowLogo(config.schoolLogo);
+    }
+
     setTimeout(applyThaiDatePickers, 100);
   }).getSystemConfig();
+}
+
+var _logoBase64 = null;
+var _logoFilename = '';
+
+function previewLogoFile(input) {
+  if (!input.files || !input.files[0]) return;
+  var file = input.files[0];
+  _logoFilename = file.name;
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    var img = new Image();
+    img.onload = function() {
+      var MAX = 120;
+      var w = img.width, h = img.height;
+      if (w > MAX || h > MAX) {
+        var r = Math.min(MAX / w, MAX / h);
+        w = Math.round(w * r);
+        h = Math.round(h * r);
+      }
+      var canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      var ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, w, h);
+      ctx.drawImage(img, 0, 0, w, h);
+      _logoBase64 = canvas.toDataURL('image/jpeg', 0.7);
+      _settingsShowLogo(_logoBase64);
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function _settingsShowLogo(src) {
+  var img = document.getElementById('logoPreviewImg');
+  var icon = document.getElementById('logoPlaceholderIcon');
+  if (!img) return;
+  img.src = src;
+  img.style.display = 'block';
+  if (icon) icon.style.display = 'none';
+}
+
+function clearLogo() {
+  _logoBase64 = null;
+  _logoFilename = '';
+  var img = document.getElementById('logoPreviewImg');
+  var icon = document.getElementById('logoPlaceholderIcon');
+  var fi = document.getElementById('logoFileInput');
+  if (img) { img.src = ''; img.style.display = 'none'; }
+  if (icon) icon.style.display = '';
+  if (fi) fi.value = '';
+}
+
+function saveSchoolInfoSettings() {
+  var name = (document.getElementById('inputSchoolName') || {}).value || '';
+  var statusEl = document.getElementById('logoSaveStatus');
+  if (statusEl) { statusEl.className = 'mb-2 small p-2 rounded-2'; statusEl.style.cssText = 'background:var(--p-accent-soft);color:var(--p-accent);'; statusEl.textContent = 'กำลังบันทึก...'; }
+  showLoader(true);
+  google.script.run
+    .withSuccessHandler(function(res) {
+      showLoader(false);
+      if (res.status === 'success') {
+        if (statusEl) { statusEl.style.cssText = 'background:#f0fdf4;color:#166534;border:1px solid #bbf7d0;'; statusEl.textContent = '✅ บันทึกสำเร็จ'; }
+        // อัปเดต sidebar + localStorage
+        if (res.logoUrl) {
+          localStorage.setItem('pssms_school_logo', res.logoUrl);
+          _applySchoolLogo(res.logoUrl);
+        }
+        if (name) {
+          localStorage.setItem('pssms_school_name', name);
+          _applySchoolName(name);
+        }
+        _logoBase64 = null;
+      } else {
+        if (statusEl) { statusEl.style.cssText = 'background:#fef2f2;color:#991b1b;border:1px solid #fecaca;'; statusEl.textContent = '❌ ' + (res.message || 'เกิดข้อผิดพลาด'); }
+      }
+    })
+    .withFailureHandler(function(err) {
+      showLoader(false);
+      if (statusEl) { statusEl.style.cssText = 'background:#fef2f2;color:#991b1b;border:1px solid #fecaca;'; statusEl.textContent = '❌ ' + (err.message || 'เกิดข้อผิดพลาด'); }
+    })
+    .saveSchoolInfo(name, _logoBase64 || '', _logoFilename);
 }
 
 // 🌟 ฟังก์ชันทำงานเมื่อพิมพ์ปีการศึกษาหรือเปลี่ยนเทอม

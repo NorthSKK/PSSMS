@@ -662,9 +662,30 @@ body.dark-mode {
 }
 
 #page-content.page-loading {
-    opacity: 0.5; /* จางลงนิดหน่อย */
-    filter: blur(1px); /* เบลอนิดๆ ให้รู้สึกว่ากำลังสลับหน้า */
-    pointer-events: none; /* ล็อกการกดปุ่มมั่วขณะโหลด */
+    opacity: 0.5;
+    filter: blur(1px);
+    pointer-events: none;
+}
+
+/* ==========================================
+   💀 SKELETON LOADERS
+========================================== */
+.pssms-skel {
+  background: linear-gradient(90deg,
+    var(--p-subtle) 25%,
+    var(--p-border) 50%,
+    var(--p-subtle) 75%);
+  background-size: 300% 100%;
+  animation: skelShimmer 1.5s infinite linear;
+  border-radius: 6px;
+  display: block;
+}
+@keyframes skelShimmer {
+  0%   { background-position: 150% 0; }
+  100% { background-position: -150% 0; }
+}
+.pssms-skel-circle {
+  border-radius: 50% !important;
 }
 
 </style>

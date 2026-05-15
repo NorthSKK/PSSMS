@@ -198,7 +198,7 @@ function getSystemConfig() {
   return getCached('system_config', 300, function() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   let sheet = ss.getSheetByName("System_Settings");
-  let config = { term: "1", year: "2568", termStart: "", termEnd: "", termHistory: {} };
+  let config = { term: "1", year: "2568", termStart: "", termEnd: "", termHistory: {}, schoolName: "", schoolLogo: "" };
 
   if (!sheet) return config;
 
@@ -224,11 +224,15 @@ function getSystemConfig() {
         config.term = String(row[2]);
         config.year = String(row[3]);
       } else if (row[0] === "TermData") {
-        const termKey = String(row[1]); // เช่น "1_2568"
+        const termKey = String(row[1]);
         config.termHistory[termKey] = {
           start: row[2] ? Utilities.formatDate(new Date(row[2]), Session.getScriptTimeZone(), "yyyy-MM-dd") : "",
           end: row[3] ? Utilities.formatDate(new Date(row[3]), Session.getScriptTimeZone(), "yyyy-MM-dd") : ""
         };
+      } else if (row[0] === "school_name") {
+        config.schoolName = String(row[1] || "");
+      } else if (row[0] === "school_logo") {
+        config.schoolLogo = String(row[1] || "");
       }
     });
     // ดึงวันที่ของเทอมปัจจุบันมาโชว์
@@ -2645,7 +2649,14 @@ function saveAllInOneScores(payload) {
   for (let uid in gradeMap) { if(!gradeMap[uid].processed) { const r = gradeMap[uid]; newGrades.push(["'" + r.studentId, r.subjectCode, r.totalScore, r.grade, r.remark || "-", "100", term, year]); } }
   if(newGrades.length > 0) gradeSheet.getRange(gradeSheet.getLastRow() + 1, 1, newGrades.length, 8).setValues(newGrades);
 
-  SpreadsheetApp.flush(); 
+  SpreadsheetApp.flush();
+  // invalidate score feed cache สำหรับนักเรียนทุกคนในห้องนี้
+  try {
+    var stuList = getStudentsByClass(className, year);
+    stuList.forEach(function(s) {
+      invalidateCache('score_feed_' + String(s.id).trim() + '_' + String(term) + '_' + String(year));
+    });
+  } catch(e) {}
   return {status: 'success', message: 'บันทึกคะแนน เกรด และคุณลักษณะเรียบร้อยแล้ว!'};
 }
 
@@ -3671,4 +3682,252 @@ function importCalendarCSV(base64Data) {
   } finally {
     lock.releaseLock();
   }
+}
+
+// ==========================================
+// 🏫 School Info (name + logo)
+// ==========================================
+
+function saveSchoolInfo(schoolName, logoBase64, logoFilename) {
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(15000);
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    let sheet = ss.getSheetByName('System_Settings');
+    if (!sheet) sheet = ss.insertSheet('System_Settings');
+
+    var logoUrl = '';
+    if (logoBase64 && logoBase64 !== '') {
+      // เก็บ base64 data URL ตรงๆ (ไม่ upload Drive — หลีกเลี่ยงปัญหา URL หมดอายุ/CORS)
+      logoUrl = logoBase64;
+    }
+
+    // upsert school_name และ school_logo
+    var sheetData = sheet.getDataRange().getValues();
+    var nameRow = -1, logoRow = -1;
+    for (var r = 1; r < sheetData.length; r++) {
+      if (String(sheetData[r][0]) === 'school_name') nameRow = r + 1;
+      if (String(sheetData[r][0]) === 'school_logo') logoRow = r + 1;
+    }
+    if (schoolName !== null && schoolName !== undefined) {
+      if (nameRow > 0) sheet.getRange(nameRow, 1, 1, 2).setValues([['school_name', schoolName]]);
+      else sheet.appendRow(['school_name', schoolName]);
+    }
+    if (logoUrl !== '') {
+      if (logoRow > 0) sheet.getRange(logoRow, 1, 1, 2).setValues([['school_logo', logoUrl]]);
+      else sheet.appendRow(['school_logo', logoUrl]);
+    }
+    invalidateCacheKeys(['system_config']);
+    return { status: 'success', logoUrl: logoUrl };
+  } catch(e) {
+    return { status: 'error', message: e.message };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// ==========================================
+// 📅 Student Dashboard Bundle
+// ==========================================
+
+function getStudentDashboardBundle(studentId, term, year) {
+  var timetable = { ok: false, data: [], error: '' };
+  var scoreFeed = { ok: false, data: [], error: '' };
+  try { timetable.data = getStudentTimetableToday(studentId, term, year); timetable.ok = true; } catch(e) { timetable.error = e.message; }
+  try { scoreFeed.data = getStudentScoreFeed(studentId, term, year); scoreFeed.ok = true; } catch(e) { scoreFeed.error = e.message; }
+  return { timetable: timetable, scoreFeed: scoreFeed };
+}
+
+function getStudentTimetableToday(studentId, term, year) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sid = String(studentId).trim();
+  var termStr = String(term).trim();
+  var yearStr = String(year).trim();
+
+  // หาห้องของนักเรียน
+  var uSheet = ss.getSheetByName('User_Database');
+  var className = '';
+  if (uSheet) {
+    var ud = uSheet.getDataRange().getValues();
+    for (var i = 1; i < ud.length; i++) {
+      if (String(ud[i][0]).trim() === sid) { className = String(ud[i][4]).trim(); break; }
+    }
+  }
+  if (!className) return [];
+
+  // split ม.3/2 → level=ม.3, room=2
+  var parts = className.split('/');
+  var level = parts[0] ? parts[0].trim() : '';
+  var room  = parts[1] ? parts[1].trim() : '';
+
+  // วันนี้เป็นภาษาไทย
+  var DAY_MAP = {0: null, 1: 'จันทร์', 2: 'อังคาร', 3: 'พุธ', 4: 'พฤหัสบดี', 5: 'ศุกร์', 6: null};
+  var now = new Date();
+  var todayDay = DAY_MAP[now.getDay()];
+  if (!todayDay) return []; // เสาร์/อาทิตย์ → []
+
+  // หาชื่อครูจาก User_Database
+  var nameMap = {};
+  if (uSheet) {
+    var ud2 = uSheet.getDataRange().getValues();
+    for (var u = 1; u < ud2.length; u++) {
+      nameMap[String(ud2[u][0]).trim()] = String(ud2[u][2]).trim();
+    }
+  }
+
+  // filter Timetable_Database
+  var ttSheet = ss.getSheetByName('Timetable_Database');
+  if (!ttSheet) return [];
+  var ttData = ttSheet.getDataRange().getValues();
+  var slots = [];
+  for (var r = 1; r < ttData.length; r++) {
+    var row = ttData[r];
+    if (String(row[2]).trim() !== level) continue;
+    if (String(row[3]).trim() !== room)  continue;
+    if (String(row[6]).trim() !== todayDay) continue;
+    if (String(row[8]).trim() !== termStr) continue;
+    if (String(row[9]).trim() !== yearStr) continue;
+    var period = Number(row[7]);
+    if (period === 0) continue; // HR
+    slots.push({
+      period: period,
+      subjectCode: String(row[0]).trim(),
+      subjectName: String(row[1]).trim(),
+      location:    String(row[4]).trim(),
+      teacherId:   String(row[5]).trim(),
+      teacherName: nameMap[String(row[5]).trim()] || String(row[5]).trim()
+    });
+  }
+  slots.sort(function(a, b) { return a.period - b.period; });
+  return slots;
+}
+
+// ==========================================
+// 📊 Student Score Feed (Dashboard นักเรียน)
+// ==========================================
+
+function getStudentScoreFeed(studentId, term, year) {
+  const cacheKey = 'score_feed_' + String(studentId).trim() + '_' + String(term) + '_' + String(year);
+  return getCached(cacheKey, 300, function() {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sid = String(studentId).trim();
+    const termStr = String(term).trim();
+    const yearStr = String(year).trim();
+
+    // หาห้องของนักเรียนจาก User_Database
+    const uSheet = ss.getSheetByName('User_Database');
+    var className = '';
+    if (uSheet) {
+      const ud = uSheet.getDataRange().getValues();
+      for (var i = 1; i < ud.length; i++) {
+        if (String(ud[i][0]).trim() === sid) { className = String(ud[i][4]).trim(); break; }
+      }
+    }
+
+    // Subject_Config: [subject_id, subject_code, class_name, term, year, score_ratio, indicators_json, teacher_id, examIndicators_json]
+    const cfgSheet = ss.getSheetByName('Subject_Config');
+    if (!cfgSheet) return [];
+    const cfgData = cfgSheet.getDataRange().getValues();
+
+    // หาชื่อวิชาจาก Timetable_Database
+    const ttSheet = ss.getSheetByName('Timetable_Database');
+    var subjectNameMap = {};
+    if (ttSheet) {
+      const ttData = ttSheet.getDataRange().getValues();
+      for (var t = 1; t < ttData.length; t++) {
+        var tcode = String(ttData[t][0]).trim();
+        if (tcode && !subjectNameMap[tcode]) subjectNameMap[tcode] = String(ttData[t][1]).trim();
+      }
+    }
+
+    // Score_Database: [uid, student_id, subject_code, indicator_id, score, term, year]
+    const scoreSheet = ss.getSheetByName('Score_Database');
+    var scoreMap = {}; // key: subject_code|indicator_id → score
+    if (scoreSheet) {
+      const sd = scoreSheet.getDataRange().getValues();
+      for (var s = 1; s < sd.length; s++) {
+        if (String(sd[s][1]).trim() !== sid) continue;
+        if (String(sd[s][5]).trim() !== termStr || String(sd[s][6]).trim() !== yearStr) continue;
+        var k = String(sd[s][2]).trim() + '|' + String(sd[s][3]).trim();
+        scoreMap[k] = sd[s][4];
+      }
+    }
+
+    // Grade_Summary: [student_id, subject_code, total_score, grade, remedial_status, attendance_percent, term, year]
+    const gradeSheet = ss.getSheetByName('Grade_Summary');
+    var gradeMap = {}; // key: subject_code → {totalScore, grade, remedialStatus}
+    if (gradeSheet) {
+      const gd = gradeSheet.getDataRange().getValues();
+      for (var g = 1; g < gd.length; g++) {
+        if (String(gd[g][0]).trim() !== sid) continue;
+        var gt = String(gd[g][6] || '').trim(), gy = String(gd[g][7] || '').trim();
+        if ((gt && gt !== termStr) || (gy && gy !== yearStr)) continue;
+        var gcode = String(gd[g][1]).trim();
+        gradeMap[gcode] = { totalScore: gd[g][2], grade: String(gd[g][3] || '').trim(), remedialStatus: String(gd[g][4] || '').trim() };
+      }
+    }
+
+    // สร้าง feed จาก Subject_Config (เฉพาะห้องตรง + เทอม/ปีตรง)
+    var seen = {};
+    var feed = [];
+    for (var c = cfgData.length - 1; c >= 1; c--) {
+      var code = String(cfgData[c][1]).trim();
+      var cls  = String(cfgData[c][2]).trim();
+      var t2   = String(cfgData[c][3]).trim();
+      var y2   = String(cfgData[c][4]).trim();
+      if (t2 !== termStr || y2 !== yearStr) continue;
+      if (className && cls !== className) continue;
+      if (seen[code]) continue;
+      seen[code] = true;
+
+      // parse score_ratio: "70:10:20" → formativeMax, midMax, finMax
+      var ratioRaw = String(cfgData[c][5]).replace(/'/g,'').trim();
+      var ratioParts = ratioRaw.split(':').map(function(x){ return Number(x.trim()) || 0; });
+      var midMax = ratioParts[1] || 0;
+      var finMax = ratioParts[2] || 0;
+
+      var indicators = [];
+      try { indicators = JSON.parse(cfgData[c][6] || '[]'); } catch(e) { indicators = []; }
+      var examInds = null;
+      try { examInds = JSON.parse(cfgData[c][8] || 'null'); } catch(e) {}
+
+      var allInds = [];
+      // งานเก็บ: indicator_id = formative_0, formative_1, ...
+      (indicators || []).forEach(function(ind, idx) {
+        allInds.push({ id: 'formative_' + idx, name: ind.name || ('งาน ' + (idx+1)), maxScore: Number(ind.score) || 0, type: 'formative' });
+      });
+      // สอบกลางภาค: indicator_id = midterm (single)
+      if (midMax > 0) {
+        var midName = (examInds && examInds.midterm && (examInds.midterm.description || examInds.midterm.code)) || 'สอบกลางภาค';
+        allInds.push({ id: 'midterm', name: midName, maxScore: midMax, type: 'midterm' });
+      }
+      // สอบปลายภาค: indicator_id = final (single)
+      if (finMax > 0) {
+        var finName = (examInds && examInds.final && (examInds.final.description || examInds.final.code)) || 'สอบปลายภาค';
+        allInds.push({ id: 'final', name: finName, maxScore: finMax, type: 'final' });
+      }
+
+      var items = allInds.map(function(ind) {
+        var sk = code + '|' + ind.id;
+        var got = scoreMap.hasOwnProperty(sk) ? scoreMap[sk] : null;
+        var scoreVal = (got !== null && got !== '' && got !== undefined) ? Number(got) : null;
+        return { id: ind.id, name: ind.name, maxScore: ind.maxScore, score: scoreVal, type: ind.type };
+      });
+
+      var gradeInfo = gradeMap[code] || null;
+
+      feed.push({
+        subjectCode: code,
+        subjectName: subjectNameMap[code] || code,
+        className: cls,
+        scoreRatio: ratioRaw,
+        totalScore: gradeInfo ? Number(gradeInfo.totalScore) : null,
+        grade: gradeInfo ? gradeInfo.grade : null,
+        remedialStatus: gradeInfo ? gradeInfo.remedialStatus : null,
+        items: items
+      });
+    }
+
+    return feed;
+  });
 }

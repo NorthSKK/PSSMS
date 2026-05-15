@@ -595,7 +595,51 @@ function _syncSchoolBrandingFromServer() {
   }).withFailureHandler(function(){}).getSystemConfig();
 }
 
-const pageCache = {}; 
+const pageCache = {};
+const _PG_TTL = 30 * 60 * 1000;   // 30 min page HTML cache
+const _DASH_TTL = 5 * 60 * 1000;  // 5 min dashboard data SWR
+
+function _pgCacheGet(name) {
+  if (pageCache[name]) return pageCache[name];
+  try {
+    var raw = sessionStorage.getItem('pssms_pg_' + name);
+    if (!raw) return null;
+    var obj = JSON.parse(raw);
+    if (Date.now() - obj.ts > _PG_TTL) { sessionStorage.removeItem('pssms_pg_' + name); return null; }
+    pageCache[name] = obj.html;
+    return obj.html;
+  } catch(e) { return null; }
+}
+function _pgCacheSet(name, html) {
+  pageCache[name] = html;
+  try { sessionStorage.setItem('pssms_pg_' + name, JSON.stringify({html: html, ts: Date.now()})); } catch(e) {}
+}
+function _dashCacheGet(key) {
+  try {
+    var raw = localStorage.getItem(key);
+    if (!raw) return null;
+    var obj = JSON.parse(raw);
+    if (Date.now() - obj.ts > _DASH_TTL) { localStorage.removeItem(key); return null; }
+    return obj.data;
+  } catch(e) { return null; }
+}
+function _dashCacheSet(key, data) {
+  try { localStorage.setItem(key, JSON.stringify({data: data, ts: Date.now()})); } catch(e) {}
+}
+// Skeleton helpers
+function _skelRows(n, cols) {
+  var widths = cols || ['40%','30%','20%'];
+  var html = '';
+  for (var i = 0; i < n; i++) {
+    html += '<tr>' + widths.map(function(w){ return '<td><span class="pssms-skel d-inline-block" style="height:14px;width:'+w+'"></span></td>'; }).join('') + '</tr>';
+  }
+  return html;
+}
+function _skelCards(n, h) {
+  var html = '';
+  for (var i = 0; i < n; i++) html += '<div class="pssms-skel mb-2" style="height:'+(h||48)+'px"></div>';
+  return html;
+}
 
 function loadPage(pageName) {
   // 🌟 1. ล้างตัวแปร Global (State Reset) ป้องกันข้อมูลข้ามวิชา/ข้ามหน้า
@@ -633,19 +677,20 @@ function loadPage(pageName) {
   // 🌟 3. บันทึกหน้าล่าสุดแล้วโหลดหน้าใหม่ตามปกติ
   localStorage.setItem('pssms_last_page', pageName);
   
-  if (pageCache[pageName]) { 
-      setupPageContent(pageName, pageCache[pageName]); 
-      return; 
+  var cachedHtml = _pgCacheGet(pageName);
+  if (cachedHtml) {
+    setupPageContent(pageName, cachedHtml);
+    return;
   }
-  
+
   showLoader(true);
   google.script.run
-    .withFailureHandler(err => { 
-        showLoader(false); 
-        alert("โหลดหน้าเว็บไม่สำเร็จ: " + err.message); 
+    .withFailureHandler(err => {
+        showLoader(false);
+        alert("โหลดหน้าเว็บไม่สำเร็จ: " + err.message);
     })
     .withSuccessHandler(function(html) {
-        pageCache[pageName] = html; 
+        _pgCacheSet(pageName, html);
         setupPageContent(pageName, html);
     })
     .getPage(pageName);
@@ -704,9 +749,24 @@ function initStudentDashboard() {
 }
 
 function _loadStudentBundle(studentId, term, year) {
+  var _cacheKey = 'student_bundle_' + studentId + '_' + term + '_' + year;
+  var cached = _dashCacheGet(_cacheKey);
+
+  if (cached) {
+    if (cached.timetable && cached.timetable.ok) _renderStudentTodaySchedule(cached.timetable.data || []);
+    if (cached.scoreFeed && cached.scoreFeed.ok) _renderScoreFeed(cached.scoreFeed.data || []);
+  } else {
+    var schedEl = document.getElementById('studentTodaySchedule');
+    if (schedEl) schedEl.innerHTML = '<div class="p-2">' + _skelCards(3, 40) + '</div>';
+    var scoreEl = document.getElementById('scoreFeedContainer');
+    if (scoreEl) scoreEl.innerHTML = '<div class="p-3">' + _skelCards(4, 56) + '</div>';
+  }
+
   google.script.run
     .withSuccessHandler(function(bundle) {
       if (!bundle) return;
+      if (!document.getElementById('studentName')) return;
+      _dashCacheSet(_cacheKey, bundle);
       if (bundle.timetable && bundle.timetable.ok) _renderStudentTodaySchedule(bundle.timetable.data || []);
       else {
         var el = document.getElementById('studentTodaySchedule');
@@ -719,6 +779,7 @@ function _loadStudentBundle(studentId, term, year) {
       }
     })
     .withFailureHandler(function(err) {
+      if (cached) return;
       var el = document.getElementById('scoreFeedContainer');
       if (el) el.innerHTML = '<div class="text-danger small p-2"><i class="fas fa-exclamation-circle me-1"></i>' + (err.message || 'โหลดไม่สำเร็จ') + '</div>';
     })
@@ -1094,16 +1155,30 @@ function initExecDashboard() {
   if (root) root.className = root.className.replace(/pssms-dept-\S+/g,'').trim() + ' ' + deptClass;
   var deptLbl = document.getElementById('execDeptLabel');
   if (deptLbl) deptLbl.textContent = dept==='ผอ.'?'ภาพรวมทั้งโรงเรียน':dept==='วิชาการ'?'รองผู้อำนวยการฝ่ายวิชาการ':dept==='งบประมาณ'?'รองผู้อำนวยการฝ่ายงบประมาณ':dept==='บุคคล'?'รองผู้อำนวยการฝ่ายบุคคล':dept==='ทั่วไป'?'รองผู้อำนวยการฝ่ายทั่วไป':dept;
-  var ld = document.getElementById('execLoading'); if (ld) ld.classList.remove('d-none');
-  var ct = document.getElementById('execContent'); if (ct) ct.classList.add('d-none');
+  var _execCacheKey = 'exec_bundle_' + dept;
+  var _execCached = _dashCacheGet(_execCacheKey);
+  var ld = document.getElementById('execLoading');
+  var ct = document.getElementById('execContent');
+
+  if (_execCached) {
+    if (ld) ld.classList.add('d-none');
+    if (ct) ct.classList.remove('d-none');
+    _execRender(_execCached, dept);
+  } else {
+    if (ld) ld.classList.remove('d-none');
+    if (ct) ct.classList.add('d-none');
+  }
+
   google.script.run
     .withSuccessHandler(function(bundle) {
       if (!document.getElementById('execDashPage')) return;
+      _dashCacheSet(_execCacheKey, bundle);
       var ld2 = document.getElementById('execLoading'); if (ld2) ld2.classList.add('d-none');
       var ct2 = document.getElementById('execContent'); if (ct2) ct2.classList.remove('d-none');
       _execRender(bundle, dept);
     })
     .withFailureHandler(function(err) {
+      if (_execCached) return; // already showing cached data — ignore failure silently
       var ld3 = document.getElementById('execLoading');
       if (ld3) ld3.innerHTML = '<i class="fas fa-exclamation-triangle text-danger fa-2x mb-2 d-block"></i><div class="text-danger">โหลดข้อมูลไม่สำเร็จ: '+(err.message||'')+'</div>';
     })
