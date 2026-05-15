@@ -390,7 +390,7 @@ function initAdminTimetable() {
       var sel = document.getElementById('viewTeacherID');
       if (sel) {
         sel.innerHTML = '<option value="">-- เลือกครู --</option>';
-        _ttoTeachers.forEach(function(t) {
+        _ttoTeachers.filter(function(t){ return t.role === 'TEACHER'; }).forEach(function(t) {
           var opt = document.createElement('option');
           opt.value = t.id;
           opt.textContent = t.name + ' (' + t.id + ')';
