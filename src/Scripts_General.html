@@ -324,4 +324,304 @@ window.handleSarabunFileUpload = function(event) {
     };
     reader.readAsDataURL(file);
 };
+
+// ============================================================
+// LEAVE REQUEST PAGE (Page_Leave_Request)
+// ============================================================
+var _leaveStats = [];
+
+function initLeaveRequestPage() {
+  var user = getSessionUser();
+  if (!user) return;
+  var year = user.currentYear || String(new Date().getFullYear() + 543);
+  var badge = document.getElementById('leaveYearBadge');
+  if (badge) badge.textContent = 'ปี ' + year;
+  // Set default start date = today
+  var today = new Date();
+  var todayStr = today.toISOString().split('T')[0];
+  var startEl = document.getElementById('leaveStart');
+  var endEl   = document.getElementById('leaveEnd');
+  if (startEl && !startEl.value) startEl.value = todayStr;
+  if (endEl   && !endEl.value)   endEl.value   = todayStr;
+
+  // SWR: load stats + history
+  var cachedStats = _dashCacheGet('leave_stats_' + user.id + '_' + year);
+  var cachedHistory = _dashCacheGet('leave_mine_' + user.id + '_' + year);
+  if (cachedStats)   { _leaveStats = cachedStats; _renderLeaveStats(cachedStats); }
+  if (cachedHistory) _renderLeaveHistory(cachedHistory);
+
+  google.script.run
+    .withSuccessHandler(function(bundle) {
+      if (!document.getElementById('leaveStatsStrip')) return;
+      if (bundle.stats) { _leaveStats = bundle.stats; _dashCacheSet('leave_stats_' + user.id + '_' + year, bundle.stats); _renderLeaveStats(bundle.stats); }
+      if (bundle.history) { _dashCacheSet('leave_mine_' + user.id + '_' + year, bundle.history); _renderLeaveHistory(bundle.history); }
+    })
+    .withFailureHandler(function() {})
+    .getLeaveRequestBundle(user.id, year);
+}
+
+function _renderLeaveStats(stats) {
+  var el = document.getElementById('leaveStatsStrip');
+  if (!el) return;
+  var html = '<div class="row g-2">';
+  stats.forEach(function(s) {
+    if (s.limit >= 9999) return;
+    var pct = Math.min(100, Math.round(s.used / s.limit * 100));
+    var col = pct >= 90 ? '#dc3545' : pct >= 70 ? '#f59e0b' : 'var(--p-accent)';
+    html += '<div class="col-6 col-md-4 col-lg-2">' +
+      '<div class="pssms-card p-2 text-center">' +
+      '<div class="small text-muted mb-1" style="font-size:.7rem;">' + s.type + '</div>' +
+      '<div class="fw-bold" style="color:' + col + ';font-size:1.1rem;">' + s.used + '<span class="text-muted fw-normal" style="font-size:.75rem;">/' + s.limit + '</span></div>' +
+      '<div style="height:4px;background:var(--p-subtle);border-radius:2px;margin-top:4px;">' +
+        '<div style="height:4px;width:' + pct + '%;background:' + col + ';border-radius:2px;transition:width .5s;"></div>' +
+      '</div></div></div>';
+  });
+  html += '</div>';
+  el.innerHTML = html;
+}
+
+function _renderLeaveHistory(records) {
+  var el = document.getElementById('leaveHistoryContainer');
+  if (!el) return;
+  if (!records || !records.length) {
+    el.innerHTML = '<div class="text-muted small text-center py-3">ยังไม่มีประวัติการลาในปีนี้</div>';
+    return;
+  }
+  var html = '<div class="table-responsive"><table class="pssms-table w-100"><thead><tr>' +
+    '<th>ประเภท</th><th>วันที่ลา</th><th class="text-center">วัน</th><th class="text-center">สถานะ</th><th>หมายเหตุ</th>' +
+    '</tr></thead><tbody>';
+  records.forEach(function(r) {
+    var badge = r.status === 'อนุมัติ'
+      ? '<span class="badge" style="background:#f0fdf4;color:#166534;border:1px solid #bbf7d0;">✅ อนุมัติ</span>'
+      : r.status === 'ปฏิเสธ'
+      ? '<span class="badge" style="background:#fef2f2;color:#991b1b;border:1px solid #fecaca;">❌ ปฏิเสธ</span>'
+      : '<span class="badge" style="background:var(--p-accent-soft);color:var(--p-accent);">⏳ รอ</span>';
+    html += '<tr><td>' + _escH(r.type) + '</td>' +
+      '<td class="small">' + _escH(r.startDate) + (r.startDate !== r.endDate ? ' – ' + _escH(r.endDate) : '') + '</td>' +
+      '<td class="text-center">' + r.days + '</td>' +
+      '<td class="text-center">' + badge + '</td>' +
+      '<td class="small text-muted">' + _escH(r.adminComment || '—') + '</td></tr>';
+  });
+  html += '</tbody></table></div>';
+  el.innerHTML = html;
+}
+
+function leaveUpdateDaysPreview() {
+  var s = document.getElementById('leaveStart').value;
+  var e = document.getElementById('leaveEnd').value;
+  var prev = document.getElementById('leaveDaysPreview');
+  if (!s || !e || !prev) return;
+  var days = Math.max(1, Math.round((new Date(e) - new Date(s)) / 86400000) + 1);
+  if (days < 1) { prev.classList.add('d-none'); return; }
+  prev.classList.remove('d-none');
+
+  // check remaining
+  var type = (document.getElementById('leaveType') || {}).value;
+  var warn = '';
+  if (type && _leaveStats.length) {
+    var stat = _leaveStats.find(function(x){ return x.type === type; });
+    if (stat && stat.limit < 9999) {
+      var remaining = stat.limit - stat.used;
+      if (days > remaining) warn = ' <span class="text-danger" style="font-size:.8rem;">(เกินที่เหลือ ' + remaining + ' วัน)</span>';
+    }
+  }
+  prev.innerHTML = 'จำนวน <strong>' + days + '</strong> วัน' + warn;
+}
+
+function submitLeave() {
+  var user = getSessionUser();
+  if (!user) return;
+  var type   = document.getElementById('leaveType').value;
+  var start  = document.getElementById('leaveStart').value;
+  var end    = document.getElementById('leaveEnd').value;
+  var reason = document.getElementById('leaveReason').value.trim();
+  var statusEl = document.getElementById('leaveFormStatus');
+
+  if (!type)   { _leaveStatus('กรุณาเลือกประเภทการลา', 'warning'); return; }
+  if (!start)  { _leaveStatus('กรุณาระบุวันที่เริ่มลา', 'warning'); return; }
+  if (!end)    { _leaveStatus('กรุณาระบุวันที่สิ้นสุด', 'warning'); return; }
+  if (!reason) { _leaveStatus('กรุณาระบุเหตุผลการลา', 'warning'); return; }
+  if (end < start) { _leaveStatus('วันที่สิ้นสุดต้องไม่ก่อนวันที่เริ่ม', 'danger'); return; }
+
+  _leaveStatus('<i class="fas fa-spinner fa-spin me-1"></i>กำลังส่งคำร้อง...', 'info');
+  var data = {
+    teacherId: user.id, staffName: user.name,
+    type: type, startDate: start, endDate: end,
+    reason: reason, year: user.currentYear || ''
+  };
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (res.status === 'success') {
+        _leaveStatus('✅ ส่งคำร้องสำเร็จ (' + res.days + ' วัน) รอผู้บริหารพิจารณา', 'success');
+        document.getElementById('leaveType').value = '';
+        document.getElementById('leaveReason').value = '';
+        // Invalidate + reload
+        localStorage.removeItem('leave_stats_' + user.id + '_' + (user.currentYear||''));
+        localStorage.removeItem('leave_mine_' + user.id + '_' + (user.currentYear||''));
+        setTimeout(function() { initLeaveRequestPage(); }, 500);
+      } else {
+        _leaveStatus('❌ ' + (res.message || 'เกิดข้อผิดพลาด'), 'danger');
+      }
+    })
+    .withFailureHandler(function(err) { _leaveStatus('❌ ' + (err.message||''), 'danger'); })
+    .submitLeaveRequest(data);
+}
+
+function _leaveStatus(msg, type) {
+  var el = document.getElementById('leaveFormStatus');
+  if (!el) return;
+  var styles = { success:'background:#f0fdf4;color:#166534;border:1px solid #bbf7d0;',
+    danger:'background:#fef2f2;color:#991b1b;border:1px solid #fecaca;',
+    warning:'background:#fffbeb;color:#92400e;border:1px solid #fde68a;',
+    info:'background:var(--p-accent-soft);color:var(--p-accent);' };
+  el.className = 'mb-2 small p-2 rounded-2';
+  el.style.cssText = styles[type] || styles.info;
+  el.innerHTML = msg;
+  el.classList.remove('d-none');
+}
+
+function _escH(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ============================================================
+// LEAVE ADMIN PAGE (Page_Leave_Admin)
+// ============================================================
+var _leaveAdminTab = 'pending';
+
+function initLeaveAdminPage() {
+  var user = getSessionUser();
+  if (!user) return;
+  var year = user.currentYear || String(new Date().getFullYear() + 543);
+  var yearEl = document.getElementById('leaveFilterYear');
+  if (yearEl) yearEl.value = year;
+  leaveAdminShowTab('pending');
+}
+
+function leaveAdminShowTab(tab) {
+  _leaveAdminTab = tab;
+  var tabPending = document.getElementById('tabPending');
+  var tabAll     = document.getElementById('tabAll');
+  var filters    = document.getElementById('leaveAllFilters');
+  if (tab === 'pending') {
+    if (tabPending) tabPending.className = 'nav-link active btn-accent';
+    if (tabAll)     tabAll.className     = 'nav-link';
+    if (tabAll)     tabAll.style.cssText = 'background:var(--p-subtle);color:var(--p-text);';
+    if (filters)    filters.classList.add('d-none');
+    leaveAdminLoadPending();
+  } else {
+    if (tabPending) tabPending.className = 'nav-link';
+    if (tabPending) tabPending.style.cssText = 'background:var(--p-subtle);color:var(--p-text);';
+    if (tabAll)     { tabAll.className = 'nav-link active btn-accent'; tabAll.style.cssText = ''; }
+    if (filters)    filters.classList.remove('d-none');
+    leaveAdminLoadAll();
+  }
+}
+
+function leaveAdminLoadPending() {
+  var tbody = document.getElementById('leaveAdminTableBody');
+  if (!tbody) return;
+  var cached = _dashCacheGet('leave_pending_admin');
+  if (cached) { _renderLeaveAdminTable(cached, true); }
+  else { tbody.innerHTML = '<tr><td colspan="7" class="text-center py-3">' + _skelRows(4,['20%','15%','20%','8%','17%','10%','10%']) + '</td></tr>'; }
+
+  google.script.run
+    .withSuccessHandler(function(rows) {
+      if (!document.getElementById('leaveAdminTableBody')) return;
+      _dashCacheSet('leave_pending_admin', rows);
+      _renderLeaveAdminTable(rows, true);
+      var cnt = document.getElementById('pendingCount');
+      if (cnt) { cnt.textContent = rows.length; cnt.style.display = rows.length ? '' : 'none'; }
+    })
+    .withFailureHandler(function(){})
+    .getPendingLeaves();
+}
+
+function leaveAdminLoadAll() {
+  var tbody = document.getElementById('leaveAdminTableBody');
+  if (!tbody) return;
+  var user = getSessionUser();
+  var year   = (document.getElementById('leaveFilterYear')  || {}).value || (user ? user.currentYear : '');
+  var status = (document.getElementById('leaveFilterStatus')|| {}).value || 'all';
+  var type   = (document.getElementById('leaveFilterType')  || {}).value || '';
+
+  tbody.innerHTML = '<tr><td colspan="7" class="text-center py-3"><i class="fas fa-spinner fa-spin me-1"></i>กำลังโหลด...</td></tr>';
+  google.script.run
+    .withSuccessHandler(function(rows) {
+      if (!document.getElementById('leaveAdminTableBody')) return;
+      var filtered = type ? rows.filter(function(r){ return r.type === type; }) : rows;
+      _renderLeaveAdminTable(filtered, false);
+    })
+    .withFailureHandler(function(){})
+    .getAllLeaves(year, status);
+}
+
+function _renderLeaveAdminTable(rows, showAction) {
+  var tbody = document.getElementById('leaveAdminTableBody');
+  if (!tbody) return;
+  if (!rows || !rows.length) {
+    tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">ไม่พบรายการ</td></tr>';
+    return;
+  }
+  var html = '';
+  rows.forEach(function(r) {
+    var badge = r.status === 'อนุมัติ'
+      ? '<span class="badge" style="background:#f0fdf4;color:#166534;border:1px solid #bbf7d0;font-size:.72rem;">✅ อนุมัติ</span>'
+      : r.status === 'ปฏิเสธ'
+      ? '<span class="badge" style="background:#fef2f2;color:#991b1b;border:1px solid #fecaca;font-size:.72rem;">❌ ปฏิเสธ</span>'
+      : '<span class="badge" style="background:var(--p-accent-soft);color:var(--p-accent);font-size:.72rem;">⏳ รอ</span>';
+    var action = (showAction && r.status === 'รอพิจารณา')
+      ? '<button class="btn btn-xs btn-outline-primary shadow-none" style="font-size:.75rem;padding:2px 8px;" onclick="openLeaveReview(\'' + _escH(r.id) + '\')"><i class="fas fa-gavel me-1"></i>พิจารณา</button>'
+      : '<span class="text-muted small">' + _escH(r.reviewedBy || '—') + '</span>';
+    html += '<tr>' +
+      '<td class="small fw-medium">' + _escH(r.staffName) + '</td>' +
+      '<td class="small">' + _escH(r.type) + '</td>' +
+      '<td class="small">' + _escH(r.startDate) + (r.startDate !== r.endDate ? '<br><span class="text-muted">ถึง ' + _escH(r.endDate) + '</span>' : '') + '</td>' +
+      '<td class="text-center small fw-bold">' + r.days + '</td>' +
+      '<td class="small text-muted" style="max-width:150px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="' + _escH(r.reason) + '">' + _escH(r.reason) + '</td>' +
+      '<td class="text-center">' + badge + '</td>' +
+      '<td class="text-center">' + action + '</td></tr>';
+  });
+  tbody.innerHTML = html;
+}
+
+function openLeaveReview(leaveId) {
+  var tbody = document.getElementById('leaveAdminTableBody');
+  if (!tbody) return;
+  // Find row data from rendered table (use pendingLeaves cache)
+  var cached = _dashCacheGet('leave_pending_admin') || [];
+  var rec = cached.find(function(r){ return r.id === leaveId; });
+  var detail = document.getElementById('leaveReviewDetail');
+  if (detail && rec) {
+    detail.innerHTML =
+      '<div class="fw-bold mb-1">' + _escH(rec.staffName) + '</div>' +
+      '<div class="small text-muted">' + _escH(rec.type) + ' · ' + _escH(rec.startDate) + (rec.startDate !== rec.endDate ? ' – ' + _escH(rec.endDate) : '') + ' · <strong>' + rec.days + ' วัน</strong></div>' +
+      '<div class="small mt-1"><span class="text-muted">เหตุผล:</span> ' + _escH(rec.reason) + '</div>';
+  }
+  document.getElementById('leaveReviewId').value = leaveId;
+  document.getElementById('leaveReviewComment').value = '';
+  new bootstrap.Modal(document.getElementById('leaveReviewModal')).show();
+}
+
+function submitLeaveReview(status) {
+  var user = getSessionUser();
+  if (!user) return;
+  var id      = document.getElementById('leaveReviewId').value;
+  var comment = document.getElementById('leaveReviewComment').value.trim();
+  showLoader(true);
+  google.script.run
+    .withSuccessHandler(function(res) {
+      showLoader(false);
+      bootstrap.Modal.getInstance(document.getElementById('leaveReviewModal')).hide();
+      if (res.status === 'success') {
+        showToast((status === 'อนุมัติ' ? '✅ อนุมัติ' : '❌ ปฏิเสธ') + 'คำร้องแล้ว', status === 'อนุมัติ' ? 'success' : 'danger');
+        localStorage.removeItem('leave_pending_admin');
+        leaveAdminLoadPending();
+      } else {
+        showToast('เกิดข้อผิดพลาด: ' + (res.message||''), 'danger', 5000);
+      }
+    })
+    .withFailureHandler(function(err) { showLoader(false); showToast('เกิดข้อผิดพลาด: ' + (err.message||''), 'danger', 5000); })
+    .reviewLeave(id, status, comment, user.name);
+}
 </script>

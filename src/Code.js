@@ -3931,3 +3931,156 @@ function getStudentScoreFeed(studentId, term, year) {
     return feed;
   });
 }
+
+// ============================================================
+// LEAVE MANAGEMENT SYSTEM
+// ============================================================
+var _LEAVE_LIMITS = {
+  'ลาป่วย': 60, 'ลากิจ': 45, 'ลาพักร้อน': 10,
+  'ลาคลอด': 90, 'ลาบวช': 120, 'ลาไปช่วยราชการ': 9999
+};
+var _LEAVE_HEADERS = ['ID','TeacherID','StaffName','Type','StartDate','EndDate','Days','Reason','Status','Year','RequestDate','AdminComment','ReviewedBy'];
+
+function _getLeaveSheet() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName('Leave_Records');
+  if (!sheet) {
+    sheet = ss.insertSheet('Leave_Records');
+    sheet.appendRow(_LEAVE_HEADERS);
+    return sheet;
+  }
+  // Migrate header if old schema
+  var hdr = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  if (hdr[0] !== 'ID') {
+    sheet.clearContents();
+    sheet.appendRow(_LEAVE_HEADERS);
+  }
+  return sheet;
+}
+
+function _countLeaveDays(startStr, endStr) {
+  var s = new Date(startStr), e = new Date(endStr);
+  return Math.max(1, Math.round((e - s) / 86400000) + 1);
+}
+
+function _leaveRowToObj(row) {
+  return {
+    id: String(row[0]), teacherId: String(row[1]), staffName: String(row[2]),
+    type: String(row[3]),
+    startDate: row[4] ? Utilities.formatDate(new Date(row[4]), 'Asia/Bangkok', 'yyyy-MM-dd') : '',
+    endDate:   row[5] ? Utilities.formatDate(new Date(row[5]), 'Asia/Bangkok', 'yyyy-MM-dd') : '',
+    days: Number(row[6]) || 0, reason: String(row[7]), status: String(row[8]),
+    year: String(row[9]),
+    requestDate: row[10] ? Utilities.formatDate(new Date(row[10]), 'Asia/Bangkok', 'yyyy-MM-dd HH:mm') : '',
+    adminComment: String(row[11] || ''), reviewedBy: String(row[12] || '')
+  };
+}
+
+function submitLeaveRequest(data) {
+  try {
+    var lock = LockService.getScriptLock(); lock.waitLock(10000);
+    var sheet = _getLeaveSheet();
+    var days = _countLeaveDays(data.startDate, data.endDate);
+    var id = 'LV' + new Date().getTime();
+    var now = Utilities.formatDate(new Date(), 'Asia/Bangkok', 'yyyy-MM-dd HH:mm:ss');
+    var year = data.year || String(new Date().getFullYear() + 543);
+    sheet.appendRow([id, data.teacherId, data.staffName, data.type,
+      data.startDate, data.endDate, days, data.reason,
+      'รอพิจารณา', year, now, '', '']);
+    invalidateCache('leave_stats_' + data.teacherId + '_' + year);
+    invalidateCache('leave_pending');
+    return { status: 'success', id: id, days: days };
+  } catch(e) {
+    return { status: 'error', message: e.message };
+  } finally { try { LockService.getScriptLock().releaseLock(); } catch(e2) {} }
+}
+
+function getMyLeaves(teacherId, year) {
+  return getCached('leave_mine_' + teacherId + '_' + year, 120, function() {
+    var sheet = _getLeaveSheet();
+    var data = sheet.getDataRange().getValues();
+    var result = [];
+    for (var i = 1; i < data.length; i++) {
+      if (String(data[i][1]) === String(teacherId) && String(data[i][9]) === String(year)) {
+        result.push(_leaveRowToObj(data[i]));
+      }
+    }
+    return result.reverse();
+  });
+}
+
+function getLeaveStats(teacherId, year) {
+  return getCached('leave_stats_' + teacherId + '_' + year, 120, function() {
+    var sheet = _getLeaveSheet();
+    var data = sheet.getDataRange().getValues();
+    var used = {};
+    for (var i = 1; i < data.length; i++) {
+      if (String(data[i][1]) !== String(teacherId)) continue;
+      if (String(data[i][9]) !== String(year)) continue;
+      if (String(data[i][8]) === 'ปฏิเสธ') continue;
+      var t = String(data[i][3]);
+      used[t] = (used[t] || 0) + (Number(data[i][6]) || 0);
+    }
+    var stats = [];
+    Object.keys(_LEAVE_LIMITS).forEach(function(t) {
+      stats.push({ type: t, used: used[t] || 0, limit: _LEAVE_LIMITS[t] });
+    });
+    return stats;
+  });
+}
+
+function getPendingLeaves() {
+  return getCached('leave_pending', 60, function() {
+    var sheet = _getLeaveSheet();
+    var data = sheet.getDataRange().getValues();
+    var result = [];
+    for (var i = 1; i < data.length; i++) {
+      if (String(data[i][8]) === 'รอพิจารณา') result.push(_leaveRowToObj(data[i]));
+    }
+    return result.reverse();
+  });
+}
+
+function getAllLeaves(year, statusFilter) {
+  var key = 'leave_all_' + year + '_' + (statusFilter || 'all');
+  return getCached(key, 120, function() {
+    var sheet = _getLeaveSheet();
+    var data = sheet.getDataRange().getValues();
+    var result = [];
+    for (var i = 1; i < data.length; i++) {
+      if (year && String(data[i][9]) !== String(year)) continue;
+      if (statusFilter && statusFilter !== 'all' && String(data[i][8]) !== statusFilter) continue;
+      result.push(_leaveRowToObj(data[i]));
+    }
+    return result.reverse();
+  });
+}
+
+function getLeaveRequestBundle(teacherId, year) {
+  try {
+    return { stats: getLeaveStats(teacherId, year), history: getMyLeaves(teacherId, year) };
+  } catch(e) {
+    return { stats: [], history: [] };
+  }
+}
+
+function reviewLeave(leaveId, status, comment, reviewerName) {
+  try {
+    var lock = LockService.getScriptLock(); lock.waitLock(10000);
+    var sheet = _getLeaveSheet();
+    var data = sheet.getDataRange().getValues();
+    for (var i = 1; i < data.length; i++) {
+      if (String(data[i][0]) !== String(leaveId)) continue;
+      sheet.getRange(i + 1, 9).setValue(status);
+      sheet.getRange(i + 1, 12).setValue(comment || '');
+      sheet.getRange(i + 1, 13).setValue(reviewerName || '');
+      var tid = String(data[i][1]), yr = String(data[i][9]);
+      invalidateCacheKeys(['leave_pending','leave_mine_'+tid+'_'+yr,'leave_stats_'+tid+'_'+yr,
+        'leave_all_'+yr+'_all','leave_all_'+yr+'_รอพิจารณา','leave_all_'+yr+'_'+status]);
+      return { status: 'success' };
+    }
+    return { status: 'error', message: 'ไม่พบรายการ' };
+  } catch(e) {
+    return { status: 'error', message: e.message };
+  } finally { try { LockService.getScriptLock().releaseLock(); } catch(e2) {} }
+}

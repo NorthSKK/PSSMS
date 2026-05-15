@@ -549,6 +549,7 @@ function renderApp(user) {
         menuHTML += `<li class="mb-1 ms-3"><a href="javascript:void(0)" class="nav-link-sub py-1" style="font-size: 0.85rem; color: var(--p-accent);" onclick="loadPage('Page_Admin_Timetable')"><i class="fas fa-calendar-alt me-2" style="font-size: 0.7rem;"></i>ตารางสอน</a></li>`;
         menuHTML += `<li class="mb-1 ms-3"><a href="javascript:void(0)" class="nav-link-sub py-1" style="font-size: 0.85rem; color: #2ecc71;" onclick="loadPage('Page_Admin_Curriculum')"><i class="fas fa-layer-group me-2" style="font-size: 0.7rem;"></i>คลังตัวชี้วัด/ผลการเรียนรู้</a></li>`;
         menuHTML += `<li class="mb-2 ms-3"><a href="javascript:void(0)" class="nav-link-sub py-1" style="font-size: 0.85rem; color: #9c27b0;" onclick="loadPage('Page_Admin_Clubs')"><i class="fas fa-users-cog me-2" style="font-size: 0.7rem;"></i>จัดการชุมนุม</a></li>`;
+        menuHTML += `<li class="mb-2 ms-3"><a href="javascript:void(0)" class="nav-link-sub py-1" style="font-size: 0.85rem; color: #6366f1;" onclick="loadPage('Page_Leave_Request')"><i class="fas fa-calendar-minus me-2" style="font-size: 0.7rem;"></i>แจ้งลาของฉัน</a></li>`;
     } else {
         // ของครู: ฝ่ายวิชาการเป็น label, เช็คเวลาเรียน + sub-items
         menuHTML += `<li class="mb-1"><div class="dept-btn academic" style="cursor: default;"><i class="fas fa-graduation-cap"></i> <span>ฝ่ายวิชาการ</span></div></li>`;
@@ -558,7 +559,8 @@ function renderApp(user) {
         menuHTML += `<li class="mb-1 ms-3"><a href="javascript:void(0)" class="nav-link-sub text-info py-1" style="font-size: 0.85rem;" onclick="loadPage('Page_Academic_Report')"><i class="fas fa-chart-pie me-2" style="font-size: 0.7rem;"></i>รายงานสถิติ (มส.)</a></li>`;
         menuHTML += `<li class="mb-1 ms-3"><a href="javascript:void(0)" class="nav-link-sub text-success py-1" style="font-size: 0.85rem;" onclick="loadPage('Page_Lesson_History')"><i class="fas fa-book-reader me-2" style="font-size: 0.7rem;"></i>แฟ้มบันทึกหลังสอน</a></li>`;
         menuHTML += `<li class="mb-1 ms-3"><a href="javascript:void(0)" class="nav-link-sub py-1" style="font-size: 0.85rem; color: #9c27b0;" onclick="loadPage('Page_Teacher_Clubs')"><i class="fas fa-users me-2" style="font-size: 0.7rem;"></i>ชุมนุมที่ดูแล</a></li>`;
-        menuHTML += `<li class="mb-2 ms-3"><a href="javascript:void(0)" class="nav-link-sub py-1" style="font-size: 0.85rem; color: var(--p-accent);" onclick="loadPage('Page_Teacher_Timetable')"><i class="fas fa-calendar-week me-2" style="font-size: 0.7rem;"></i>ตารางสอนของฉัน</a></li>`;
+        menuHTML += `<li class="mb-1 ms-3"><a href="javascript:void(0)" class="nav-link-sub py-1" style="font-size: 0.85rem; color: var(--p-accent);" onclick="loadPage('Page_Teacher_Timetable')"><i class="fas fa-calendar-week me-2" style="font-size: 0.7rem;"></i>ตารางสอนของฉัน</a></li>`;
+        menuHTML += `<li class="mb-2 ms-3"><a href="javascript:void(0)" class="nav-link-sub py-1" style="font-size: 0.85rem; color: #6366f1;" onclick="loadPage('Page_Leave_Request')"><i class="fas fa-calendar-minus me-2" style="font-size: 0.7rem;"></i>แจ้งลา</a></li>`;
     }
 
     // เมนูของฝ่ายอื่นๆ (เห็นเหมือนกันทั้งแอดมินและครู)
@@ -566,7 +568,8 @@ function renderApp(user) {
 
     if (role === 'ADMIN') {
         menuHTML += `<li class="mb-1"><a href="javascript:void(0)" class="dept-btn personnel" onclick="loadPage('Page_Personnel')"><i class="fas fa-users"></i> <span>ฝ่ายบุคคล</span></a></li>`;
-        menuHTML += `<li class="mb-2 ms-3"><a href="javascript:void(0)" class="nav-link-sub py-1" style="font-size: 0.85rem; color: #f39c12;" onclick="loadPage('Page_Admin_Users')"><i class="fas fa-users-cog me-2" style="font-size: 0.7rem;"></i>จัดการผู้ใช้งาน</a></li>`;
+        menuHTML += `<li class="mb-1 ms-3"><a href="javascript:void(0)" class="nav-link-sub py-1" style="font-size: 0.85rem; color: #f39c12;" onclick="loadPage('Page_Admin_Users')"><i class="fas fa-users-cog me-2" style="font-size: 0.7rem;"></i>จัดการผู้ใช้งาน</a></li>`;
+        menuHTML += `<li class="mb-2 ms-3"><a href="javascript:void(0)" class="nav-link-sub py-1" style="font-size: 0.85rem; color: #6366f1;" onclick="loadPage('Page_Leave_Admin')"><i class="fas fa-clipboard-check me-2" style="font-size: 0.7rem;"></i>จัดการการลา</a></li>`;
     } else {
         menuHTML += `<li class="mb-2"><a href="javascript:void(0)" class="dept-btn personnel" onclick="loadPage('Page_Personnel')"><i class="fas fa-users"></i> <span>ฝ่ายบุคคล</span></a></li>`;
     }
@@ -775,6 +778,8 @@ function setupPageContent(pageName, html) {
   if(pageName === 'Page_Dashboard_Executive') initExecDashboard();
   if(pageName === 'Page_Admin_Timetable_Overview') { loadPage('Page_Admin_Timetable'); return; }
   if(pageName === 'Page_Teacher_Timetable') initTeacherTimetable();
+  if(pageName === 'Page_Leave_Request') initLeaveRequestPage();
+  if(pageName === 'Page_Leave_Admin')   initLeaveAdminPage();
 }
 
 // ==========================================
