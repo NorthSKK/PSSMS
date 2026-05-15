@@ -1629,10 +1629,10 @@ function ttoSaveHomeroomRow(btn) {
       btn.disabled = false; btn.innerHTML = origHTML;
       showAlert(res.status === 'success' ? '✅ ' + res.message : '❌ ' + res.message);
       if (res.status === 'success') {
-        tr.dataset.level = level; tr.dataset.room = room;
         if (typeof _staffHomeroomMap !== 'undefined') {
           if (teacherId) _staffHomeroomMap[teacherId] = level + '/' + room;
         }
+        ttoLoadHomeroom();
       }
     })
     .withFailureHandler(function(err) { btn.disabled = false; btn.innerHTML = origHTML; showAlert('❌ ' + err.message); })
