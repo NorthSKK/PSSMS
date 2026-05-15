@@ -1854,6 +1854,55 @@ function setHomeroomTeacher(level, room, teacherIds, term, year, opts) {
   return { status: 'success', message: 'บันทึกครูที่ปรึกษา ' + lv + '/' + rm + ' (' + tids.length + ' คน) เรียบร้อย' };
 }
 
+// assignments = [{level, room, teacherIds:[], opts:{advisoryLoc,buddhistLoc}}, ...]
+function setAllHomeroomTeachers(assignments, term, year) {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Timetable_Database');
+  if (!sheet) return { status: 'error', message: 'ไม่พบ Timetable_Database' };
+  const tm = String(term).trim(), yr = String(year).trim();
+  const data = sheet.getDataRange().getValues();
+
+  // Delete HR/แนะแนว/วิถีพุทธ only for classes in this batch
+  const classKeys = new Set((assignments || []).map(function(a) {
+    return String(a.level||'').trim() + '/' + String(a.room||'').trim();
+  }));
+  const toDelete = [];
+  for (let i = 1; i < data.length; i++) {
+    const r = data[i];
+    if (String(r[8]).trim() !== tm || String(r[9]).trim() !== yr) continue;
+    if (!classKeys.has(String(r[2]).trim() + '/' + String(r[3]).trim())) continue;
+    const code = String(r[0]).trim().toUpperCase(), name = String(r[1]).trim();
+    if (code === 'HR' || name.includes('โฮมรูม') || name.includes('แนะแนว') || name.includes('วิถีพุทธ'))
+      toDelete.push(i + 1);
+  }
+  toDelete.sort(function(a,b){return b-a;}).forEach(function(idx){ sheet.deleteRow(idx); });
+
+  // Re-insert
+  const days = ['จันทร์','อังคาร','พุธ','พฤหัสบดี','ศุกร์'];
+  let classCount = 0;
+  (assignments || []).forEach(function(a) {
+    const lv = String(a.level||'').trim(), rm = String(a.room||'').trim();
+    if (!lv || !rm) return;
+    const tids = (Array.isArray(a.teacherIds) ? a.teacherIds : [a.teacherIds])
+      .map(function(t){ return String(t||'').trim(); }).filter(function(t){ return t !== ''; });
+    if (tids.length === 0) return;
+    tids.forEach(function(tid) {
+      days.forEach(function(day) {
+        sheet.appendRow(['HR','กิจกรรมโฮมรูมหน้าเสาธง',lv,rm,'ลานหน้าเสาธง',tid,day,'0',tm,yr]);
+      });
+    });
+    const primaryTid = tids[0];
+    const opts = a.opts || {};
+    if (opts.advisoryLoc !== undefined)
+      sheet.appendRow(['','แนะแนว',lv,rm,String(opts.advisoryLoc||'').trim(),primaryTid,'จันทร์','7',tm,yr]);
+    if (opts.buddhistLoc !== undefined)
+      sheet.appendRow(['','วิถีพุทธ',lv,rm,String(opts.buddhistLoc||'').trim(),primaryTid,'ศุกร์','7',tm,yr]);
+    classCount++;
+  });
+
+  invalidateCacheKeys(['timetable_'+tm+'_'+yr, 'teacher_timetable']);
+  return { status: 'success', message: 'บันทึกครูที่ปรึกษา ' + classCount + ' ห้อง เรียบร้อย' };
+}
+
 function findDuplicateTimetableRows(term, year) {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Timetable_Database");
   if (!sheet) return [];

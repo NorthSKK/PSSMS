@@ -222,9 +222,14 @@
     <div class="pssms-card mb-3">
       <div class="d-flex align-items-center justify-content-between gap-3 flex-wrap">
         <div class="text-muted small">กำหนดครูที่ปรึกษาประจำห้องเรียน — ระบบสร้าง โฮมรูม / แนะแนว (จ.คาบ7) / วิถีพุทธ (ศ.คาบ7) อัตโนมัติ</div>
-        <button class="btn btn-accent btn-sm" onclick="ttoAddHomeroomRow()">
-          <i class="fas fa-plus me-1"></i>เพิ่มห้อง
-        </button>
+        <div class="d-flex gap-2">
+          <button class="btn btn-soft btn-sm" onclick="ttoAddHomeroomRow()">
+            <i class="fas fa-plus me-1"></i>เพิ่มห้อง
+          </button>
+          <button class="btn btn-accent btn-sm" id="ttoSaveAllHomeroomBtn" onclick="ttoSaveAllHomeroom()">
+            <i class="fas fa-save me-1"></i>บันทึกทั้งหมด
+          </button>
+        </div>
       </div>
     </div>
     <div class="pssms-card p-0">
@@ -237,11 +242,10 @@
               <th>ครูที่ปรึกษา 1 / 2</th>
               <th style="width:140px;">สถานที่แนะแนว<br><span class="fw-normal text-muted" style="font-size:.75rem;">จ.คาบ7</span></th>
               <th style="width:140px;">สถานที่วิถีพุทธ<br><span class="fw-normal text-muted" style="font-size:.75rem;">ศ.คาบ7</span></th>
-              <th style="width:100px;" class="text-center">บันทึก</th>
             </tr>
           </thead>
           <tbody id="ttoHomeroomBody">
-            <tr><td colspan="6" class="text-center p-5 text-muted"><div class="spinner-border spinner-border-sm me-2"></div>กำลังโหลด...</td></tr>
+            <tr><td colspan="5" class="text-center p-5 text-muted"><div class="spinner-border spinner-border-sm me-2"></div>กำลังโหลด...</td></tr>
           </tbody>
         </table>
       </div>
