@@ -667,23 +667,35 @@ function applyThaiDatePickers() {
 // 6. Toast & Shortcut
 // ==========================================
 
-function showToast(msg, type="success") {
+function showToast(msg, type) {
+  type = type || 'success';
   let container = document.getElementById('toastContainer');
   if (!container) {
-      container = document.createElement('div');
-      container.id = 'toastContainer';
-      container.style.cssText = 'position: fixed; bottom: 20px; right: 20px; z-index: 1050;';
-      document.body.appendChild(container);
+    container = document.createElement('div');
+    container.id = 'toastContainer';
+    container.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:1055;display:flex;flex-direction:column;align-items:flex-end;';
+    document.body.appendChild(container);
   }
-  const bgClass = type === 'success' ? 'bg-success' : (type === 'info' ? 'bg-primary' : 'bg-warning text-dark');
-  const icon = type === 'success' ? 'fa-check-circle' : (type === 'info' ? 'fa-cloud-upload-alt' : 'fa-exclamation-triangle');
+  const map = { success: ['bg-success','fa-check-circle'], danger: ['bg-danger','fa-times-circle'], warning: ['bg-warning text-dark','fa-exclamation-triangle'], info: ['bg-primary','fa-info-circle'] };
+  const [bgClass, icon] = map[type] || map.success;
+  const btnClose = type === 'warning' ? 'btn-close' : 'btn-close btn-close-white';
   const toast = document.createElement('div');
-  toast.className = `toast align-items-center text-white ${bgClass} border-0 mb-2 show animate__animated animate__fadeInUp shadow-lg`;
-  toast.style.minWidth = "250px";
-  toast.style.borderRadius = "8px";
-  toast.innerHTML = `<div class="d-flex p-2"><div class="toast-body fw-bold" style="font-size: 0.9rem;"><i class="fas ${icon} me-2 fa-lg"></i>${msg}</div><button type="button" class="btn-close btn-close-white me-2 m-auto shadow-none" onclick="this.parentElement.parentElement.remove()"></button></div>`;
+  toast.className = `toast align-items-center ${bgClass} border-0 mb-2 show`;
+  toast.style.cssText = 'min-width:260px;max-width:380px;border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,.18);animation:toastIn .25s ease;';
+  toast.innerHTML = `<div class="d-flex p-2 gap-2 align-items-start"><i class="fas ${icon} mt-1 ms-1" style="font-size:1rem;opacity:.9;flex-shrink:0;"></i><div class="toast-body flex-grow-1 py-0 fw-medium" style="font-size:.88rem;line-height:1.4;">${msg}</div><button type="button" class="${btnClose} me-1 m-auto shadow-none flex-shrink-0" style="font-size:.7rem;" onclick="this.closest('.toast').remove()"></button></div>`;
   container.appendChild(toast);
-  setTimeout(() => { toast.classList.replace('animate__fadeInUp', 'animate__fadeOutDown'); setTimeout(() => toast.remove(), 500); }, 2500);
+  setTimeout(() => { toast.style.animation = 'toastOut .3s ease forwards'; setTimeout(() => toast.remove(), 300); }, 3000);
+}
+
+function showAlert(msg) {
+  if (typeof msg !== 'string') msg = String(msg || '');
+  var type = 'success';
+  if (/^❌|error|ไม่สำเร็จ|ล้มเหลว|ผิดพลาด/i.test(msg)) type = 'danger';
+  else if (/^⚠️|กรุณา|warning/i.test(msg)) type = 'warning';
+  else if (/^✅|เรียบร้อย|สำเร็จ|บันทึก/i.test(msg)) type = 'success';
+  else if (/^ℹ️|กำลัง/i.test(msg)) type = 'info';
+  msg = msg.replace(/^[✅❌⚠️ℹ️]\s*/, '');
+  showToast(msg, type);
 }
 
 document.addEventListener('keydown', function(e) {

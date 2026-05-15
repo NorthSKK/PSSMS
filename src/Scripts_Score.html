@@ -13,7 +13,7 @@ function initSubjectConfigPage() {
 
   if (cachedSubjects && cachedSubjects !== "[]") { buildConfigSubjectDropdown(JSON.parse(cachedSubjects)); } 
   else {
-     google.script.run.withFailureHandler(err => { select.innerHTML = `<option value="">❌ โหลดข้อมูลล้มเหลว</option>`; alert("Error: " + err.message); })
+     google.script.run.withFailureHandler(err => { select.innerHTML = `<option value="">❌ โหลดข้อมูลล้มเหลว</option>`; showAlert("Error: " + err.message); })
        .withSuccessHandler(subjects => { sessionStorage.setItem(subjectCacheKey, JSON.stringify(subjects)); buildConfigSubjectDropdown(subjects); })
        .getTeacherSubjects(user.id, user.role, user.currentTerm, user.currentYear);
   }
@@ -215,7 +215,7 @@ window.appendExamIndicator = function(selectEl, type) {
 
 function saveSubjectConfigData() {
   const val = document.getElementById('configClassSelect').value;
-  if(!val) return alert("กรุณาเลือกวิชา");
+  if(!val) { showAlert("กรุณาเลือกวิชา"); return; }
   const total = parseInt(document.getElementById('totalScoreBadge').innerText);
   if(total !== 100) { if(!confirm("⚠️ สัดส่วนคะแนนรวมยังไม่ครบ 100 คะแนน ต้องการบันทึกต่อไปหรือไม่?")) return; }
 
@@ -242,7 +242,7 @@ function saveSubjectConfigData() {
   btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>กำลังบันทึก...'; btn.disabled = true;
 
   safeRun(3).withFailureHandler(err => {
-       btn.innerHTML = '<i class="fas fa-save me-2"></i>บันทึกโครงสร้างวิชา'; btn.disabled = false; alert("❌ เกิดข้อผิดพลาด: " + err.message);
+       btn.innerHTML = '<i class="fas fa-save me-2"></i>บันทึกโครงสร้างวิชา'; btn.disabled = false; showAlert("❌ เกิดข้อผิดพลาด: " + err.message);
   }).withSuccessHandler(res => { 
        btn.innerHTML = '<i class="fas fa-save me-2"></i>บันทึกโครงสร้างวิชา'; btn.disabled = false; showToast(res.message, 'success'); 
   }).saveSubjectConfig(configData);
@@ -992,7 +992,7 @@ function saveAllInOneScores(isSilent = false) {
         .withFailureHandler(err => {
           isSavingScores = false; 
           if(btn) { btn.disabled = false; btn.innerHTML = originalText; btn.className = originalBtnClass; }
-          if(!isSilent) alert("❌ ขัดข้องที่ระบบเซิร์ฟเวอร์: " + err.message);
+          if(!isSilent) showAlert("❌ ขัดข้องที่ระบบเซิร์ฟเวอร์: " + err.message);
         })
         .withSuccessHandler(res => {
           isSavingScores = false; 
@@ -1023,7 +1023,7 @@ function saveAllInOneScores(isSilent = false) {
   } catch(e) {
       isSavingScores = false; 
       if(btn) { btn.disabled = false; btn.innerHTML = originalText; btn.className = originalBtnClass; }
-      if(!isSilent) alert("❌ UI Error: " + e.message);
+      if(!isSilent) showAlert("❌ UI Error: " + e.message);
       console.error(e);
   }
 }
@@ -1139,7 +1139,7 @@ window.sgsGlobalListenersAdded = false;
 
 function openSGSExportModal() {
   if (!currentScoreStudents || currentScoreStudents.length === 0) {
-     return alert("⚠️ ไม่พบข้อมูลนักเรียน กรุณาโหลดรายวิชาก่อนครับ");
+     { showAlert("⚠️ ไม่พบข้อมูลนักเรียน กรุณาโหลดรายวิชาก่อนครับ"); return; }
   }
   renderSGSGrid('normal'); 
   const modal = new bootstrap.Modal(document.getElementById('sgsExportModal'));
@@ -1410,7 +1410,7 @@ window.copySGSSelected = function() {
     if(!tbody) return;
 
     const selectedCells = tbody.querySelectorAll('.sgs-selected');
-    if(selectedCells.length === 0) return alert('⚠️ กรุณาคลิกค้างแล้วลากคลุมช่องคะแนนที่ต้องการก่อนคัดลอกครับ');
+    if(selectedCells.length === 0) { showAlert('⚠️ กรุณาคลิกค้างแล้วลากคลุมช่องคะแนนที่ต้องการก่อนคัดลอกครับ'); return; }
 
     const minR = Math.min(startSGS.r, endSGS.r);
     const maxR = Math.max(startSGS.r, endSGS.r);
@@ -1433,8 +1433,8 @@ window.copySGSSelected = function() {
 
     navigator.clipboard.writeText(copyString.trimEnd()).then(() => {
         if (typeof showToast === 'function') showToast('✅ คัดลอกตารางลง Clipboard เรียบร้อย! (พร้อมวาง)', 'success');
-        else alert('คัดลอกสำเร็จ! นำไปคลิกขวาวางใน SGS ได้เลยครับ');
-    }).catch(err => alert('เบราว์เซอร์ไม่อนุญาตให้คัดลอก: ' + err));
+        else showAlert('คัดลอกสำเร็จ! นำไปคลิกขวาวางใน SGS ได้เลยครับ');
+    }).catch(err => showAlert('เบราว์เซอร์ไม่อนุญาตให้คัดลอก: ' + err));
 }
 
 function updateRemarkInstant(stdId, selectElement) {

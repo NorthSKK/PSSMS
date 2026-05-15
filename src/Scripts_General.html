@@ -178,7 +178,7 @@ window.requestNewDocNumber = function() {
             });
         } else {
             if(typeof showToast === 'function') showToast(res.message, 'error');
-            else alert(res.message);
+            else showAlert(res.message);
         }
     }).requestSarabunNumber(payload);
 };

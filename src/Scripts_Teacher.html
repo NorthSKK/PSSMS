@@ -622,10 +622,10 @@ window.copyRiskListByClass = function(cls) {
         if (typeof showToast === 'function') {
             showToast(`✅ คัดลอกรายชื่อห้อง ${cls} สำเร็จ!`, 'success');
         } else {
-            alert(`คัดลอกรายชื่อห้อง ${cls} สำเร็จ!`);
+            showAlert(`คัดลอกรายชื่อห้อง ${cls} สำเร็จ!`);
         }
     }).catch(err => {
-        alert('❌ เบราว์เซอร์ไม่รองรับการคัดลอก กรุณาเปลี่ยนเบราว์เซอร์ครับ: ' + err);
+        showAlert('❌ เบราว์เซอร์ไม่รองรับการคัดลอก กรุณาเปลี่ยนเบราว์เซอร์ครับ: ' + err);
     });
 }
 
@@ -635,7 +635,7 @@ window.copyRiskListByClass = function(cls) {
 window.printRiskStudents = function() {
     if (!window.currentRiskDetails || window.currentRiskDetails.length === 0) {
         if(typeof showToast === 'function') showToast('✅ ไม่มีนักเรียนกลุ่มเสี่ยงในขณะนี้ครับ', 'success');
-        else alert('ไม่มีนักเรียนกลุ่มเสี่ยงในขณะนี้ครับ');
+        else showAlert('ไม่มีนักเรียนกลุ่มเสี่ยงในขณะนี้ครับ');
         return;
     }
 
@@ -935,7 +935,7 @@ function tcShowTab(tab, btn) {
 }
 
 function tcPrintMembers() {
-  if (!_tcMembers.length) { alert('ไม่มีสมาชิกให้พิมพ์'); return; }
+  if (!_tcMembers.length) { showAlert('ไม่มีสมาชิกให้พิมพ์'); return; }
   const user = JSON.parse(localStorage.getItem('pssms_user'));
   const byClass = {};
   _tcMembers.forEach(function(m){(byClass[m.className]=byClass[m.className]||[]).push(m);});

@@ -61,7 +61,7 @@ function reloadTimetableByDate(forceRefresh = false) {
 
   showLoader(true);
   google.script.run
-    .withFailureHandler(err => { showLoader(false); alert("Error: " + err.message); })
+    .withFailureHandler(err => { showLoader(false); showAlert("Error: " + err.message); })
     .withSuccessHandler(function(timetable) {
       try { sessionStorage.setItem(cacheKey, JSON.stringify(timetable)); } catch(e){} 
       buildTimetableDropdown(timetable);
@@ -210,7 +210,7 @@ function loadStudentList(forceRefresh = false) {
       fetchHistoryAndRender(currentStudents);
   } else {
       const runner = google.script.run
-        .withFailureHandler(err => { showLoader(false); alert("Error: " + err.message); })
+        .withFailureHandler(err => { showLoader(false); showAlert("Error: " + err.message); })
         .withSuccessHandler(function(students) {
             currentStudents = students;
             if(!students || students.length === 0) {
@@ -390,7 +390,7 @@ function submitMorningCheckAcademic() {
   const className = getRealClassName();
   
   const sigData = getCompressedSignature();
-  if(sigData.length < 1000) return alert("กรุณาลงลายเซ็นครูที่ปรึกษาก่อนบันทึกครับ");
+  if(sigData.length < 1000) { showAlert("กรุณาลงลายเซ็นครูที่ปรึกษาก่อนบันทึกครับ"); return; }
 
   const records = [];
   currentStudents.forEach(s => {
@@ -420,7 +420,7 @@ function submitMorningCheckAcademic() {
       showLoader(false);
       btn.innerHTML = oldText;
       btn.disabled = false;
-      alert(res.message);
+      showAlert(res.message);
       sessionStorage.clear();
       loadStudentList(true);
       clearSignature();
@@ -429,7 +429,7 @@ function submitMorningCheckAcademic() {
       showLoader(false);
       btn.innerHTML = oldText;
       btn.disabled = false;
-      alert("❌ เกิดข้อผิดพลาด: " + err.message);
+      showAlert("❌ เกิดข้อผิดพลาด: " + err.message);
     })
     .saveMorningActivityBatch(payload);
 }
@@ -439,7 +439,7 @@ function getSessionUser() { try { return JSON.parse(localStorage.getItem('pssms_
 function viewTodayHistory() {
   const classVal = document.getElementById('selectClass').value;
   const dateInput = document.getElementById('teachingDate'); 
-  if(!classVal) return alert("กรุณาเลือกวิชาที่สอนก่อนครับ");
+  if(!classVal) { showAlert("กรุณาเลือกวิชาที่สอนก่อนครับ"); return; }
   
   const item = JSON.parse(classVal);
   const subjectCode = item[0];
@@ -449,7 +449,7 @@ function viewTodayHistory() {
   showLoader(true);
   google.script.run.withSuccessHandler(function(history) {
     showLoader(false);
-    if (!history || history.length === 0) return alert("วันที่เลือกยังไม่มีการบันทึกข้อมูลครับ");
+    if (!history || history.length === 0) { showAlert("วันที่เลือกยังไม่มีการบันทึกข้อมูลครับ"); return; }
     tempHistoryData = history;
     renderHistoryModal(subjectCode);
   }).getTodayAttendanceHistory(dateStr, subjectCode, className);
@@ -457,7 +457,7 @@ function viewTodayHistory() {
 
 function viewAllHistory() {
   const classVal = document.getElementById('selectClass').value;
-  if(!classVal) return alert("กรุณาเลือกวิชาที่สอนก่อนครับ");
+  if(!classVal) { showAlert("กรุณาเลือกวิชาที่สอนก่อนครับ"); return; }
   
   const item = JSON.parse(classVal);
   const subjectCode = item[0];
@@ -500,7 +500,7 @@ function loadHistoryForEdit(dateStr) {
   google.script.run.withSuccessHandler(function(historyArray) {
     showLoader(false);
     tempHistoryData = historyArray;
-    if (!tempHistoryData || tempHistoryData.length === 0) return alert("ไม่พบข้อมูลรายละเอียด");
+    if (!tempHistoryData || tempHistoryData.length === 0) { showAlert("ไม่พบข้อมูลรายละเอียด"); return; }
     renderHistoryModal(subjectCode);
   }).getTodayAttendanceHistory(dateStr, subjectCode, className);
 }
@@ -528,15 +528,15 @@ function saveAllHistoryChanges() {
   const user = getSessionUser();
   showLoader(true);
   safeRun(3)
-    .withFailureHandler(function(err) { showLoader(false); alert("❌ เกิดข้อผิดพลาด: " + err.message); })
+    .withFailureHandler(function(err) { showLoader(false); showAlert("❌ เกิดข้อผิดพลาด: " + err.message); })
     .withSuccessHandler(function(res) {
     showLoader(false);
     if(res.status === "success") {
-      alert("✅ " + res.message);
+      showAlert("✅ " + res.message);
       document.getElementById('historyModal').remove();
       if(user) sessionStorage.removeItem(`risk_dash_${user.id}_${user.currentTerm}_${user.currentYear}`);
       loadStudentList(true); 
-    } else { alert("❌ เกิดข้อผิดพลาด: " + res.message); }
+    } else { showAlert("❌ เกิดข้อผิดพลาด: " + res.message); }
   }).updateAttendanceBatch(tempHistoryData); 
 }
 
@@ -645,10 +645,10 @@ function submitAcademicData() {
   const dateInput = document.getElementById('teachingDate'); 
   const user = getSessionUser();
   
-  if(!topic) return alert("กรุณาระบุหัวข้อที่สอนด้วยครับ");
+  if(!topic) { showAlert("กรุณาระบุหัวข้อที่สอนด้วยครับ"); return; }
   
   const sigData = getCompressedSignature();
-  if(sigData.length < 1000) return alert("กรุณาลงชื่อผู้สอนก่อนบันทึกครับ");
+  if(sigData.length < 1000) { showAlert("กรุณาลงชื่อผู้สอนก่อนบันทึกครับ"); return; }
 
   const btn = document.getElementById('btnSubmitAll');
   btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> กำลังบันทึก...';
@@ -672,14 +672,14 @@ function submitAcademicData() {
 
   showLoader(true);
   safeRun(3)
-    .withFailureHandler(function(err) { showLoader(false); btn.disabled = false; btn.innerHTML = 'บันทึกข้อมูลทั้งหมด'; alert("❌ เกิดข้อผิดพลาด: " + err.message); })
+    .withFailureHandler(function(err) { showLoader(false); btn.disabled = false; btn.innerHTML = 'บันทึกข้อมูลทั้งหมด'; showAlert("❌ เกิดข้อผิดพลาด: " + err.message); })
     .withSuccessHandler(function() {
       safeRun(3)
-        .withFailureHandler(function(err) { showLoader(false); btn.disabled = false; btn.innerHTML = 'บันทึกข้อมูลทั้งหมด'; alert("❌ เกิดข้อผิดพลาดตอนบันทึกการสอน: " + err.message); })
+        .withFailureHandler(function(err) { showLoader(false); btn.disabled = false; btn.innerHTML = 'บันทึกข้อมูลทั้งหมด'; showAlert("❌ เกิดข้อผิดพลาดตอนบันทึกการสอน: " + err.message); })
         .withSuccessHandler(function() {
           showLoader(false);
           sessionStorage.clear();
-          alert("✅ บันทึกข้อมูลเช็คชื่อและผลการสอนเรียบร้อยแล้ว");
+          showAlert("✅ บันทึกข้อมูลเช็คชื่อและผลการสอนเรียบร้อยแล้ว");
           loadStudentList(true); 
           clearSignature(); 
       }).saveLessonRecord(lessonRecord);
@@ -701,7 +701,7 @@ let massiveGridData = {};
 
 function openMassiveGrid() {
     const classVal = document.getElementById('selectClass').value;
-    if(!classVal) return alert("⚠️ กรุณาเลือกรายวิชาที่สอนจากดรอปดาวน์ด้านบนก่อนครับ!");
+    if(!classVal) { showAlert("⚠️ กรุณาเลือกรายวิชาที่สอนจากดรอปดาวน์ด้านบนก่อนครับ!"); return; }
     
     const item = JSON.parse(classVal);
     const subjectCode = item[0];
@@ -716,7 +716,7 @@ function openMassiveGrid() {
         massiveGridData.subjectName = item[1];
         massiveGridData.className = className;
         renderMassiveGridModal();
-    }).withFailureHandler(err => { showLoader(false); alert("Error: "+err.message); })
+    }).withFailureHandler(err => { showLoader(false); showAlert("Error: "+err.message); })
     .getMassiveAttendanceGrid(subjectCode, className, user.currentTerm, user.currentYear);
 }
 
@@ -848,9 +848,9 @@ function markAllAsPresent() {
     });
 
     if (count > 0) {
-        alert(`✅ ทำการเช็ค 'มา' ให้ทั้งหมด ${count} ช่องเรียบร้อยแล้ว!\n\nอย่าลืมกดปุ่ม [บันทึกข้อมูลทั้งหมด] เพื่อยืนยันลงฐานข้อมูลด้วยนะครับ`);
+        showAlert(`✅ ทำการเช็ค 'มา' ให้ทั้งหมด ${count} ช่องเรียบร้อยแล้ว!\n\nอย่าลืมกดปุ่ม [บันทึกข้อมูลทั้งหมด] เพื่อยืนยันลงฐานข้อมูลด้วยนะครับ`);
     } else {
-        alert("ไม่มีช่องว่างที่ต้องเช็คเพิ่มแล้วครับ");
+        showAlert("ไม่มีช่องว่างที่ต้องเช็คเพิ่มแล้วครับ");
     }
 }
 
@@ -941,10 +941,10 @@ function confirmAddSingleSession() {
     const dateStr = document.getElementById('as_single_date').value;
     const periodStr = document.getElementById('as_single_period').value;
     
-    if(!dateStr || !periodStr) return alert("กรุณากรอกข้อมูลให้ครบถ้วนครับ");
+    if(!dateStr || !periodStr) { showAlert("กรุณากรอกข้อมูลให้ครบถ้วนครับ"); return; }
     
     if (massiveGridData.sessions.some(s => s.date === dateStr && s.period === periodStr)) {
-        return alert("⚠️ คาบเรียนนี้มีแสดงอยู่ในตารางแล้วครับ!");
+        { showAlert("⚠️ คาบเรียนนี้มีแสดงอยู่ในตารางแล้วครับ!"); return; }
     }
     
     massiveGridData.sessions.push({ date: dateStr, period: periodStr, displayDate: dateStr });
@@ -959,7 +959,7 @@ function confirmAddAutoSessions() {
     const startStr = document.getElementById('as_auto_start').value;
     const endStr = document.getElementById('as_auto_end').value;
 
-    if(!period || !startStr || !endStr) return alert("กรุณากรอกข้อมูลให้ครบถ้วนครับ");
+    if(!period || !startStr || !endStr) { showAlert("กรุณากรอกข้อมูลให้ครบถ้วนครับ"); return; }
 
     const startDate = new Date(startStr);
     const endDate = new Date(endStr);
@@ -983,9 +983,9 @@ function confirmAddAutoSessions() {
         massiveGridData.sessions.sort((a, b) => a.date.localeCompare(b.date) || parseInt(a.period) - parseInt(b.period));
         renderMassiveGridModal();
         bootstrap.Modal.getInstance(document.getElementById('addSessionModal')).hide();
-        alert(`✅ ดึงคาบเรียนอัตโนมัติสำเร็จ ได้คอลัมน์เพิ่มมา ${addedCount} คาบครับ!`);
+        showAlert(`✅ ดึงคาบเรียนอัตโนมัติสำเร็จ ได้คอลัมน์เพิ่มมา ${addedCount} คาบครับ!`);
     } else {
-        alert("⚠️ ไม่พบวันที่ตรงกับเงื่อนไข หรือคาบเรียนเหล่านี้มีอยู่แล้วในตารางครับ");
+        showAlert("⚠️ ไม่พบวันที่ตรงกับเงื่อนไข หรือคาบเรียนเหล่านี้มีอยู่แล้วในตารางครับ");
     }
 }
 
@@ -1021,7 +1021,7 @@ function saveMassiveGrid() {
         });
     });
     
-    if (updates.length === 0 && newRecords.length === 0) return alert("ยังไม่มีการเปลี่ยนแปลงข้อมูลครับ (ช่องสีเทา '-' จะไม่ถูกบันทึก)");
+    if (updates.length === 0 && newRecords.length === 0) return showAlert("ยังไม่มีการเปลี่ยนแปลงข้อมูลครับ (ช่องสีเทา '-' จะไม่ถูกบันทึก)");
     if (!confirm(`ยืนยันการบันทึกข้อมูลใช่ไหมครับ?\n\n- อัปเดตข้อมูลเดิม: ${updates.length} รายการ\n- เพิ่มเช็คชื่อคาบใหม่: ${newRecords.length} รายการ`)) return;
     
     const btn = document.querySelector('#massiveGridModal .btn-success');
@@ -1031,11 +1031,11 @@ function saveMassiveGrid() {
     
     safeRun(3).withFailureHandler(err => {
         btn.innerHTML = oldText; btn.disabled = false;
-        alert("❌ เกิดข้อผิดพลาด: " + err.message);
+        showAlert("❌ เกิดข้อผิดพลาด: " + err.message);
     }).withSuccessHandler(res => {
         btn.innerHTML = oldText; btn.disabled = false;
         if (res.status === 'success') {
-            alert("✅ " + res.message);
+            showAlert("✅ " + res.message);
             
             // 🌟 แก้ไข: ทุบจอดำ (Modal Backdrop) ทิ้งแบบ 100% ป้องกันการค้าง
             const modalEl = document.getElementById('massiveGridModal');
@@ -1054,7 +1054,7 @@ function saveMassiveGrid() {
             }, 400);
 
         } else {
-            alert("❌ เกิดข้อผิดพลาด: " + res.message);
+            showAlert("❌ เกิดข้อผิดพลาด: " + res.message);
         }
     }).saveMassiveAttendanceGrid(
         massiveGridData.subjectCode, massiveGridData.subjectName, massiveGridData.className,
@@ -1078,7 +1078,7 @@ function initLessonHistoryPage() {
      renderLessonHistoryCards(allLessonHistories); return;
   }
   showLoader(true);
-  google.script.run.withFailureHandler(err => { showLoader(false); alert("Error: " + err.message); })
+  google.script.run.withFailureHandler(err => { showLoader(false); showAlert("Error: " + err.message); })
     .withSuccessHandler(res => { showLoader(false); sessionStorage.setItem(cacheKey, JSON.stringify(res)); allLessonHistories = res; renderLessonHistoryCards(res); })
     .getDetailedLessonRecords(user.id, user.currentTerm, user.currentYear);
 }
@@ -1119,11 +1119,11 @@ function renderLessonHistoryCards(data) {
 function deleteLessonHistory(encodedTs) {
   if(!confirm("⚠️ ยืนยันการลบบันทึกหลังสอนรายการนี้ใช่หรือไม่? (ลบแล้วไม่สามารถกู้คืนได้)")) return;
   const ts = decodeURIComponent(encodedTs); showLoader(true);
-  google.script.run.withSuccessHandler(res => { showLoader(false); alert(res.message); if(res.status === 'success') { const user = getSessionUser(); sessionStorage.removeItem(`lesson_history_${user.id}_${user.currentTerm}_${user.currentYear}`); initLessonHistoryPage(); } }).deleteDetailedLessonRecord(ts);
+  google.script.run.withSuccessHandler(res => { showLoader(false); showAlert(res.message); if(res.status === 'success') { const user = getSessionUser(); sessionStorage.removeItem(`lesson_history_${user.id}_${user.currentTerm}_${user.currentYear}`); initLessonHistoryPage(); } }).deleteDetailedLessonRecord(ts);
 }
 
 function openEditLessonHistory(encodedTs) {
-  const ts = decodeURIComponent(encodedTs); const item = allLessonHistories.find(i => String(i.timestamp) === ts); if(!item) return alert("ไม่พบข้อมูล");
+  const ts = decodeURIComponent(encodedTs); const item = allLessonHistories.find(i => String(i.timestamp) === ts); if(!item) { showAlert("ไม่พบข้อมูล"); return; }
   document.getElementById('edit_dl_ts').value = ts; document.getElementById('edit_dl_topic').value = item.topic; document.getElementById('edit_dl_outcomes').value = item.outcomes; document.getElementById('edit_dl_problems').value = item.problems; document.getElementById('edit_dl_solutions').value = item.solutions; document.getElementById('edit_dl_student_results').value = item.studentResults;
   document.querySelectorAll('.edit-dpa-check').forEach(cb => cb.checked = false); document.querySelectorAll('.edit-skill-check').forEach(cb => cb.checked = false);
   item.dpa.forEach(val => { const cb = document.querySelector(`.edit-dpa-check[value="${val}"]`); if(cb) cb.checked = true; });
@@ -1141,10 +1141,10 @@ async function saveEditLessonHistory() {
     const workFileBase64 = await getBase64(workFile); const imageFileBase64 = await getBase64(imageFile);
     const record = { topic: document.getElementById('edit_dl_topic').value, outcomes: document.getElementById('edit_dl_outcomes').value, problems: document.getElementById('edit_dl_problems').value, solutions: document.getElementById('edit_dl_solutions').value, dpa: dpaValues, skills: skillValues, studentResults: document.getElementById('edit_dl_student_results').value, workFileBase64: workFileBase64, imageFileBase64: imageFileBase64 };
     safeRun(3)
-      .withFailureHandler(err => { btn.disabled = false; btn.innerHTML = oldText; alert("❌ Error: " + err.message); })
-      .withSuccessHandler(res => { btn.disabled = false; btn.innerHTML = oldText; bootstrap.Modal.getInstance(document.getElementById('editLessonHistoryModal')).hide(); alert(res.message); if (res.status === 'success') { const user = getSessionUser(); sessionStorage.removeItem(`lesson_history_${user.id}_${user.currentTerm}_${user.currentYear}`); initLessonHistoryPage(); } })
+      .withFailureHandler(err => { btn.disabled = false; btn.innerHTML = oldText; showAlert("❌ Error: " + err.message); })
+      .withSuccessHandler(res => { btn.disabled = false; btn.innerHTML = oldText; bootstrap.Modal.getInstance(document.getElementById('editLessonHistoryModal')).hide(); showAlert(res.message); if (res.status === 'success') { const user = getSessionUser(); sessionStorage.removeItem(`lesson_history_${user.id}_${user.currentTerm}_${user.currentYear}`); initLessonHistoryPage(); } })
       .updateDetailedLessonRecord(ts, record);
-  } catch(e) { btn.disabled = false; btn.innerHTML = oldText; alert("Error: " + e.message); }
+  } catch(e) { btn.disabled = false; btn.innerHTML = oldText; showAlert("Error: " + e.message); }
 }
 
 // ==========================================
@@ -1313,7 +1313,7 @@ function reloadReportSubjects() {
     .withFailureHandler(err => { 
         select.innerHTML = '<option value="">❌ เกิดข้อผิดพลาด</option>'; 
         select.disabled = false; 
-        alert("ไม่สามารถดึงรายวิชาได้: " + err.message); 
+        showAlert("ไม่สามารถดึงรายวิชาได้: " + err.message); 
     })
     .withSuccessHandler(subjects => { 
         sessionStorage.setItem(subjectCacheKey, JSON.stringify(subjects)); 
@@ -1339,7 +1339,7 @@ function buildReportSubjectDropdown(subjects, term, year) {
 
 function generateReport() {
   const val = document.getElementById('reportClassSelect').value;
-  if(!val) return alert("กรุณาเลือกรายวิชาก่อนครับ");
+  if(!val) { showAlert("กรุณาเลือกรายวิชาก่อนครับ"); return; }
   
   const term = document.getElementById('reportTerm').value; 
   const year = document.getElementById('reportYear').value; 
@@ -1348,7 +1348,7 @@ function generateReport() {
 
   if (val === "ALL") {
     google.script.run
-      .withFailureHandler(err => { showLoader(false); alert("Error: " + err.message); })
+      .withFailureHandler(err => { showLoader(false); showAlert("Error: " + err.message); })
       .withSuccessHandler(function(res) { 
           try { renderAllSubjectsReportTable(res); } 
           catch (e) { showLoader(false); console.error(e); } 
@@ -1358,7 +1358,7 @@ function generateReport() {
     try {
       const item = JSON.parse(val); 
       google.script.run
-        .withFailureHandler(err => { showLoader(false); alert("Error: " + err.message); })
+        .withFailureHandler(err => { showLoader(false); showAlert("Error: " + err.message); })
         .withSuccessHandler(function(res) { 
             try { renderReportTable(res, item[0], item[1], item[2]); } 
             catch (e) { showLoader(false); console.error(e); } 
@@ -1366,7 +1366,7 @@ function generateReport() {
         .getSemesterReport(item[0], item[2], term, year);
     } catch (e) { 
         showLoader(false); 
-        alert("ข้อมูลรายวิชาไม่ถูกต้อง: " + e.message); 
+        showAlert("ข้อมูลรายวิชาไม่ถูกต้อง: " + e.message); 
     }
   }
 }
@@ -1501,15 +1501,15 @@ function renderAllSubjectsReportTable(data) {
 
 function openDetailedLessonModal() {
   var topic = document.getElementById('inputTopic').value;
-  if(!topic) { alert('กรุณากรอก "หัวข้อที่สอน" ก่อนกดบันทึกแบบละเอียด'); document.getElementById('inputTopic').focus(); return; }
-  if(sigCanvas && sigCanvas.toDataURL().length < 1000) { alert('กรุณาลงชื่อผู้สอนก่อน'); return; }
+  if(!topic) { showAlert('กรุณากรอก "หัวข้อที่สอน" ก่อนกดบันทึกแบบละเอียด'); document.getElementById('inputTopic').focus(); return; }
+  if(sigCanvas && sigCanvas.toDataURL().length < 1000) { showAlert('กรุณาลงชื่อผู้สอนก่อน'); return; }
   document.getElementById('detailedLessonForm').reset();
   new bootstrap.Modal(document.getElementById('detailedLessonModal')).show();
 }
 
 async function submitDetailedLesson() {
   var classVal = document.getElementById('selectClass').value;
-  if(!classVal) { alert('กรุณาเลือกวิชาก่อน'); return; }
+  if(!classVal) { showAlert('กรุณาเลือกวิชาก่อน'); return; }
   var item = JSON.parse(classVal);
   var topic = document.getElementById('inputTopic').value;
   var dateInput = document.getElementById('teachingDate');
@@ -1563,7 +1563,7 @@ async function submitDetailedLesson() {
           bootstrap.Modal.getInstance(document.getElementById('detailedLessonModal')).hide();
           sessionStorage.removeItem('risk_dash_' + user.id + '_' + user.currentTerm + '_' + user.currentYear);
           sessionStorage.removeItem('lesson_history_' + user.id + '_' + user.currentTerm + '_' + user.currentYear);
-          alert(res.message);
+          showAlert(res.message);
           loadPage('Page_Dashboard_Teacher');
         }).saveDetailedLessonRecord(detailedRecord);
       }).saveLessonRecord(basicRecord);
@@ -1571,7 +1571,7 @@ async function submitDetailedLesson() {
 
   } catch(err) {
     showLoader(false); submitBtn.disabled = false; submitBtn.innerHTML = originalBtnText;
-    alert('เกิดข้อผิดพลาด: ' + err.message);
+    showAlert('เกิดข้อผิดพลาด: ' + err.message);
   }
 }
 

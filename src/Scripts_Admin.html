@@ -90,13 +90,13 @@ function saveConfig() {
   
   // 🌟 บังคับให้อ่านค่าจากช่องตรงๆ เลย จะได้ไม่เกิดอาการ Error ข้อมูลไม่ครบ
   if(!term || !year || !startDate || !endDate) {
-      return alert('⚠️ กรุณาระบุวันที่เปิดและปิดภาคเรียนให้ครบถ้วนก่อนบันทึกครับ');
+      { showAlert('⚠️ กรุณาระบุวันที่เปิดและปิดภาคเรียนให้ครบถ้วนก่อนบันทึกครับ'); return; }
   }
   
   showLoader(true);
   safeRun(3).withSuccessHandler(function(res) { 
     showLoader(false); 
-    alert(res.message); 
+    showAlert(res.message); 
     loadCurrentConfig(); 
     if (typeof syncSystemTerm === 'function') syncSystemTerm(); 
   }).saveSystemConfig(term, year, startDate, endDate);
@@ -225,17 +225,17 @@ function saveUser() {
     email: document.getElementById('inputEmail').value,
     status: document.getElementById('inputStatus') ? document.getElementById('inputStatus').value : 'ปกติ'
   };
-  if(!form.username || !form.password || !form.fullname) return alert("ข้อมูลไม่ครบ");
+  if(!form.username || !form.password || !form.fullname) { showAlert("ข้อมูลไม่ครบ"); return; }
   showLoader(true);
   const action = mode === 'add' ? 'addUser' : 'editUser';
   google.script.run.withSuccessHandler(res => { 
-    showLoader(false); alert(res.message); 
+    showLoader(false); showAlert(res.message); 
     if(res.status === 'success') { bootstrap.Modal.getInstance(document.getElementById('userModal')).hide(); loadUserData(); } 
   })[action](form);
 }
 
 function confirmDelete(id) {
-  if(confirm('ยืนยันลบ ' + id + '?')) { showLoader(true); google.script.run.withSuccessHandler(res => { showLoader(false); alert(res.message); loadUserData(); }).deleteUser(id); }
+  if(confirm('ยืนยันลบ ' + id + '?')) { showLoader(true); google.script.run.withSuccessHandler(res => { showLoader(false); showAlert(res.message); loadUserData(); }).deleteUser(id); }
 }
 
 function _filterTableImpl() {
@@ -254,7 +254,7 @@ function handleFileUpload(input, type) {
   reader.onload = e => {
     const content = e.target.result.split(',')[1];
     const func = type === 'student' ? 'importStudentCSV' : 'importTeacherCSV';
-    google.script.run.withSuccessHandler(res => { document.getElementById('uploadStatus').classList.add('d-none'); alert(res.message); input.value = ''; loadUserData(); })[func](content);
+    google.script.run.withSuccessHandler(res => { document.getElementById('uploadStatus').classList.add('d-none'); showAlert(res.message); input.value = ''; loadUserData(); })[func](content);
   };
   reader.readAsDataURL(file);
 }
@@ -296,18 +296,18 @@ function handleTimetableUpload(inputElement) {
         inputElement.value = ''; // เคลียร์ไฟล์ที่เลือก
         
         if (res.status === 'success') {
-          alert(res.message);
+          showAlert(res.message);
           // รีเฟรชตารางโชว์ทันที
           if (typeof viewTimetable === 'function') viewTimetable(); 
         } else {
-          alert('❌ เกิดข้อผิดพลาด: ' + res.message);
+          showAlert('❌ เกิดข้อผิดพลาด: ' + res.message);
         }
       })
       .withFailureHandler(err => {
         labelBtn.innerHTML = originalHTML;
         labelBtn.style.pointerEvents = 'auto';
         inputElement.value = '';
-        alert('❌ Error ระบบหลังบ้าน: ' + err.message);
+        showAlert('❌ Error ระบบหลังบ้าน: ' + err.message);
       })
       .importTimetableCSV(base64Data, clearOldData); // ส่งไปฟังก์ชัน Code.js
   };
@@ -435,7 +435,7 @@ function openEditTimetable(rowIndex) {
   if(modalEl) {
     if (!editModalInstance) editModalInstance = new bootstrap.Modal(modalEl);
     editModalInstance.show();
-  } else { alert("ไม่พบ HTML ของ Modal"); }
+  } else { showAlert("ไม่พบ HTML ของ Modal"); }
 }
 
 function saveTimetableEdit() {
@@ -452,7 +452,7 @@ function saveTimetableEdit() {
   const btn = document.getElementById('btnSaveTimetable');
   btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
   google.script.run.withSuccessHandler(res => { 
-    btn.disabled = false; btn.innerHTML = 'บันทึกการแก้ไข'; alert(res.message); 
+    btn.disabled = false; btn.innerHTML = 'บันทึกการแก้ไข'; showAlert(res.message); 
     if(editModalInstance) editModalInstance.hide(); viewTimetable(); 
   }).updateTimetableRow(rowIndex, rowData);
 }
@@ -460,7 +460,7 @@ function saveTimetableEdit() {
 function confirmDeleteTimetable() {
   if(confirm('ยืนยันลบคาบเรียนนี้?')) {
     const rowIndex = document.getElementById('editRowIndex').value;
-    google.script.run.withSuccessHandler(res => { alert(res.message); if(editModalInstance) editModalInstance.hide(); viewTimetable(); }).deleteTimetableRow(rowIndex);
+    google.script.run.withSuccessHandler(res => { showAlert(res.message); if(editModalInstance) editModalInstance.hide(); viewTimetable(); }).deleteTimetableRow(rowIndex);
   }
 }
 
@@ -792,14 +792,14 @@ function executePromotion() {
         if (modalObj) modalObj.hide();
         
         // 🌟 โชว์สรุปผลให้แอดมินดูแบบชัดเจน
-        alert(res.message); 
+        showAlert(res.message); 
         
         // โหลดข้อมูลตารางนักเรียนมาแสดงใหม่
         loadUserData(); 
       } else {
         btn.disabled = false;
         // ถ้าขึ้น Error จากหลังบ้าน (เช่น ลืมเปลี่ยนปีการศึกษา) จะเด้ง Alert
-        alert(res.message);
+        showAlert(res.message);
       }
     })
     .promoteStudentsToNextYear();
@@ -833,7 +833,7 @@ function initAdminClubs() {
 
 function setupClubDb() {
   if (!confirm('สร้าง/ตรวจสอบฐานข้อมูลชุมนุม (Club_Database, Club_Advisors, Club_Members)?')) return;
-  google.script.run.withSuccessHandler(res => { alert(res.message); loadClubList(); }).setupClubDatabase();
+  google.script.run.withSuccessHandler(res => { showAlert(res.message); loadClubList(); }).setupClubDatabase();
 }
 
 function loadClubList() {
@@ -982,7 +982,7 @@ function submitClubForm() {
   const user = JSON.parse(localStorage.getItem('pssms_user'));
   const clubId = document.getElementById('clubFormId').value;
   const clubName = document.getElementById('clubFormName').value.trim();
-  if (!clubName) { alert('กรุณากรอกชื่อชุมนุม'); return; }
+  if (!clubName) { showAlert('กรุณากรอกชื่อชุมนุม'); return; }
 
   const advisors = Object.keys(_clubSelectedAdvisors).map(tid => {
     const t = _clubTeacherList.find(x => x.id === tid);
@@ -1011,7 +1011,7 @@ function submitClubForm() {
       bootstrap.Modal.getInstance(document.getElementById('clubModal')).hide();
       loadClubList();
     } else {
-      alert('❌ ' + res.message);
+      showAlert('❌ ' + res.message);
     }
   };
 
@@ -1022,7 +1022,7 @@ function submitClubForm() {
 function deleteClubBtn(clubId, clubName) {
   if (!confirm(`ลบชุมนุม "${clubName}" และสมาชิกทั้งหมด?\nการดำเนินการนี้ย้อนกลับไม่ได้`)) return;
   google.script.run.withSuccessHandler(res => {
-    alert(res.message);
+    showAlert(res.message);
     if (res.status === 'success') loadClubList();
   }).deleteClub(clubId);
 }
@@ -1130,14 +1130,14 @@ function adminAddMemberBtn(studentId, studentName) {
         _clubMembersCache = _clubMembersCache.filter(m => m.studentId !== studentId);
         renderClubMembersList(_clubMembersCache);
         loadMembersStudentList();
-        alert('❌ ' + (res ? res.message : 'ไม่ทราบสาเหตุ'));
+        showAlert('❌ ' + (res ? res.message : 'ไม่ทราบสาเหตุ'));
       }
     })
     .withFailureHandler(err => {
       _clubMembersCache = _clubMembersCache.filter(m => m.studentId !== studentId);
       renderClubMembersList(_clubMembersCache);
       loadMembersStudentList();
-      alert('❌ เพิ่มสมาชิกล้มเหลว: ' + err.message);
+      showAlert('❌ เพิ่มสมาชิกล้มเหลว: ' + err.message);
     })
     .adminAddMember(clubId, studentId);
 }
@@ -1146,16 +1146,16 @@ function adminRemoveMemberBtn(studentId, studentName) {
   if (!confirm(`ลบ ${studentName} ออกจากชุมนุม?`)) return;
   google.script.run.withSuccessHandler(res => {
     if (res.status === 'success') { loadClubMembersData(); loadClubList(); setTimeout(loadMembersStudentList, 400); }
-    else alert('❌ ' + res.message);
+    else showAlert('❌ ' + res.message);
   }).adminRemoveMember(_currentClubForMembers.clubId, studentId);
 }
 
 // --- Export / Print ---
 function exportClubsPrint() {
   const user = JSON.parse(localStorage.getItem('pssms_user'));
-  if (!_clubList.length) { alert('ยังไม่มีชุมนุมในเทอมนี้'); return; }
+  if (!_clubList.length) { showAlert('ยังไม่มีชุมนุมในเทอมนี้'); return; }
   google.script.run.withSuccessHandler(payload => {
-    if (!payload || !payload.clubs) { alert('ไม่สามารถดึงข้อมูลได้'); return; }
+    if (!payload || !payload.clubs) { showAlert('ไม่สามารถดึงข้อมูลได้'); return; }
     const win = window.open('', '_blank');
     let body = `<h1 style="text-align:center;">รายชื่อสมาชิกชุมนุม (ทั้งหมด)</h1>
       <h3 style="text-align:center;">ภาคเรียนที่ ${payload.term} ปีการศึกษา ${payload.year}</h3>
@@ -1204,7 +1204,7 @@ function exportClubsPrint() {
 function exportClubsCSV() {
   const user = JSON.parse(localStorage.getItem('pssms_user'));
   google.script.run.withSuccessHandler(payload => {
-    if (!payload || !payload.clubs) { alert('ไม่สามารถดึงข้อมูลได้'); return; }
+    if (!payload || !payload.clubs) { showAlert('ไม่สามารถดึงข้อมูลได้'); return; }
     let csv = '﻿'; // UTF-8 BOM for Excel Thai support
     csv += 'ชุมนุม,ครูที่ปรึกษา,รหัสประจำตัว,ชื่อ-สกุล,ห้อง,สมัครเมื่อ,สมัครโดย\n';
     payload.clubs.forEach(c => {
