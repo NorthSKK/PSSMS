@@ -95,8 +95,36 @@ window.throttle = function(fn, limit) {
 // ==========================================
 window.onload = function() {
   applySavedTheme();
+  _applyStoredSchoolBranding();
   checkAutoLogin();
 };
+
+function _applySchoolLogo(url) {
+  if (!url) return;
+  ['sidebar', 'login'].forEach(function(prefix) {
+    var icon = document.getElementById(prefix + 'LogoIcon');
+    var img  = document.getElementById(prefix + 'LogoImg');
+    if (!icon || !img) return;
+    img.src = url;
+    img.style.display = '';
+    icon.style.display = 'none';
+  });
+}
+
+function _applySchoolName(name) {
+  if (!name) return;
+  var sidebar = document.getElementById('sidebarSchoolName');
+  var login   = document.getElementById('loginSchoolName');
+  if (sidebar) sidebar.textContent = name;
+  if (login)   login.textContent   = name;
+}
+
+function _applyStoredSchoolBranding() {
+  var logo = localStorage.getItem('pssms_school_logo');
+  var name = localStorage.getItem('pssms_school_name');
+  if (logo) _applySchoolLogo(logo);
+  if (name) _applySchoolName(name);
+}
 
 function formatThaiDate(dateString) {
   if (!dateString || dateString === "undefined" || dateString === "") return "ยังไม่กำหนด";
@@ -385,15 +413,21 @@ function filterSavedAccounts(query) {
   const roleIcon = { ADMIN: 'fa-shield-alt text-danger', TEACHER: 'fa-chalkboard-teacher text-primary', STUDENT: 'fa-user-graduate text-success', EXECUTIVE: 'fa-user-tie text-warning' };
   box.innerHTML = accounts.map(a => {
     const icon = roleIcon[(a.r || '').toUpperCase()] || 'fa-user text-muted';
+    const safeU = a.u.replace(/'/g,"\\'");
     return `<div class="d-flex align-items-center gap-2 px-3 py-2 border-bottom"
                  style="cursor:pointer;transition:.15s"
                  onmouseover="this.style.background='#f8f9fa'" onmouseout="this.style.background=''"
-                 onmousedown="fillAccount('${a.u.replace(/'/g,"\\'")}','${a.p}')">
+                 onmousedown="fillAccount('${safeU}','${a.p}')">
               <i class="fas ${icon} fa-fw"></i>
               <div class="flex-grow-1 overflow-hidden">
                 <div class="fw-medium text-truncate" style="font-size:13px;">${a.n}</div>
                 <div class="text-muted text-truncate" style="font-size:11px;">${a.u}</div>
               </div>
+              <button class="btn btn-link p-0 ms-1" style="color:#dc3545;font-size:13px;line-height:1;"
+                      title="ลบบัญชีนี้"
+                      onmousedown="event.stopPropagation();removeSavedAccount('${safeU}')">
+                <i class="fas fa-times"></i>
+              </button>
             </div>`;
   }).join('');
   box.style.display = 'block';
@@ -404,6 +438,14 @@ function fillAccount(username, encodedPass) {
   try { document.getElementById('password').value = decodeURIComponent(escape(atob(encodedPass))); } catch (e) {}
   hideSavedAccounts();
   document.getElementById('password').focus();
+}
+
+function removeSavedAccount(username) {
+  try {
+    const accounts = _getSavedAccounts().filter(a => a.u !== username);
+    localStorage.setItem('pssms_saved_accounts', JSON.stringify(accounts));
+  } catch (e) {}
+  filterSavedAccounts(document.getElementById('username').value || '');
 }
 
 function processLogin() {
@@ -540,6 +582,17 @@ function renderApp(user) {
   const lastPage = localStorage.getItem('pssms_last_page');
   if (lastPage) loadPage(lastPage); else loadPage(startPage);
   setTimeout(preloadTeacherDataBackground, 2000);
+  setTimeout(_syncSchoolBrandingFromServer, 1000);
+}
+
+function _syncSchoolBrandingFromServer() {
+  google.script.run.withSuccessHandler(function(cfg) {
+    if (!cfg) return;
+    var logo = cfg.schoolLogo || '';
+    var name = cfg.schoolName || '';
+    if (logo) { localStorage.setItem('pssms_school_logo', logo); _applySchoolLogo(logo); }
+    if (name) { localStorage.setItem('pssms_school_name', name); _applySchoolName(name); }
+  }).withFailureHandler(function(){}).getSystemConfig();
 }
 
 const pageCache = {}; 
@@ -625,6 +678,242 @@ function setupPageContent(pageName, html) {
   if(pageName === 'Page_Dashboard_Executive') initExecDashboard();
   if(pageName === 'Page_Admin_Timetable_Overview') { loadPage('Page_Admin_Timetable'); return; }
   if(pageName === 'Page_Teacher_Timetable') initTeacherTimetable();
+}
+
+// ==========================================
+// Student Dashboard
+// ==========================================
+
+function initStudentDashboard() {
+  var user = getSessionUser();
+  if (!user) return;
+  var nameEl = document.getElementById('studentName');
+  var subEl  = document.getElementById('studentSubtitle');
+  if (nameEl) nameEl.textContent = user.name || 'นักเรียน';
+  if (subEl)  subEl.textContent  = 'ชั้น ' + (user.dept || '—') + ' | เทอม ' + (user.currentTerm||'?') + '/' + (user.currentYear||'?');
+  var badge = document.getElementById('scoreFeedTermBadge');
+  if (badge) badge.textContent = 'เทอม ' + (user.currentTerm||'?') + '/' + (user.currentYear||'?');
+  var term = user.currentTerm || '';
+  var year = user.currentYear || '';
+  if (!term || !year) {
+    var el = document.getElementById('scoreFeedContainer');
+    if (el) el.innerHTML = '<div class="text-warning small p-2"><i class="fas fa-exclamation-triangle me-1"></i>ไม่พบข้อมูลเทอมปัจจุบัน กรุณา logout แล้ว login ใหม่</div>';
+    return;
+  }
+  _loadStudentBundle(user.id, term, year);
+}
+
+function _loadStudentBundle(studentId, term, year) {
+  google.script.run
+    .withSuccessHandler(function(bundle) {
+      if (!bundle) return;
+      if (bundle.timetable && bundle.timetable.ok) _renderStudentTodaySchedule(bundle.timetable.data || []);
+      else {
+        var el = document.getElementById('studentTodaySchedule');
+        if (el) el.innerHTML = '<div class="text-muted small p-2">ไม่พบตารางเรียน</div>';
+      }
+      if (bundle.scoreFeed && bundle.scoreFeed.ok) _renderScoreFeed(bundle.scoreFeed.data || []);
+      else {
+        var el2 = document.getElementById('scoreFeedContainer');
+        if (el2) el2.innerHTML = '<div class="text-danger small p-2"><i class="fas fa-exclamation-circle me-1"></i>' + ((bundle.scoreFeed && bundle.scoreFeed.error) || 'โหลดไม่สำเร็จ') + '</div>';
+      }
+    })
+    .withFailureHandler(function(err) {
+      var el = document.getElementById('scoreFeedContainer');
+      if (el) el.innerHTML = '<div class="text-danger small p-2"><i class="fas fa-exclamation-circle me-1"></i>' + (err.message || 'โหลดไม่สำเร็จ') + '</div>';
+    })
+    .getStudentDashboardBundle(studentId, term, year);
+}
+
+var _SD_TIME_MAP = {
+  0:'08:00-08:30', 1:'08:30-09:20', 2:'09:20-10:10', 3:'10:20-11:10',
+  4:'11:10-12:00', 5:'13:00-13:50', 6:'13:50-14:40', 7:'14:40-15:30', 8:'15:30-16:00'
+};
+function _sdParseMinutes(timeRange) {
+  var parts = (timeRange || '').split('-');
+  if (parts.length < 2) return { start: 0, end: 0 };
+  var s = parts[0].split(':').map(Number); var e = parts[1].split(':').map(Number);
+  return { start: (s[0]||0)*60+(s[1]||0), end: (e[0]||0)*60+(e[1]||0) };
+}
+
+function _renderStudentTodaySchedule(slots) {
+  var el = document.getElementById('studentTodaySchedule');
+  var titleEl  = document.getElementById('studentNextClassTitle');
+  var detailEl = document.getElementById('studentNextClassDetail');
+  var cardEl   = document.getElementById('studentNextClassCard');
+  var dow = new Date().getDay();
+
+  if (dow === 0 || dow === 6) {
+    if (el) el.innerHTML = '<div class="text-muted small text-center py-3"><i class="fas fa-umbrella-beach me-1"></i>วันหยุด — ไม่มีตารางเรียน</div>';
+    if (titleEl) titleEl.textContent = 'วันหยุด';
+    if (detailEl) detailEl.textContent = '';
+    if (cardEl) cardEl.style.background = 'var(--p-subtle)';
+    return;
+  }
+
+  if (!el) return;
+  if (!slots.length) {
+    el.innerHTML = '<div class="text-muted small text-center py-3">ไม่พบตารางเรียนวันนี้</div>';
+    if (titleEl) titleEl.textContent = 'ไม่มีตารางเรียนวันนี้';
+    if (detailEl) detailEl.textContent = '';
+    return;
+  }
+
+  var now = new Date();
+  var nowMin = now.getHours()*60 + now.getMinutes();
+  var currentSlot = null, nextSlot = null;
+
+  slots.forEach(function(s) {
+    var tr = _SD_TIME_MAP[s.period] || '';
+    var t = _sdParseMinutes(tr);
+    if (nowMin >= t.start && nowMin < t.end) currentSlot = s;
+    else if (!nextSlot && t.start > nowMin) nextSlot = s;
+  });
+
+  var highlightSlot = currentSlot || nextSlot;
+  // banner
+  if (titleEl && highlightSlot) {
+    var bannerLabel = currentSlot ? 'คาบปัจจุบัน' : 'คาบเรียนถัดไป';
+    var bannerTr = _SD_TIME_MAP[highlightSlot.period] || '';
+    var labelEl = document.querySelector('#studentNextClassCard .opacity-75.small');
+    if (labelEl) labelEl.textContent = bannerLabel;
+    titleEl.textContent = 'คาบ ' + highlightSlot.period + ': ' + highlightSlot.subjectName;
+    if (detailEl) detailEl.innerHTML = '<i class="fas fa-chalkboard-teacher me-1"></i>' + _sdEsc(highlightSlot.teacherName) + (highlightSlot.location ? ' · <i class="fas fa-map-marker-alt mx-1"></i>' + _sdEsc(highlightSlot.location) : '') + ' · <i class="fas fa-clock mx-1"></i>' + bannerTr + ' น.';
+    if (cardEl) cardEl.style.background = currentSlot ? '#16a34a' : 'var(--p-accent)';
+  } else if (titleEl) {
+    titleEl.textContent = 'เรียนเสร็จสิ้นแล้ววันนี้';
+    if (detailEl) detailEl.textContent = '';
+    if (cardEl) cardEl.style.background = 'var(--p-subtle)';
+  }
+
+  // list
+  var html = '';
+  slots.forEach(function(s) {
+    var tr = _SD_TIME_MAP[s.period] || '';
+    var t = _sdParseMinutes(tr);
+    var isCurrent = (nowMin >= t.start && nowMin < t.end);
+    var isDone    = (nowMin >= t.end);
+    var bg = isCurrent ? 'var(--p-accent-soft)' : 'transparent';
+    var border = isCurrent ? '2px solid var(--p-accent)' : '1px solid var(--p-border)';
+
+    html += '<div class="d-flex align-items-center gap-3 px-3 py-2 mb-1 rounded-3" style="background:' + bg + ';border:' + border + ';opacity:' + (isDone ? '.5' : '1') + ';">';
+    // คาบ + เวลา
+    html += '<div class="text-center" style="min-width:44px;">';
+    html += '<div class="fw-bold" style="font-size:.82rem;color:var(--p-accent);">คาบ ' + s.period + '</div>';
+    html += '<div class="text-muted" style="font-size:.65rem;">' + tr.replace('-','–') + '</div>';
+    html += '</div>';
+    // ชื่อวิชา + ครู
+    html += '<div class="flex-grow-1 overflow-hidden">';
+    html += '<div class="fw-semibold text-truncate" style="font-size:.84rem;">' + _sdEsc(s.subjectName) + '</div>';
+    html += '<div class="text-muted text-truncate" style="font-size:.72rem;"><i class="fas fa-chalkboard-teacher me-1"></i>' + _sdEsc(s.teacherName);
+    if (s.location) html += '<span class="ms-2"><i class="fas fa-map-marker-alt me-1"></i>' + _sdEsc(s.location) + '</span>';
+    html += '</div></div>';
+    // badge สถานะ
+    html += '<div style="white-space:nowrap;">';
+    if (isCurrent)     html += '<span class="badge" style="background:var(--p-accent);font-size:.68rem;">กำลังเรียน</span>';
+    else if (isDone)   html += '<span class="badge bg-success" style="font-size:.68rem;">เสร็จแล้ว</span>';
+    else               html += '<span class="badge bg-light text-secondary border" style="font-size:.68rem;">รอเรียน</span>';
+    html += '</div></div>';
+  });
+  el.innerHTML = html;
+}
+
+function _renderScoreFeed(feed) {
+  var el = document.getElementById('scoreFeedContainer');
+  if (!el) return;
+  if (!feed.length) {
+    el.innerHTML = '<div class="text-muted small text-center py-3">ยังไม่มีข้อมูลคะแนนในเทอมนี้</div>';
+    return;
+  }
+
+  var TYPE_LABEL = { formative: 'งานเก็บ', midterm: 'สอบกลางภาค', final: 'สอบปลายภาค' };
+  var TYPE_COLOR = { formative: 'var(--p-accent)', midterm: '#7c3aed', final: '#dc2626' };
+
+  function gradeColor(g) {
+    if (!g) return '#9ca3af';
+    if (g === 'ร' || g === 'มส' || g === '0') return '#dc2626';
+    if (g === '1') return '#f59e0b';
+    if (g === '1.5') return '#f59e0b';
+    if (g === '2' || g === '2.5') return '#3b82f6';
+    return '#16a34a';
+  }
+
+  var html = '';
+  feed.forEach(function(subj) {
+    // คำนวณ total จาก items (ถ้า Grade_Summary ไม่มี)
+    var itemTotal = 0, maxTotal = 0, scoredCount = 0;
+    subj.items.forEach(function(it) {
+      maxTotal += Number(it.maxScore) || 0;
+      var sv = it.score;
+      if (sv !== null && sv !== undefined && sv !== '') { itemTotal += Number(sv) || 0; scoredCount++; }
+    });
+    var rawTotal = subj.totalScore;
+    var displayTotal = (rawTotal !== null && rawTotal !== undefined && rawTotal !== '') ? Number(rawTotal) : (scoredCount > 0 ? itemTotal : null);
+    var pct = (displayTotal !== null && maxTotal > 0) ? Math.min(100, Math.round(displayTotal / maxTotal * 100)) : 0;
+
+    var grade = subj.grade;
+    var remedial = subj.remedialStatus;
+    var gColor = gradeColor(grade);
+
+    html += '<div class="mb-3 pb-3" style="border-bottom:1px solid var(--p-border);">';
+
+    // Header: ชื่อวิชา + badge เกรด
+    html += '<div class="d-flex justify-content-between align-items-start mb-2">';
+    html += '<div><div class="fw-bold" style="color:var(--p-accent);font-size:.88rem;">' + _sdEsc(subj.subjectName) + '</div>';
+    html += '<div class="text-muted" style="font-size:.72rem;">' + _sdEsc(subj.subjectCode) + ' · ' + _sdEsc(subj.className) + '</div></div>';
+    if (grade) {
+      html += '<div class="text-center ms-2" style="min-width:44px;">';
+      html += '<div style="font-size:1.3rem;font-weight:700;line-height:1;color:' + gColor + ';">' + _sdEsc(grade) + '</div>';
+      html += '<div class="text-muted" style="font-size:.65rem;">เกรด</div>';
+      html += '</div>';
+    }
+    html += '</div>';
+
+    // คะแนนรวม + progress bar
+    if (displayTotal !== null) {
+      html += '<div class="d-flex justify-content-between align-items-center mb-1">';
+      html += '<span style="font-size:.75rem;color:var(--p-text-muted);">คะแนนรวม</span>';
+      html += '<span style="font-size:.8rem;font-weight:600;color:' + (pct >= 60 ? '#16a34a' : '#dc2626') + ';">';
+      html += Number(displayTotal).toFixed(1) + '<span class="text-muted fw-normal" style="font-size:.72rem;">/' + maxTotal + '</span>';
+      html += ' <span class="text-muted fw-normal" style="font-size:.7rem;">(' + pct + '%)</span></span>';
+      html += '</div>';
+      html += '<div class="progress mb-2" style="height:6px;border-radius:99px;background:var(--p-border);">';
+      html += '<div class="progress-bar" style="width:' + pct + '%;background:' + (pct >= 60 ? '#16a34a' : '#dc2626') + ';border-radius:99px;transition:width .4s;"></div></div>';
+    }
+    if (remedial && remedial !== '-') {
+      html += '<div class="mb-2" style="font-size:.72rem;color:#f59e0b;"><i class="fas fa-redo me-1"></i>' + _sdEsc(remedial) + '</div>';
+    }
+
+    // รายชิ้น จัดกลุ่มตาม type
+    var groups = {};
+    subj.items.forEach(function(it) { if (!groups[it.type]) groups[it.type] = []; groups[it.type].push(it); });
+    ['formative','midterm','final'].forEach(function(type) {
+      if (!groups[type] || !groups[type].length) return;
+      html += '<div class="mb-1 mt-2" style="font-size:.7rem;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:' + (TYPE_COLOR[type] || 'var(--p-text-muted)') + ';">' + (TYPE_LABEL[type] || type) + '</div>';
+      groups[type].forEach(function(it) {
+        var scored = it.score !== null && it.score !== undefined && it.score !== '';
+        var scoreNum = scored ? Number(it.score) : null;
+        var itPct  = (scored && it.maxScore > 0) ? Math.round(scoreNum / it.maxScore * 100) : null;
+        var dotColor = scored ? (itPct >= 50 ? '#16a34a' : '#dc2626') : '#9ca3af';
+        html += '<div class="d-flex justify-content-between align-items-center px-2 py-1 rounded-2 mb-1" style="background:var(--p-subtle);">';
+        html += '<span style="font-size:.78rem;">' + _sdEsc(it.name) + '</span>';
+        html += '<span style="font-size:.78rem;font-weight:600;color:' + dotColor + ';">';
+        if (scored) {
+          html += scoreNum.toFixed(1) + '<span class="text-muted fw-normal" style="font-size:.7rem;">/' + it.maxScore + '</span>';
+        } else {
+          html += '<span class="text-muted" style="font-size:.75rem;">รอคะแนน/' + it.maxScore + '</span>';
+        }
+        html += '</span></div>';
+      });
+    });
+
+    html += '</div>';
+  });
+  el.innerHTML = html;
+}
+
+function _sdEsc(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
 // ==========================================

@@ -3,11 +3,12 @@
     <div class="col-md-5 col-lg-4">
       <div class="pssms-card p-4 text-center" style="background: #fff;">
         <div class="mb-4">
-          <div class="rounded-circle d-inline-flex justify-content-center align-items-center mb-3" style="width: 72px; height: 72px; background: var(--p-accent-soft); border: 1px solid var(--p-border);">
-            <i class="fas fa-school fa-lg" style="color: var(--p-accent);"></i>
+          <div id="loginLogoWrap" class="rounded-circle d-inline-flex justify-content-center align-items-center mb-3 overflow-hidden" style="width: 72px; height: 72px; background: var(--p-accent-soft); border: 1px solid var(--p-border);">
+            <i id="loginLogoIcon" class="fas fa-school fa-lg" style="color: var(--p-accent);"></i>
+            <img id="loginLogoImg" src="" alt="logo" style="width:100%;height:100%;object-fit:contain;display:none;">
           </div>
           <h4 class="fw-bold mb-1" style="letter-spacing: -0.01em;">PSSMS</h4>
-          <p class="text-muted small mb-0">โรงเรียนภูพระบาทวิทยา</p>
+          <p id="loginSchoolName" class="text-muted small mb-0">โรงเรียนภูพระบาทวิทยา</p>
         </div>
 
         <div class="mb-3 text-start position-relative" id="usernameWrapper">
