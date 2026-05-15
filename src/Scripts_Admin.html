@@ -1381,7 +1381,7 @@ function ttoPopulateTeacherDropdowns() {
     var first = el.options[0];
     el.innerHTML = '';
     el.appendChild(first);
-    _ttoTeachers.forEach(function(t) {
+    _ttoTeachers.filter(function(t){ return t.role === 'TEACHER'; }).forEach(function(t) {
       var opt = document.createElement('option');
       opt.value = t.id;
       opt.textContent = t.name + ' (' + t.id + ')';
