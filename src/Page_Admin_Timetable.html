@@ -56,6 +56,11 @@
         <span class="badge bg-danger ms-1 d-none" id="ttoDupBadge">0</span>
       </button>
     </li>
+    <li class="nav-item">
+      <button class="nav-link" id="ttoTabHomeroomBtn" onclick="ttoSwitchTab('homeroom',this)">
+        <i class="fas fa-home me-1"></i>ครูที่ปรึกษา
+      </button>
+    </li>
   </ul>
 
   <!-- Tab: ตารางรวมทุกครู -->
@@ -207,6 +212,35 @@
     </div>
     <div id="ttoDupResult">
       <div class="text-center text-muted p-5"><i class="fas fa-search fa-2x mb-3 d-block"></i>กด "ตรวจสอบ" เพื่อค้นหาแถวซ้ำ</div>
+    </div>
+  </div>
+</div>
+
+<!-- Tab: ครูที่ปรึกษา -->
+<div id="ttoTabHomeroom" class="d-none">
+  <div class="pssms-card mb-3">
+    <div class="d-flex align-items-center justify-content-between gap-3 flex-wrap">
+      <div class="text-muted small">กำหนดครูที่ปรึกษาประจำห้องเรียนแต่ละชั้น เทอมและปีการศึกษาปัจจุบัน</div>
+      <button class="btn btn-accent btn-sm" onclick="ttoAddHomeroomRow()">
+        <i class="fas fa-plus me-1"></i>เพิ่มห้อง
+      </button>
+    </div>
+  </div>
+  <div class="pssms-card p-0">
+    <div class="table-responsive">
+      <table class="pssms-table mb-0" style="font-size:.85rem;">
+        <thead>
+          <tr>
+            <th style="width:110px;">ระดับชั้น</th>
+            <th style="width:80px;">ห้อง</th>
+            <th>ครูที่ปรึกษา</th>
+            <th style="width:120px;" class="text-center">บันทึก</th>
+          </tr>
+        </thead>
+        <tbody id="ttoHomeroomBody">
+          <tr><td colspan="4" class="text-center p-5 text-muted"><div class="spinner-border spinner-border-sm me-2"></div>กำลังโหลด...</td></tr>
+        </tbody>
+      </table>
     </div>
   </div>
 </div>
