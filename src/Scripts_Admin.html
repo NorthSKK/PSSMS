@@ -279,8 +279,43 @@ function handleFileUpload(input, type) {
 // ==========================================
 // 3. TIMETABLE LOGIC
 // ==========================================
-var currentTimetableData = []; 
+var currentTimetableData = [];
 var editModalInstance = null;
+
+var _TTO_SHARED_KWORDS = ['แนะแนว','วิถีพุทธ','ผู้บำเพ็ญ','ลูกเสือ','เนตรนารี','กิจกรรมพัฒนา','ยุวกาชาด','โฮมรูม'];
+var _ttoCurrentConflicts = { self: new Set(), cls: new Set() };
+
+function _ttoIsShared(d) {
+  if (String(d[0]).trim().toUpperCase() === 'HR') return true;
+  if (String(d[7]).trim() === '0') return true;
+  var n = String(d[1]).trim();
+  return _TTO_SHARED_KWORDS.some(function(k){ return n.includes(k); });
+}
+
+function _ttoComputeConflicts() {
+  var selfMap = {}, classMap = {};
+  currentTimetableData.forEach(function(item) {
+    if (_ttoIsShared(item.data)) return;
+    var key = String(item.data[6]) + '|' + String(item.data[7]);
+    if (!selfMap[key]) selfMap[key] = [];
+    selfMap[key].push(item.rowIndex);
+  });
+  _ttoAllRows.forEach(function(item) {
+    if (_ttoIsShared(item.data)) return;
+    var key = String(item.data[2]).trim() + '|' + String(item.data[3]).trim() + '|' + String(item.data[6]).trim() + '|' + String(item.data[7]).trim();
+    if (!classMap[key]) classMap[key] = [];
+    classMap[key].push(item.rowIndex);
+  });
+  var self = new Set(), cls = new Set();
+  var curIdxSet = new Set(currentTimetableData.map(function(i){ return i.rowIndex; }));
+  Object.values(selfMap).forEach(function(idxs) {
+    if (idxs.length > 1) idxs.forEach(function(i){ self.add(i); });
+  });
+  Object.values(classMap).forEach(function(idxs) {
+    if (idxs.length > 1) idxs.forEach(function(i){ if (curIdxSet.has(i)) cls.add(i); });
+  });
+  _ttoCurrentConflicts = { self: self, cls: cls };
+}
 
 // ==========================================
 // 📥 ระบบนำเข้าตารางสอนผ่าน CSV (แก้บัค SweetAlert2 ใช้งานได้ 100%)
@@ -389,6 +424,7 @@ function viewTimetable() {
   if(tbody) tbody.innerHTML = '<tr><td colspan="8" class="text-center p-4">กำลังโหลด...</td></tr>';
   google.script.run.withSuccessHandler(function(data) {
     currentTimetableData = data;
+    _ttoComputeConflicts();
     var badge = document.getElementById('totalPeriodsBadge');
     if(badge) badge.innerText = data.length;
     renderTimetableList();
@@ -428,7 +464,14 @@ function renderTimetableGrid() {
       if(match) {
         const r = match.data;
         const isClub = String(r[0]).indexOf('CLUB_') === 0;
-        html += `<td class="p-2" onclick="openEditTimetable(${match.rowIndex})" style="cursor:pointer; background-color: #e7f1ff; min-width: 110px; border: 1px solid #dee2e6; transition: 0.2s;" title="คลิกเพื่อแก้ไข">
+        var isSelf = _ttoCurrentConflicts.self.has(match.rowIndex);
+        var isCls = _ttoCurrentConflicts.cls.has(match.rowIndex);
+        var bgColor = isSelf ? '#fde8e8' : (isCls ? '#fef9c3' : '#e7f1ff');
+        var borderStyle = isSelf ? 'border: 2px solid #f87171;' : (isCls ? 'border: 2px solid #fbbf24;' : 'border: 1px solid #dee2e6;');
+        var conflictLabel = isSelf ? '<div style="font-size:10px;color:#dc2626;font-weight:600;">⚠️ ชนกัน</div>'
+          : (isCls ? '<div style="font-size:10px;color:#d97706;font-weight:600;">⚠️ ห้องซ้อน</div>' : '');
+        html += `<td class="p-2" onclick="openEditTimetable(${match.rowIndex})" style="cursor:pointer; background-color: ${bgColor}; min-width: 110px; ${borderStyle} transition: 0.2s;" title="คลิกเพื่อแก้ไข">
+                    ${conflictLabel}
                     ${isClub ? '<div class="text-primary fw-bold" style="font-size: 13px;">ชุมนุม</div>' : `<div class="text-primary fw-bold" style="font-size: 13px;">${r[0]}</div>`}
                     <div class="text-dark truncate-text my-1" style="font-size: 12px; line-height: 1.2;">${r[1]}</div>
                     <span class="badge bg-secondary shadow-sm" style="font-size: 11px;">${r[2]}/${r[3]} (${r[4]})</span>
@@ -447,23 +490,45 @@ function renderTimetableGrid() {
 // ==========================================
 function renderTimetableList() {
   const tbody = document.getElementById('timetableDisplayBody');
+  var conflicts = _ttoCurrentConflicts;
+  var allConflictIdxs = new Set([].concat(Array.from(conflicts.self), Array.from(conflicts.cls)));
+
+  var summaryEl = document.getElementById('ttoConflictSummary');
+  if (summaryEl) {
+    if (allConflictIdxs.size > 0) {
+      var parts = [];
+      if (conflicts.self.size > 0) parts.push(conflicts.self.size + ' คาบครูสอนซ้อนกัน');
+      if (conflicts.cls.size > 0) parts.push(conflicts.cls.size + ' คาบห้องเรียนซ้อนกัน');
+      summaryEl.className = 'alert alert-warning py-2 px-3 mb-2 small';
+      summaryEl.innerHTML = '<i class="fas fa-exclamation-triangle me-1"></i>พบ <strong>' + allConflictIdxs.size + '</strong> คาบที่มีปัญหา — ' + parts.join(', ');
+    } else {
+      summaryEl.className = 'd-none';
+      summaryEl.innerHTML = '';
+    }
+  }
+
   let html = '';
   if(currentTimetableData.length === 0) {
-      html = '<tr><td colspan="8" class="text-center p-5 text-muted">ไม่มีข้อมูลตารางสอน</td></tr>';
+    html = '<tr><td colspan="8" class="text-center p-5 text-muted">ไม่มีข้อมูลตารางสอน</td></tr>';
   } else {
     const dayOrder = {'จันทร์':1, 'อังคาร':2, 'พุธ':3, 'พฤหัสบดี':4, 'ศุกร์':5};
-    // เรียงตามวัน และคาบเรียน
     currentTimetableData.sort((a,b) => {
       if(dayOrder[a.data[6]] !== dayOrder[b.data[6]]) return dayOrder[a.data[6]] - dayOrder[b.data[6]];
       return a.data[7] - b.data[7];
     });
-    
+
     currentTimetableData.forEach(item => {
       const r = item.data;
       const isClub = String(r[0]).indexOf('CLUB_') === 0;
-      html += `<tr>
+      var isSelf = conflicts.self.has(item.rowIndex);
+      var isCls = conflicts.cls.has(item.rowIndex);
+      var rowStyle = (isSelf || isCls) ? ' style="background:#fff5f5;"' : '';
+      var badge = isSelf
+        ? '<span class="badge bg-danger ms-1" title="ครูสอน 2 วิชาพร้อมกัน" style="font-size:.68rem;">⚠️ชนกัน</span>'
+        : (isCls ? '<span class="badge bg-warning text-dark ms-1" title="ห้องนี้มีครูสอนซ้อนกัน" style="font-size:.68rem;">⚠️ห้องซ้อน</span>' : '');
+      html += `<tr${rowStyle}>
         <td class="ps-4"><span class="badge bg-light text-dark border shadow-sm">${r[6]}</span></td>
-        <td class="text-center fw-bold">คาบ ${r[7]}</td>
+        <td class="text-center fw-bold">คาบ ${r[7]} ${badge}</td>
         <td class="fw-bold text-primary">${isClub ? 'ชุมนุม' : r[0]}</td>
         <td>${r[1]}</td>
         <td>${r[2]}</td>
