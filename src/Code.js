@@ -1763,7 +1763,11 @@ function getTeachersForTimetable() {
       result.push({ id: String(data[i][0]).trim(), name: String(data[i][2]).trim(), role: role });
     }
   }
-  return result.sort(function(a, b) { return a.name.localeCompare(b.name, 'th'); });
+  return result.sort(function(a, b) {
+    var na = Number(a.id), nb = Number(b.id);
+    if (!isNaN(na) && !isNaN(nb)) return na - nb;
+    return a.id.localeCompare(b.id, 'th', { numeric: true });
+  });
 }
 
 function swapTimetableTeacher(rowIdx1, rowIdx2) {
