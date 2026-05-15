@@ -214,33 +214,35 @@
       <div class="text-center text-muted p-5"><i class="fas fa-search fa-2x mb-3 d-block"></i>กด "ตรวจสอบ" เพื่อค้นหาแถวซ้ำ</div>
     </div>
   </div>
-</div>
 
-<!-- Tab: ครูที่ปรึกษา -->
-<div id="ttoTabHomeroom" class="d-none">
-  <div class="pssms-card mb-3">
-    <div class="d-flex align-items-center justify-content-between gap-3 flex-wrap">
-      <div class="text-muted small">กำหนดครูที่ปรึกษาประจำห้องเรียนแต่ละชั้น เทอมและปีการศึกษาปัจจุบัน</div>
-      <button class="btn btn-accent btn-sm" onclick="ttoAddHomeroomRow()">
-        <i class="fas fa-plus me-1"></i>เพิ่มห้อง
-      </button>
+  <!-- Tab: ครูที่ปรึกษา -->
+  <div id="ttoTabHomeroom" class="d-none">
+    <div class="pssms-card mb-3">
+      <div class="d-flex align-items-center justify-content-between gap-3 flex-wrap">
+        <div class="text-muted small">กำหนดครูที่ปรึกษาประจำห้องเรียน — ระบบสร้าง โฮมรูม / แนะแนว (จ.คาบ7) / วิถีพุทธ (ศ.คาบ7) อัตโนมัติ</div>
+        <button class="btn btn-accent btn-sm" onclick="ttoAddHomeroomRow()">
+          <i class="fas fa-plus me-1"></i>เพิ่มห้อง
+        </button>
+      </div>
     </div>
-  </div>
-  <div class="pssms-card p-0">
-    <div class="table-responsive">
-      <table class="pssms-table mb-0" style="font-size:.85rem;">
-        <thead>
-          <tr>
-            <th style="width:110px;">ระดับชั้น</th>
-            <th style="width:80px;">ห้อง</th>
-            <th>ครูที่ปรึกษา</th>
-            <th style="width:120px;" class="text-center">บันทึก</th>
-          </tr>
-        </thead>
-        <tbody id="ttoHomeroomBody">
-          <tr><td colspan="4" class="text-center p-5 text-muted"><div class="spinner-border spinner-border-sm me-2"></div>กำลังโหลด...</td></tr>
-        </tbody>
-      </table>
+    <div class="pssms-card p-0">
+      <div class="table-responsive">
+        <table class="pssms-table mb-0" style="font-size:.85rem;">
+          <thead>
+            <tr>
+              <th style="width:100px;">ระดับชั้น</th>
+              <th style="width:70px;">ห้อง</th>
+              <th>ครูที่ปรึกษา</th>
+              <th style="width:140px;">สถานที่แนะแนว<br><span class="fw-normal text-muted" style="font-size:.75rem;">จ.คาบ7</span></th>
+              <th style="width:140px;">สถานที่วิถีพุทธ<br><span class="fw-normal text-muted" style="font-size:.75rem;">ศ.คาบ7</span></th>
+              <th style="width:100px;" class="text-center">บันทึก</th>
+            </tr>
+          </thead>
+          <tbody id="ttoHomeroomBody">
+            <tr><td colspan="6" class="text-center p-5 text-muted"><div class="spinner-border spinner-border-sm me-2"></div>กำลังโหลด...</td></tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   </div>
 </div>
