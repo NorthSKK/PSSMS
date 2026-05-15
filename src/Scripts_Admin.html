@@ -402,6 +402,10 @@ function initAdminTimetable() {
           _ttoAllRows = rows || [];
           _ttoBuildClassList();
           ttoRenderGrid();
+          var hrTab = document.getElementById('ttoTabHomeroom');
+          if (hrTab && !hrTab.classList.contains('d-none') && _ttoHomeroomData.length > 0) {
+            _ttoRenderHomeroomTable();
+          }
         })
         .withFailureHandler(function(err) {
           if (wrap) wrap.innerHTML = '<div class="text-center text-danger p-5">โหลดไม่สำเร็จ: ' + err.message + '</div>';
@@ -1567,6 +1571,7 @@ function _ttoBuildClassList() {
 function _ttoLevelOpts(selected) {
   var seen = {}, levels = [];
   _ttoClassList.forEach(function(c) { if (!seen[c.level]) { seen[c.level] = true; levels.push(c.level); } });
+  if (selected && !seen[selected]) levels.unshift(selected);
   var html = '<option value="">-- ชั้น --</option>';
   levels.forEach(function(lv) {
     html += '<option value="' + _ttoEsc(lv) + '"' + (lv === selected ? ' selected' : '') + '>' + _ttoEsc(lv) + '</option>';
@@ -1575,9 +1580,11 @@ function _ttoLevelOpts(selected) {
 }
 
 function _ttoRoomOpts(level, selected) {
+  var rooms = _ttoClassList.filter(function(c) { return c.level === level; }).map(function(c) { return c.room; });
+  if (selected && rooms.indexOf(selected) === -1) rooms.unshift(selected);
   var html = '<option value="">-- ห้อง --</option>';
-  _ttoClassList.filter(function(c) { return c.level === level; }).forEach(function(c) {
-    html += '<option value="' + _ttoEsc(c.room) + '"' + (c.room === selected ? ' selected' : '') + '>' + _ttoEsc(c.room) + '</option>';
+  rooms.forEach(function(rm) {
+    html += '<option value="' + _ttoEsc(rm) + '"' + (rm === selected ? ' selected' : '') + '>' + _ttoEsc(rm) + '</option>';
   });
   return html;
 }
@@ -1609,6 +1616,16 @@ function ttoLoadHomeroom() {
   google.script.run
     .withSuccessHandler(function(data) {
       _ttoHomeroomData = data || [];
+      if (_ttoAllRows.length > 0) {
+        _ttoBuildClassList();
+      } else if (_ttoClassList.length === 0 && _ttoHomeroomData.length > 0) {
+        var seen = {};
+        _ttoHomeroomData.forEach(function(h) {
+          var key = h.level + '/' + h.room;
+          if (h.level && h.room && !seen[key]) { seen[key] = true; _ttoClassList.push({ level: h.level, room: h.room }); }
+        });
+        _ttoClassList.sort(function(a, b) { return (a.level+'/'+a.room).localeCompare(b.level+'/'+b.room,'th',{numeric:true}); });
+      }
       _ttoRenderHomeroomTable();
     })
     .withFailureHandler(function(err) {
