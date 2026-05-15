@@ -504,8 +504,7 @@ function renderApp(user) {
         menuHTML += `<li class="mb-1"><div class="dept-btn academic" style="cursor: default;"><i class="fas fa-graduation-cap"></i> <span>ฝ่ายวิชาการ</span></div></li>`;
         menuHTML += `<li class="mb-1 ms-3"><a href="javascript:void(0)" class="nav-link-sub text-success py-1" style="font-size: 0.85rem;" onclick="loadPage('Page_Score_Entry')"><i class="fas fa-edit me-2" style="font-size: 0.7rem;"></i>บันทึกคะแนน (ปพ.5)</a></li>`;
         menuHTML += `<li class="mb-1 ms-3"><a href="javascript:void(0)" class="nav-link-sub text-info py-1" style="font-size: 0.85rem;" onclick="loadPage('Page_Academic_Report')"><i class="fas fa-chart-pie me-2" style="font-size: 0.7rem;"></i>รายงานสถิติ (มส.)</a></li>`;
-        menuHTML += `<li class="mb-1 ms-3"><a href="javascript:void(0)" class="nav-link-sub py-1" style="font-size: 0.85rem; color: #17a2b8;" onclick="loadPage('Page_Admin_Timetable')"><i class="fas fa-calendar-alt me-2" style="font-size: 0.7rem;"></i>จัดการตารางสอน</a></li>`;
-        menuHTML += `<li class="mb-1 ms-3"><a href="javascript:void(0)" class="nav-link-sub py-1" style="font-size: 0.85rem; color: var(--p-accent);" onclick="loadPage('Page_Admin_Timetable_Overview')"><i class="fas fa-th me-2" style="font-size: 0.7rem;"></i>ตารางสอนรวม + แลกตาราง</a></li>`;
+        menuHTML += `<li class="mb-1 ms-3"><a href="javascript:void(0)" class="nav-link-sub py-1" style="font-size: 0.85rem; color: var(--p-accent);" onclick="loadPage('Page_Admin_Timetable')"><i class="fas fa-calendar-alt me-2" style="font-size: 0.7rem;"></i>ตารางสอน</a></li>`;
         menuHTML += `<li class="mb-1 ms-3"><a href="javascript:void(0)" class="nav-link-sub py-1" style="font-size: 0.85rem; color: #2ecc71;" onclick="loadPage('Page_Admin_Curriculum')"><i class="fas fa-layer-group me-2" style="font-size: 0.7rem;"></i>คลังตัวชี้วัด/ผลการเรียนรู้</a></li>`;
         menuHTML += `<li class="mb-2 ms-3"><a href="javascript:void(0)" class="nav-link-sub py-1" style="font-size: 0.85rem; color: #9c27b0;" onclick="loadPage('Page_Admin_Clubs')"><i class="fas fa-users-cog me-2" style="font-size: 0.7rem;"></i>จัดการชุมนุม</a></li>`;
     } else {
@@ -612,7 +611,7 @@ function setupPageContent(pageName, html) {
   if(pageName === 'Page_Admin_Clubs') initAdminClubs();
   if(pageName === 'Page_Admin_Settings') loadCurrentConfig();
   if(pageName === 'Page_Academic') initAcademicPage();
-  if(pageName === 'Page_Admin_Timetable') initTimetablePage();
+  if(pageName === 'Page_Admin_Timetable') initAdminTimetable();
   if(pageName === 'Page_Academic_Report') initAcademicReportPage();
   if(pageName === 'Page_Lesson_History') initLessonHistoryPage();
   if(pageName === 'Page_Subject_Config') initSubjectConfigPage();
@@ -624,7 +623,7 @@ function setupPageContent(pageName, html) {
   }
   if(pageName === 'Page_Teacher_Clubs') initTeacherClubs();
   if(pageName === 'Page_Dashboard_Executive') initExecDashboard();
-  if(pageName === 'Page_Admin_Timetable_Overview') initTimetableOverview();
+  if(pageName === 'Page_Admin_Timetable_Overview') { loadPage('Page_Admin_Timetable'); return; }
   if(pageName === 'Page_Teacher_Timetable') initTeacherTimetable();
 }
 

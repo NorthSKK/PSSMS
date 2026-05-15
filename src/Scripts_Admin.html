@@ -315,26 +315,65 @@ function handleTimetableUpload(inputElement) {
   reader.readAsDataURL(file);
 }
 
-function initTimetablePage() {
-  google.script.run.withSuccessHandler(function(users) {
-    const selectView = document.getElementById('viewTeacherID');
-    if(!selectView) return;
-    let html = '<option value="">-- เลือกครู --</option>';
-    users.filter(u => u[3] === 'Teacher' || u[3] === 'Admin').forEach(u => { html += `<option value="${u[0]}">${u[0]} - ${u[2]}</option>`; });
-    selectView.innerHTML = html;
-  }).getAllUsers();
+function initAdminTimetable() {
+  if (!document.getElementById('ttOverviewPage')) return;
+  var user = getSessionUser();
+  var termEl = document.getElementById('ttoTerm');
+  var yearEl = document.getElementById('ttoYear');
+  if (termEl && !termEl.value) termEl.value = user.currentTerm || '1';
+  if (yearEl && !yearEl.value) yearEl.value = user.currentYear || '';
+  var subtitle = document.getElementById('ttoSubtitle');
+  if (subtitle) subtitle.textContent = 'เทอม ' + (termEl ? termEl.value : '') + '/' + (yearEl ? yearEl.value : '');
+
+  var wrap = document.getElementById('ttoGridWrap');
+  if (wrap) wrap.innerHTML = '<div class="text-center text-muted p-5"><div class="spinner-border spinner-border-sm me-2"></div>กำลังโหลด...</div>';
+
+  google.script.run
+    .withSuccessHandler(function(teachers) {
+      _ttoTeachers = teachers || [];
+      ttoPopulateTeacherDropdowns();
+      // populate viewTeacherID dropdown too
+      var sel = document.getElementById('viewTeacherID');
+      if (sel) {
+        sel.innerHTML = '<option value="">-- เลือกครู --</option>';
+        _ttoTeachers.forEach(function(t) {
+          var opt = document.createElement('option');
+          opt.value = t.id;
+          opt.textContent = t.name + ' (' + t.id + ')';
+          sel.appendChild(opt);
+        });
+      }
+      google.script.run
+        .withSuccessHandler(function(rows) {
+          _ttoAllRows = rows || [];
+          ttoRenderGrid();
+        })
+        .withFailureHandler(function(err) {
+          if (wrap) wrap.innerHTML = '<div class="text-center text-danger p-5">โหลดไม่สำเร็จ: ' + err.message + '</div>';
+        })
+        .getFilteredTimetables('', termEl ? termEl.value : '', yearEl ? yearEl.value : '');
+    })
+    .withFailureHandler(function(err) {
+      if (wrap) wrap.innerHTML = '<div class="text-center text-danger p-5">โหลด teachers ไม่สำเร็จ</div>';
+    })
+    .getTeachersForTimetable();
 }
+
+function initTimetablePage() { initAdminTimetable(); }
 
 function viewTimetable() {
   const tid = document.getElementById('viewTeacherID').value;
-  const term = document.getElementById('viewTerm').value;
-  const year = document.getElementById('viewYear').value;
+  const termEl = document.getElementById('ttoTerm') || document.getElementById('viewTerm');
+  const yearEl = document.getElementById('ttoYear') || document.getElementById('viewYear');
+  const term = termEl ? termEl.value : '';
+  const year = yearEl ? yearEl.value : '';
   if(!tid) return;
   const tbody = document.getElementById('timetableDisplayBody');
-  tbody.innerHTML = '<tr><td colspan="6" class="text-center p-4">กำลังโหลด...</td></tr>';
+  if(tbody) tbody.innerHTML = '<tr><td colspan="8" class="text-center p-4">กำลังโหลด...</td></tr>';
   google.script.run.withSuccessHandler(function(data) {
-    currentTimetableData = data; 
-    document.getElementById('totalPeriodsBadge').innerText = data.length;
+    currentTimetableData = data;
+    var badge = document.getElementById('totalPeriodsBadge');
+    if(badge) badge.innerText = data.length;
     renderTimetableList();
     renderTimetableGrid();
   }).getFilteredTimetables(tid, term, year);
@@ -441,8 +480,10 @@ function openEditTimetable(rowIndex) {
 function saveTimetableEdit() {
   const rowIndex = document.getElementById('editRowIndex').value;
   const tid = document.getElementById('viewTeacherID').value;
-  const term = document.getElementById('viewTerm').value;
-  const year = document.getElementById('viewYear').value;
+  const termEl = document.getElementById('ttoTerm') || document.getElementById('viewTerm');
+  const yearEl = document.getElementById('ttoYear') || document.getElementById('viewYear');
+  const term = termEl ? termEl.value : '';
+  const year = yearEl ? yearEl.value : '';
   const rowData = [
     document.getElementById('editSubjectCode').value, document.getElementById('editSubjectName').value, 
     document.getElementById('editLevel').value, document.getElementById('editRoom').value, 
@@ -1241,38 +1282,7 @@ var TTO_DAYS = ['จันทร์','อังคาร','พุธ','พฤห
 var TTO_PERIODS = [1,2,3,4,5,6,7,8];
 var TTO_TIMES = {1:'08.30',2:'09.20',3:'10.20',4:'11.10',5:'13.00',6:'13.50',7:'14.40',8:'15.30'};
 
-function initTimetableOverview() {
-  if (!document.getElementById('ttOverviewPage')) return;
-  var user = getSessionUser();
-  var termEl = document.getElementById('ttoTerm');
-  var yearEl = document.getElementById('ttoYear');
-  if (!termEl.value) termEl.value = user.currentTerm || '1';
-  if (!yearEl.value) yearEl.value = user.currentYear || '';
-  var subtitle = document.getElementById('ttoSubtitle');
-  if (subtitle) subtitle.textContent = 'เทอม ' + termEl.value + '/' + yearEl.value;
-
-  var wrap = document.getElementById('ttoGridWrap');
-  if (wrap) wrap.innerHTML = '<div class="text-center text-muted p-5"><div class="spinner-border spinner-border-sm me-2"></div>กำลังโหลด...</div>';
-
-  google.script.run
-    .withSuccessHandler(function(teachers) {
-      _ttoTeachers = teachers || [];
-      ttoPopulateTeacherDropdowns();
-      google.script.run
-        .withSuccessHandler(function(rows) {
-          _ttoAllRows = rows || [];
-          ttoRenderGrid();
-        })
-        .withFailureHandler(function(err) {
-          if (wrap) wrap.innerHTML = '<div class="text-center text-danger p-5">โหลดไม่สำเร็จ: ' + err.message + '</div>';
-        })
-        .getFilteredTimetables('', termEl.value, yearEl.value);
-    })
-    .withFailureHandler(function(err) {
-      if (wrap) wrap.innerHTML = '<div class="text-center text-danger p-5">โหลด teachers ไม่สำเร็จ</div>';
-    })
-    .getTeachersForTimetable();
-}
+function initTimetableOverview() { initAdminTimetable(); }
 
 function ttoPopulateTeacherDropdowns() {
   var selectors = ['ttoFilterTeacher','ttoSwapTeacherA','ttoSwapTeacherB'];
@@ -1292,10 +1302,10 @@ function ttoPopulateTeacherDropdowns() {
 }
 
 function ttoSwitchTab(tab, btn) {
-  document.getElementById('ttoTabOverview').classList.toggle('d-none', tab !== 'overview');
-  document.getElementById('ttoTabSwap').classList.toggle('d-none', tab !== 'swap');
-  var dupTab = document.getElementById('ttoTabDup');
-  if (dupTab) dupTab.classList.toggle('d-none', tab !== 'dup');
+  ['overview','manage','swap','dup'].forEach(function(t) {
+    var el = document.getElementById('ttoTab' + t.charAt(0).toUpperCase() + t.slice(1));
+    if (el) el.classList.toggle('d-none', t !== tab);
+  });
   document.querySelectorAll('#ttOverviewPage .nav-link').forEach(function(b) { b.classList.remove('active'); });
   if (btn) btn.classList.add('active');
   if (tab === 'dup') ttoCheckDuplicates();
