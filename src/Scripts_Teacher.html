@@ -1013,16 +1013,18 @@ function ttRenderGrid() {
   const myMap = {};
   _ttMyRows.forEach(r => { const k = String(r.data[6]).trim()+'|'+String(r.data[7]).trim(); if(!myMap[k])myMap[k]=[]; myMap[k].push(r); });
   let html = '';
-  for (let p = 1; p <= 8; p++) {
-    if (p === 5) html += '<tr style="background:#fefce8;"><td colspan="6" class="text-center text-muted py-1" style="font-size:.7rem;">— พักกลางวัน —</td></tr>';
+  TT_DAYS.forEach(day => {
     html += '<tr>';
-    html += `<td class="fw-bold" style="background:var(--p-subtle);white-space:nowrap;font-size:.78rem;">คาบ ${p}<br><span class="text-muted" style="font-size:.66rem;">${TT_TIMES[p]}</span></td>`;
-    TT_DAYS.forEach(day => {
+    html += `<td class="fw-bold" style="background:var(--p-subtle);white-space:nowrap;font-size:.8rem;">${day}</td>`;
+    for (let p = 1; p <= 8; p++) {
+      if (p === 5) {
+        html += '<td style="background:var(--p-subtle);color:var(--p-text-muted);font-size:.7rem;vertical-align:middle;">พัก</td>';
+      }
       const entries = myMap[day+'|'+p] || [];
-      if (!entries.length) { html += '<td style="color:var(--p-border-strong);">—</td>'; return; }
+      if (!entries.length) { html += '<td style="color:var(--p-border-strong);">—</td>'; continue; }
       html += '<td style="vertical-align:top;padding:4px;">';
       entries.forEach(r => {
-        const c = _ttConflict(user.id, day, p, [r.rowIndex], String(r.data[2]).trim(), String(r.data[3]).trim());
+        const c = _ttConflict(user.id, day, p, [r.rowIndex], String(r.data[2]).trim(), String(r.data[3]).trim(), String(r.data[0]).trim());
         const hasErr = c.errors.length > 0, hasWarn = c.classWarnings.length > 0;
         const border = hasErr ? '#dc3545' : hasWarn ? '#f59e0b' : 'var(--p-border)';
         const bg = hasErr ? '#fef2f2' : hasWarn ? '#fffbeb' : 'var(--p-accent-soft)';
@@ -1036,9 +1038,9 @@ function ttRenderGrid() {
         html += '</div>';
       });
       html += '</td>';
-    });
+    }
     html += '</tr>';
-  }
+  });
   tbody.innerHTML = html;
 }
 
@@ -1048,7 +1050,7 @@ function _ttRenderConflictSummary() {
   const user = getSessionUser();
   let errs = 0, warns = 0;
   _ttMyRows.forEach(r => {
-    const c = _ttConflict(user.id, String(r.data[6]).trim(), parseInt(r.data[7]), [r.rowIndex], String(r.data[2]).trim(), String(r.data[3]).trim());
+    const c = _ttConflict(user.id, String(r.data[6]).trim(), parseInt(r.data[7]), [r.rowIndex], String(r.data[2]).trim(), String(r.data[3]).trim(), String(r.data[0]).trim());
     errs += c.errors.length; warns += c.classWarnings.length;
   });
   el.innerHTML = errs > 0
@@ -1082,7 +1084,8 @@ function ttCheckEditConflict() {
   const period = parseInt(document.getElementById('ttEditPeriod').value);
   const level = document.getElementById('ttEditLevel').value.trim();
   const room = document.getElementById('ttEditRoom').value.trim();
-  const c = _ttConflict(user.id, day, period, [rowIdx], level, room);
+  const origData = JSON.parse(document.getElementById('ttEditOrigData').value || '[]');
+  const c = _ttConflict(user.id, day, period, [rowIdx], level, room, String(origData[0]||'').trim());
   const msgEl = document.getElementById('ttEditConflictMsg');
   const saveBtn = document.getElementById('ttEditSaveBtn');
   if (c.errors.length > 0) {
@@ -1105,7 +1108,7 @@ function ttSaveEdit() {
   const period = parseInt(document.getElementById('ttEditPeriod').value);
   const level = document.getElementById('ttEditLevel').value.trim();
   const room = document.getElementById('ttEditRoom').value.trim();
-  const c = _ttConflict(user.id, day, period, [rowIdx], level, room);
+  const c = _ttConflict(user.id, day, period, [rowIdx], level, room, String(orig[0]||'').trim());
   if (c.errors.length > 0) { showAlert('❌ ' + c.errors[0]); return; }
   if (c.classWarnings.length > 0 && !confirm('⚠️ ' + c.classWarnings[0] + '\n\nบันทึกต่อไปหรือไม่?')) return;
   const newData = [orig[0], document.getElementById('ttEditSubjectName').value.trim(), level, room, document.getElementById('ttEditLocation').value.trim(), orig[5], day, period, orig[8], orig[9]];
@@ -1136,7 +1139,7 @@ function ttRenderMySlots() {
   if (!_ttMyRows.length) { el.innerHTML = '<div class="text-muted small text-center py-3">ไม่มีตารางสอนในเทอมนี้</div>'; return; }
   const sorted = [..._ttMyRows].sort((a,b) => { const d = TT_DAYS.indexOf(String(a.data[6]).trim()) - TT_DAYS.indexOf(String(b.data[6]).trim()); return d || Number(a.data[7]) - Number(b.data[7]); });
   el.innerHTML = sorted.map(r => {
-    const c = _ttConflict(user.id, String(r.data[6]).trim(), parseInt(r.data[7]), [r.rowIndex]);
+    const c = _ttConflict(user.id, String(r.data[6]).trim(), parseInt(r.data[7]), [r.rowIndex], String(r.data[2]).trim(), String(r.data[3]).trim(), String(r.data[0]).trim());
     const sel = _ttSelectedMy && _ttSelectedMy.rowIndex === r.rowIndex;
     return `<div class="pssms-card p-2 mb-2" style="cursor:pointer;border:2px solid ${sel?'var(--p-accent)':c.errors.length?'#dc3545':'var(--p-border)'};background:${sel?'var(--p-accent-soft)':''};transition:all .15s;" onclick="ttSelectMySlot(${r.rowIndex})">
       <div class="d-flex justify-content-between"><div><span class="badge bg-secondary me-1">วัน${_ttEsc(r.data[6])}</span><span class="badge" style="background:var(--p-accent);">คาบ ${r.data[7]}</span></div><small class="text-muted">${_ttEsc(r.data[2])}/${_ttEsc(r.data[3])}</small></div>
@@ -1219,27 +1222,30 @@ function ttConfirmSwap() {
     .swapTimetableTeacher(_ttSelectedMy.rowIndex, _ttSelectedOther.rowIndex);
 }
 
-const _TT_SHARED_KEYWORDS = ['แนะแนว','วิถีพุทธ','ผู้บำเพ็ญ','ลูกเสือ','เนตรนารี','กิจกรรมพัฒนา','ยุวกาชาด'];
-function _ttIsSharedActivity(subjectName) {
+const _TT_SHARED_KEYWORDS = ['แนะแนว','วิถีพุทธ','ผู้บำเพ็ญ','ลูกเสือ','เนตรนารี','กิจกรรมพัฒนา','ยุวกาชาด','ชุมนุม'];
+const _TT_SHARED_CODE_PREFIXES = ['CLUB_','ลส','นน'];
+function _ttIsSharedActivity(subjectName, subjectCode) {
   const s = String(subjectName || '');
+  const c = String(subjectCode || '');
+  if (_TT_SHARED_CODE_PREFIXES.some(p => c.startsWith(p))) return true;
   return _TT_SHARED_KEYWORDS.some(k => s.includes(k));
 }
 
-function _ttConflict(forTeacherId, day, period, excludeRows, level, room) {
+function _ttConflict(forTeacherId, day, period, excludeRows, level, room, subjectCode) {
   const errors = [], classWarnings = [];
   const dayStr = String(day).trim(), pStr = String(period);
   const tid = String(forTeacherId).trim();
   excludeRows = excludeRows || [];
+  // ถ้าคาบที่กำลังเช็กเองเป็น shared activity ข้ามการตรวจทั้งหมด
+  if (_ttIsSharedActivity('', subjectCode)) return { errors, classWarnings };
   _ttAllRows.forEach(r => {
     if (excludeRows.indexOf(r.rowIndex) >= 0) return;
     if (String(r.data[6]).trim() !== dayStr || String(r.data[7]).trim() !== pStr) return;
+    if (_ttIsSharedActivity(r.data[1], r.data[0])) return;
     const rTid = String(r.data[5]).trim();
     if (rTid === tid) errors.push(`คุณมีคาบ "${r.data[1]}" (${r.data[2]}/${r.data[3]}) วัน${dayStr} คาบ ${period} อยู่แล้ว`);
-    if (level && room && String(r.data[2]).trim() === level && String(r.data[3]).trim() === room && rTid !== tid) {
-      // ข้ามคำเตือนห้องซ้ำสำหรับคาบกิจกรรมร่วมทั้งโรงเรียน (แนะแนว, วิถีพุทธ ฯลฯ)
-      if (!_ttIsSharedActivity(r.data[1]))
-        classWarnings.push(`ห้อง ${level}/${room} มีครู ${_ttEsc(_ttGetTeacherName(rTid))} สอนอยู่แล้ว วัน${dayStr} คาบ ${period}`);
-    }
+    if (level && room && String(r.data[2]).trim() === level && String(r.data[3]).trim() === room && rTid !== tid)
+      classWarnings.push(`ห้อง ${level}/${room} มีครู ${_ttEsc(_ttGetTeacherName(rTid))} สอนอยู่แล้ว วัน${dayStr} คาบ ${period}`);
   });
   return { errors, classWarnings };
 }
@@ -1248,8 +1254,8 @@ function _ttSwapConflicts(mySlot, otherSlot) {
   const user = getSessionUser();
   const excl = [mySlot.rowIndex, otherSlot.rowIndex];
   const myId = String(user.id).trim(), otherId = String(otherSlot.data[5]).trim();
-  const c1 = _ttConflict(myId, String(otherSlot.data[6]).trim(), parseInt(otherSlot.data[7]), excl, String(otherSlot.data[2]).trim(), String(otherSlot.data[3]).trim());
-  const c2 = _ttConflict(otherId, String(mySlot.data[6]).trim(), parseInt(mySlot.data[7]), excl, String(mySlot.data[2]).trim(), String(mySlot.data[3]).trim());
+  const c1 = _ttConflict(myId, String(otherSlot.data[6]).trim(), parseInt(otherSlot.data[7]), excl, String(otherSlot.data[2]).trim(), String(otherSlot.data[3]).trim(), String(otherSlot.data[0]).trim());
+  const c2 = _ttConflict(otherId, String(mySlot.data[6]).trim(), parseInt(mySlot.data[7]), excl, String(mySlot.data[2]).trim(), String(mySlot.data[3]).trim(), String(mySlot.data[0]).trim());
   return { errors: [...c1.errors, ...c2.errors], warnings: [...c1.classWarnings, ...c2.classWarnings] };
 }
 

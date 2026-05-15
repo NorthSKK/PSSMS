@@ -284,11 +284,13 @@ function handleFileUpload(input, type) {
 var currentTimetableData = [];
 var editModalInstance = null;
 
-var _TTO_SHARED_KWORDS = ['แนะแนว','วิถีพุทธ','ผู้บำเพ็ญ','ลูกเสือ','เนตรนารี','กิจกรรมพัฒนา','ยุวกาชาด','โฮมรูม'];
+var _TTO_SHARED_KWORDS = ['แนะแนว','วิถีพุทธ','ผู้บำเพ็ญ','ลูกเสือ','เนตรนารี','กิจกรรมพัฒนา','ยุวกาชาด','โฮมรูม','ชุมนุม'];
+var _TTO_SHARED_CODE_PREFIXES = ['HR','CLUB_','ลส','นน'];
 var _ttoCurrentConflicts = { self: new Set(), cls: new Set() };
 
 function _ttoIsShared(d) {
-  if (String(d[0]).trim().toUpperCase() === 'HR') return true;
+  var code = String(d[0]).trim();
+  if (_TTO_SHARED_CODE_PREFIXES.some(function(p){ return code.toUpperCase().startsWith(p.toUpperCase()); })) return true;
   if (String(d[7]).trim() === '0') return true;
   var n = String(d[1]).trim();
   return _TTO_SHARED_KWORDS.some(function(k){ return n.includes(k); });

@@ -52,11 +52,19 @@
     <div id="ttTabGrid">
       <div class="pssms-card p-0">
         <div class="table-responsive">
-          <table class="pssms-table mb-0 text-center" style="min-width:860px;font-size:.82rem;">
+          <table class="pssms-table mb-0 text-center" style="min-width:900px;font-size:.82rem;table-layout:fixed;width:100%;">
+            <colgroup>
+              <col style="width:88px;">
+              <col><col><col><col>
+              <col style="width:44px;">
+              <col><col><col><col>
+            </colgroup>
             <thead>
               <tr>
-                <th style="width:76px;">คาบ</th>
-                <th>จันทร์</th><th>อังคาร</th><th>พุธ</th><th>พฤหัสบดี</th><th>ศุกร์</th>
+                <th>วัน</th>
+                <th>คาบ 1</th><th>คาบ 2</th><th>คาบ 3</th><th>คาบ 4</th>
+                <th style="background:var(--p-subtle);color:var(--p-text-muted);font-size:.72rem;">พัก</th>
+                <th>คาบ 5</th><th>คาบ 6</th><th>คาบ 7</th><th>คาบ 8</th>
               </tr>
             </thead>
             <tbody id="ttGridBody"></tbody>
