@@ -1737,8 +1737,7 @@ var _ttoHomeroomData = [];
 var _ttoClassList = [];
 
 function initHomeroomPage() {
-  var root = document.getElementById('homeroomPageRoot');
-  if (!root) return;
+  if (!document.getElementById('ttoHomeroomBody')) return;
   var user = getUser();
   if (!user) return;
   var termEl = document.getElementById('ttoTerm');
@@ -1749,22 +1748,22 @@ function initHomeroomPage() {
   if (tbody) tbody.innerHTML = _skelTbody(6);
   google.script.run
     .withSuccessHandler(function(teachers) {
-      if (!document.getElementById('homeroomPageRoot')) return;
+      if (!document.getElementById('ttoHomeroomBody')) return;
       _ttoTeachers = teachers || [];
       google.script.run
         .withSuccessHandler(function(rows) {
-          if (!document.getElementById('homeroomPageRoot')) return;
+          if (!document.getElementById('ttoHomeroomBody')) return;
           _ttoAllRows = rows || [];
           _ttoBuildClassList();
           ttoLoadHomeroom();
         })
         .withFailureHandler(function() {
-          if (document.getElementById('homeroomPageRoot')) ttoLoadHomeroom();
+          if (document.getElementById('ttoHomeroomBody')) ttoLoadHomeroom();
         })
         .getFilteredTimetables('', termEl ? termEl.value : user.currentTerm, yearEl ? yearEl.value : user.currentYear);
     })
     .withFailureHandler(function() {
-      if (document.getElementById('homeroomPageRoot')) ttoLoadHomeroom();
+      if (document.getElementById('ttoHomeroomBody')) ttoLoadHomeroom();
     })
     .getTeachersForTimetable();
 }
