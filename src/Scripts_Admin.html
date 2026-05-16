@@ -890,64 +890,10 @@ function initPrintSettings() {
                     }
                 });
 
-                const tbody = document.getElementById('homeroomTableBody');
-                tbody.innerHTML = '';
-                
-                if(res.hr.length === 0) {
-                    addHomeroomRow('ม.1/1', '', ''); 
-                } else {
-                    res.hr.forEach(r => addHomeroomRow(r.cls, r.t1, r.t2));
-                }
             }
         }).getPrintConfigData(term, year);
 
     }).getTeacherListForDropdown();
-}
-
-// 2. ฟังก์ชันวาดแถวครูที่ปรึกษา (แปลงจาก Input เป็น Select)
-function addHomeroomRow(cls = '', t1 = '', t2 = '') {
-    const tbody = document.getElementById('homeroomTableBody');
-    if (tbody.querySelector('td[colspan="5"]')) tbody.innerHTML = ''; 
-    
-    const rowCount = tbody.querySelectorAll('tr').length + 1;
-    const tr = document.createElement('tr');
-    tr.className = "bg-white";
-
-    // 🌟 สร้างตัวเลือก Dropdown
-    let optionsT1 = `<option value="">-- เลือกครูที่ปรึกษา --</option>`;
-    let optionsT2 = `<option value="">-- เลือกครูที่ปรึกษา --</option>`;
-    
-    window.allTeacherNames.forEach(name => {
-        const sel1 = (name === t1) ? 'selected' : '';
-        const sel2 = (name === t2) ? 'selected' : '';
-        optionsT1 += `<option value="${name}" ${sel1}>${name}</option>`;
-        optionsT2 += `<option value="${name}" ${sel2}>${name}</option>`;
-    });
-
-    // 🛡️ ท่าไม้ตาย: ถ้าชื่อครูเดิมถูกลบออกจากฐานข้อมูลไปแล้ว ก็ยังให้แสดงชื่อเดิมอยู่ จะได้ไม่หาย!
-    if (t1 && !window.allTeacherNames.includes(t1)) optionsT1 += `<option value="${t1}" selected>${t1} (ไม่อยู่ในระบบ)</option>`;
-    if (t2 && !window.allTeacherNames.includes(t2)) optionsT2 += `<option value="${t2}" selected>${t2} (ไม่อยู่ในระบบ)</option>`;
-
-    tr.innerHTML = `
-        <td class="text-center text-muted fw-bold align-middle">${rowCount}</td>
-        <td><input type="text" class="form-control form-control-sm hr-cls fw-bold text-primary" value="${cls}" placeholder="เช่น ม.1/1"></td>
-        <td><select class="form-select form-select-sm hr-t1 shadow-none border-secondary">${optionsT1}</select></td>
-        <td><select class="form-select form-select-sm hr-t2 shadow-none border-secondary">${optionsT2}</select></td>
-        <td class="text-center align-middle">
-            <button class="btn btn-sm btn-outline-danger border-0" onclick="this.closest('tr').remove(); renumberHomeroomRows();" title="ลบห้องนี้">
-            <i class="fas fa-trash"></i>
-            </button>
-        </td>
-    `;
-    tbody.appendChild(tr);
-}
-
-function renumberHomeroomRows() {
-    const rows = document.querySelectorAll('#homeroomTableBody tr');
-    rows.forEach((row, index) => {
-        const td = row.querySelector('td:first-child');
-        if(td) td.innerText = index + 1;
-    });
 }
 
 function saveAllPrintConfig() {
@@ -975,18 +921,7 @@ function saveAllPrintConfig() {
         head_act: document.getElementById('cfg_head_act').value
     };
 
-    const hrList = [];
-    document.querySelectorAll('#homeroomTableBody tr').forEach(row => {
-        const clsInput = row.querySelector('.hr-cls');
-        if(clsInput) {
-            const cls = clsInput.value.trim();
-            const t1 = row.querySelector('.hr-t1').value;
-            const t2 = row.querySelector('.hr-t2').value;
-            if(cls !== '') hrList.push({ cls: cls, t1: t1, t2: t2 });
-        }
-    });
-
-    const payload = { term: term, year: year, sys: sysObj, hr: hrList };
+    const payload = { term: term, year: year, sys: sysObj, hr: [] };
 
     google.script.run
     .withFailureHandler(err => {
@@ -1008,7 +943,7 @@ document.getElementById('inputTerm')?.addEventListener('change', initPrintSettin
 document.getElementById('inputYear')?.addEventListener('blur', initPrintSettings);
 
 setTimeout(() => {
-    if (document.getElementById('homeroomTableBody')) {
+    if (document.getElementById('cfg_school_name')) {
         initPrintSettings();
     }
 }, 500);
