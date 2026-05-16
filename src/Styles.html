@@ -4,59 +4,76 @@
    Used across all non-dashboard pages.
 ========================================== */
 :root {
-  /* 70% Neutral */
-  --p-surface: #ffffff;
-  --p-subtle: #fafbfc;
-  --p-border: #eef0f3;
-  --p-border-strong: #dde1e6;
-  --p-hover: #f6f8fa;
+  /* ── 60-30-10 System ── */
+  --p-dom:    #f4fbfc;   /* 60% Dominant — page background */
+  --p-sec:    #cce8eb;   /* 30% Secondary — card headers, labels */
+  --p-accent: #076874;   /* 10% Accent — CTA, icons, active */
+  --p-accent-hover: #054f59;
+  --p-accent-soft:  #e0f4f6;
 
-  /* 20% Secondary (text/structure) */
-  --p-text: #1f2937;
+  /* Surface & structure */
+  --p-surface:       #ffffff;
+  --p-subtle:        var(--p-dom);
+  --p-border:        rgba(7,104,116,.13);
+  --p-border-strong: rgba(7,104,116,.24);
+  --p-hover:         rgba(7,104,116,.07);
+
+  /* Typography */
+  --p-text:       #1f2937;
   --p-text-muted: #6c757d;
-  --p-chip-bg: #f5f6f8;
-  --p-chip-text: #444;
+  --p-chip-bg:    var(--p-dom);
+  --p-chip-text:  #444;
 
-  /* 10% Accent (CTA / brand) */
-  --p-accent: #e83e8c;
-  --p-accent-hover: #d1336e;
-  --p-accent-soft: #fff4f7;
-
-  /* State colors — only for true semantic use */
-  --p-info: #0d6efd;
+  /* State colors — semantic only */
+  --p-info:    #0d6efd;
   --p-success: #198754;
-  --p-warning: #ffc107;
-  --p-danger: #dc3545;
+  --p-warning: #d97706;
+  --p-danger:  #dc3545;
 
   /* Geometry */
-  --p-radius: 10px;
-  --p-radius-sm: 6px;
+  --p-radius:    14px;
+  --p-radius-sm: 8px;
 
-  /* Department palette — used by .pssms-dept-* scopes */
-  --p-dept-academic: #3498db;
-  --p-dept-academic-hover: #217dbb;
-  --p-dept-academic-soft: #eaf4fb;
+  /* Department palette (named refs for sidebar & legacy) */
+  --p-dept-academic:        #0d95a0;
+  --p-dept-academic-hover:  #0b7a84;
+  --p-dept-academic-soft:   #e4f8fa;
 
-  --p-dept-budget: #2ecc71;
-  --p-dept-budget-hover: #25a25a;
-  --p-dept-budget-soft: #e9faf0;
+  --p-dept-budget:          #4a8a54;
+  --p-dept-budget-hover:    #3c7244;
+  --p-dept-budget-soft:     #eaf4eb;
 
-  --p-dept-personnel: #2563eb;
-  --p-dept-personnel-hover: #1d4ed8;
-  --p-dept-personnel-soft: #eef2ff;
+  --p-dept-personnel:       #c4501e;
+  --p-dept-personnel-hover: #a84118;
+  --p-dept-personnel-soft:  #fdeee8;
 
-  --p-dept-general: #f97316;
-  --p-dept-general-hover: #c2570c;
-  --p-dept-general-soft: #fff3e8;
+  --p-dept-general:         #7a5e00;
+  --p-dept-general-hover:   #624b00;
+  --p-dept-general-soft:    #fefdf0;
 }
 
-/* Department-scoped accent overrides
-   Apply class on the .pssms-page wrapper to swap the accent without
-   touching the rest of the design system. */
-.pssms-dept-academic { --p-accent: var(--p-dept-academic); --p-accent-hover: var(--p-dept-academic-hover); --p-accent-soft: var(--p-dept-academic-soft); }
-.pssms-dept-budget { --p-accent: var(--p-dept-budget); --p-accent-hover: var(--p-dept-budget-hover); --p-accent-soft: var(--p-dept-budget-soft); }
-.pssms-dept-personnel { --p-accent: var(--p-dept-personnel); --p-accent-hover: var(--p-dept-personnel-hover); --p-accent-soft: var(--p-dept-personnel-soft); }
-.pssms-dept-general { --p-accent: var(--p-dept-general); --p-accent-hover: var(--p-dept-general-hover); --p-accent-soft: var(--p-dept-general-soft); }
+/* Department-scoped tokens.
+   .pssms-dept-* on page wrapper, body.dept-* set by JS routing in loadPage(). */
+.pssms-dept-academic, body.dept-academic {
+  --p-dom:#f0fbfd; --p-sec:#b8e2e7;
+  --p-accent:var(--p-dept-academic); --p-accent-hover:var(--p-dept-academic-hover); --p-accent-soft:var(--p-dept-academic-soft);
+  --p-border:rgba(13,149,160,.13); --p-border-strong:rgba(13,149,160,.24); --p-hover:rgba(13,149,160,.07);
+}
+.pssms-dept-budget, body.dept-budget {
+  --p-dom:#f2faf3; --p-sec:#c4e2c8;
+  --p-accent:var(--p-dept-budget); --p-accent-hover:var(--p-dept-budget-hover); --p-accent-soft:var(--p-dept-budget-soft);
+  --p-border:rgba(74,138,84,.13); --p-border-strong:rgba(74,138,84,.24); --p-hover:rgba(74,138,84,.07);
+}
+.pssms-dept-personnel, body.dept-personnel {
+  --p-dom:#fef6f3; --p-sec:#f7d0c4;
+  --p-accent:var(--p-dept-personnel); --p-accent-hover:var(--p-dept-personnel-hover); --p-accent-soft:var(--p-dept-personnel-soft);
+  --p-border:rgba(196,80,30,.13); --p-border-strong:rgba(196,80,30,.24); --p-hover:rgba(196,80,30,.07);
+}
+.pssms-dept-general, body.dept-general {
+  --p-dom:#fefdf0; --p-sec:#f0e5b0;
+  --p-accent:var(--p-dept-general); --p-accent-hover:var(--p-dept-general-hover); --p-accent-soft:var(--p-dept-general-soft);
+  --p-border:rgba(122,94,0,.13); --p-border-strong:rgba(122,94,0,.24); --p-hover:rgba(122,94,0,.07);
+}
 
 /* Page shell shared by every non-dashboard page */
 .pssms-page { padding: 1.5rem; }
@@ -73,22 +90,24 @@
   padding: 1rem;
 }
 .pssms-card-header {
-  font-weight: 600; font-size: 0.92rem; color: var(--p-text);
-  padding-bottom: 0.75rem; border-bottom: 1px solid var(--p-border); margin-bottom: 0.75rem;
+  font-weight: 700; font-size: 0.75rem; color: var(--p-text);
+  text-transform: uppercase; letter-spacing: .05em;
+  padding: .65rem 1rem; border-bottom: 1px solid var(--p-border); margin-bottom: .75rem;
   display: flex; justify-content: space-between; align-items: center; gap: 0.5rem;
+  background: var(--p-sec);
 }
 
-/* Buttons — minimal */
-.btn-accent { background: var(--p-accent); color: #fff; border: 1px solid var(--p-accent); font-weight: 500; }
+/* Buttons — pill shape */
+.btn-accent { background: var(--p-accent); color: #fff; border: 1px solid var(--p-accent); font-weight: 600; border-radius: 999px; }
 .btn-accent:hover, .btn-accent:focus { background: var(--p-accent-hover); border-color: var(--p-accent-hover); color: #fff; }
-.btn-soft { background: var(--p-surface); border: 1px solid var(--p-border); color: var(--p-text); font-weight: 500; }
+.btn-soft { background: var(--p-surface); border: 1px solid var(--p-border-strong); color: var(--p-text); font-weight: 500; border-radius: 999px; }
 .btn-soft:hover { background: var(--p-hover); border-color: var(--p-border-strong); color: var(--p-text); }
 .btn-soft i { color: var(--p-text-muted); }
 
 /* Forms */
 .form-control:focus, .form-select:focus {
   border-color: var(--p-accent);
-  box-shadow: 0 0 0 0.15rem rgba(232, 62, 140, 0.15);
+  box-shadow: 0 0 0 0.15rem var(--p-accent-soft);
 }
 
 /* Tables — minimal */
@@ -117,6 +136,57 @@
   font-weight: 500;
 }
 
+/* Icon circle */
+.pssms-icon-circle {
+  width: 36px; height: 36px; border-radius: 50%;
+  background: var(--p-accent-soft); color: var(--p-accent);
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 0.95rem; flex-shrink: 0;
+}
+
+/* KPI display */
+.pssms-kpi-value { font-size: 1.75rem; font-weight: 700; color: var(--p-accent); line-height: 1.1; }
+.pssms-kpi-sub   { font-size: 0.78rem; color: var(--p-text-muted); margin-top: 2px; }
+
+/* Clickable card */
+.pssms-card-link { cursor: pointer; transition: box-shadow .15s, border-color .15s; }
+.pssms-card-link:hover { border-color: var(--p-accent); box-shadow: 0 0 0 3px var(--p-accent-soft); }
+
+/* Accent-tinted card */
+.pssms-card-accent { background: var(--p-accent-soft); border-color: var(--p-border); }
+
+/* Empty state */
+.pssms-empty { text-align: center; padding: 2rem 1rem; color: var(--p-text-muted); }
+.pssms-empty i { font-size: 2rem; margin-bottom: 0.5rem; opacity: .5; display: block; }
+
+/* Status chips */
+.pssms-status { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 0.75rem; font-weight: 600; }
+.pssms-status-pending  { background: #fef9c3; color: #854d0e; }
+.pssms-status-approved { background: #dcfce7; color: #166534; }
+.pssms-status-rejected { background: #fee2e2; color: #991b1b; }
+.pssms-status-info     { background: #dbeafe; color: #1e40af; }
+
+/* Progress bar */
+.pssms-progress { height: 6px; border-radius: 999px; background: var(--p-sec); overflow: hidden; }
+.pssms-progress-bar { height: 100%; background: var(--p-accent); border-radius: 999px; transition: width .3s; }
+
+/* Number badge */
+.pssms-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 20px; height: 20px; border-radius: 999px;
+  background: var(--p-accent); color: #fff; font-size: 0.7rem; font-weight: 700; padding: 0 5px;
+}
+
+/* Nav pills (tab-style) */
+.pssms-pills { display: flex; gap: 4px; flex-wrap: wrap; }
+.pssms-pill {
+  padding: 4px 14px; border-radius: 999px; font-size: 0.82rem; font-weight: 500;
+  border: 1px solid var(--p-border); background: var(--p-surface); color: var(--p-text-muted);
+  cursor: pointer; transition: background .15s, color .15s, border-color .15s;
+}
+.pssms-pill:hover { background: var(--p-hover); color: var(--p-text); }
+.pssms-pill.active { background: var(--p-accent); color: #fff; border-color: var(--p-accent); }
+
 /* Modal — flat header */
 .pssms-modal .modal-content { border: 1px solid var(--p-border); border-radius: var(--p-radius); }
 .pssms-modal .modal-header { border-bottom: 1px solid var(--p-border); background: var(--p-surface); color: var(--p-text); }
@@ -127,8 +197,9 @@
 ========================================== */
 body {
     font-family: 'Kanit', sans-serif;
-    background-color: #f4f7f6;
+    background-color: var(--p-dom);
     overflow-x: hidden !important; /* กันจอโยกซ้ายขวา */
+    transition: background-color .2s;
 }
 .wrapper { display: flex; width: 100%; align-items: stretch; }
 
@@ -292,6 +363,11 @@ input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer
 
 /* --- Override design tokens for dark surfaces (pssms-* auto-inherits) --- */
 body.dark-mode {
+  --p-dom:    #0e1c1f;
+  --p-sec:    #1c3237;
+  --p-accent: #20bdc9;
+  --p-accent-hover: #1aa6b0;
+  --p-accent-soft:  #0e3038;
   --p-surface: #1e2024;
   --p-subtle: #25282d;
   --p-border: #2c2f35;
@@ -337,7 +413,7 @@ body.dark-mode {
 
 /* --- Base: override Bootstrap 5.3 CSS variables --- */
 body.dark-mode {
-  background-color: #121316 !important;
+  background-color: var(--p-dom) !important;
   color: #e8eaed !important;
   --bs-body-color: #e0e0e0;
   --bs-body-bg: #121212;
@@ -552,6 +628,44 @@ body.dark-mode {
 /* links */
 .dark-mode a:not(.btn):not(.nav-link):not(.nav-link-custom):not(.dropdown-item) { color: #8bb9fe; }
 
+/* Dept-aware dark mode */
+body.dark-mode.dept-academic {
+  --p-dom:#0a1e22; --p-sec:#163840;
+  --p-accent:#22ccd8; --p-accent-hover:#1ab8c4; --p-accent-soft:#0d3038;
+  --p-border:rgba(34,204,216,.18); --p-border-strong:rgba(34,204,216,.3); --p-hover:rgba(34,204,216,.1);
+}
+body.dark-mode.dept-budget {
+  --p-dom:#0a1c0d; --p-sec:#153220;
+  --p-accent:#5bbf68; --p-accent-hover:#4da659; --p-accent-soft:#102214;
+  --p-border:rgba(91,191,104,.18); --p-border-strong:rgba(91,191,104,.3); --p-hover:rgba(91,191,104,.1);
+}
+body.dark-mode.dept-personnel {
+  --p-dom:#1f100a; --p-sec:#3a1c11;
+  --p-accent:#e07045; --p-accent-hover:#d05e32; --p-accent-soft:#2a140a;
+  --p-border:rgba(224,112,69,.18); --p-border-strong:rgba(224,112,69,.3); --p-hover:rgba(224,112,69,.1);
+}
+body.dark-mode.dept-general {
+  --p-dom:#1c1800; --p-sec:#302a00;
+  --p-accent:#d4a520; --p-accent-hover:#b88c14; --p-accent-soft:#201c00;
+  --p-border:rgba(212,165,32,.18); --p-border-strong:rgba(212,165,32,.3); --p-hover:rgba(212,165,32,.1);
+}
+
+/* Status chips in dark mode */
+.dark-mode .pssms-status-pending  { background: #2e2400; color: #f0c840; }
+.dark-mode .pssms-status-approved { background: #0a2010; color: #86c4a3; }
+.dark-mode .pssms-status-rejected { background: #250a0a; color: #f29b9b; }
+.dark-mode .pssms-status-info     { background: #0d1f3c; color: #8bb9fe; }
+
+/* Dark mode new components */
+.dark-mode .pssms-icon-circle { background: var(--p-accent-soft); color: var(--p-accent); }
+.dark-mode .pssms-kpi-value { color: var(--p-accent); }
+.dark-mode .pssms-card-link:hover { border-color: var(--p-accent); box-shadow: 0 0 0 3px var(--p-accent-soft); }
+.dark-mode .pssms-card-accent { background: var(--p-accent-soft); }
+.dark-mode .pssms-progress { background: var(--p-sec); }
+.dark-mode .pssms-pill { background: var(--p-surface); border-color: var(--p-border); color: var(--p-text-muted); }
+.dark-mode .pssms-pill:hover { background: var(--p-hover); color: var(--p-text); }
+.dark-mode .pssms-pill.active { background: var(--p-accent); color: #fff; border-color: var(--p-accent); }
+
 /* ==========================================
    📱 7. RESPONSIVE (มือถือ)
 ========================================== */
@@ -672,9 +786,9 @@ body.dark-mode {
 ========================================== */
 .pssms-skel {
   background: linear-gradient(90deg,
-    var(--p-subtle) 25%,
-    var(--p-border) 50%,
-    var(--p-subtle) 75%);
+    var(--p-sec) 25%,
+    var(--p-dom) 50%,
+    var(--p-sec) 75%);
   background-size: 300% 100%;
   animation: skelShimmer 1.5s infinite linear;
   border-radius: 6px;

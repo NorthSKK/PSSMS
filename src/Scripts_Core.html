@@ -697,6 +697,22 @@ function _skelCards(n, h) {
   return html;
 }
 
+var PAGE_DEPT = {
+  Page_Academic:'academic', Page_Score_Entry:'academic', Page_Subject_Config:'academic',
+  Page_Academic_Report:'academic', Page_Lesson_History:'academic',
+  Page_Admin_Timetable:'academic', Page_Grade_Summary:'academic', Page_Admin_Curriculum:'academic',
+  Page_Budget:'budget',
+  Page_Personnel:'personnel', Page_Leave_Admin:'personnel',
+  Page_Leave_Request:'personnel', Page_Substitute_Admin:'personnel', Page_Admin_Users:'personnel',
+  Page_General:'general'
+};
+var _DEPT_CLASSES = ['dept-academic','dept-budget','dept-personnel','dept-general'];
+function _setBodyDept(pageName) {
+  _DEPT_CLASSES.forEach(function(c){ document.body.classList.remove(c); });
+  var dept = PAGE_DEPT[pageName];
+  if (dept) document.body.classList.add('dept-' + dept);
+}
+
 function loadPage(pageName) {
   // 🌟 1. ล้างตัวแปร Global (State Reset) ป้องกันข้อมูลข้ามวิชา/ข้ามหน้า
   // -- ระบบเช็คชื่อ --
@@ -759,6 +775,7 @@ function loadPage(pageName) {
 }
 
 function setupPageContent(pageName, html) {
+  _setBodyDept(pageName);
   document.getElementById('page-content').innerHTML = html;
   showLoader(false); 
   if (window.innerWidth <= 768) { const sidebar = document.getElementById('sidebar'); if(sidebar) sidebar.classList.remove('active'); }
