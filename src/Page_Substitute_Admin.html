@@ -12,22 +12,20 @@
   </div>
 
   <!-- Tabs -->
-  <ul class="nav nav-pills mb-3 gap-2">
+  <ul class="nav pssms-tabs mb-3 gap-2">
     <li class="nav-item">
-      <button class="nav-link active btn-accent" id="subTabPending" onclick="subAdminShowTab('รอจัด')">
+      <button class="nav-link active fw-medium px-3" id="subTabPending" onclick="subAdminShowTab('รอจัด')">
         <i class="fas fa-clock me-1"></i>รอจัด
         <span class="badge bg-danger ms-1" id="subPendingCount" style="display:none;"></span>
       </button>
     </li>
     <li class="nav-item">
-      <button class="nav-link" id="subTabDone" onclick="subAdminShowTab('จัดแล้ว')"
-              style="background:var(--p-subtle);color:var(--p-text);">
+      <button class="nav-link fw-medium px-3" id="subTabDone" onclick="subAdminShowTab('จัดแล้ว')">
         <i class="fas fa-check me-1"></i>จัดแล้ว
       </button>
     </li>
     <li class="nav-item">
-      <button class="nav-link" id="subTabCancelled" onclick="subAdminShowTab('ยกเลิก')"
-              style="background:var(--p-subtle);color:var(--p-text);">
+      <button class="nav-link fw-medium px-3" id="subTabCancelled" onclick="subAdminShowTab('ยกเลิก')">
         <i class="fas fa-ban me-1"></i>ยกเลิก
       </button>
     </li>

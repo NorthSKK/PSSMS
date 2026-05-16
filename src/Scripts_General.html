@@ -562,15 +562,13 @@ function leaveAdminShowTab(tab) {
   var tabAll     = document.getElementById('tabAll');
   var filters    = document.getElementById('leaveAllFilters');
   if (tab === 'pending') {
-    if (tabPending) tabPending.className = 'nav-link active btn-accent';
-    if (tabAll)     tabAll.className     = 'nav-link';
-    if (tabAll)     tabAll.style.cssText = 'background:var(--p-subtle);color:var(--p-text);';
+    if (tabPending) { tabPending.className = 'nav-link active fw-medium px-3'; tabPending.style.cssText = ''; }
+    if (tabAll)     { tabAll.className = 'nav-link fw-medium px-3'; tabAll.style.cssText = ''; }
     if (filters)    filters.classList.add('d-none');
     leaveAdminLoadPending();
   } else {
-    if (tabPending) tabPending.className = 'nav-link';
-    if (tabPending) tabPending.style.cssText = 'background:var(--p-subtle);color:var(--p-text);';
-    if (tabAll)     { tabAll.className = 'nav-link active btn-accent'; tabAll.style.cssText = ''; }
+    if (tabPending) { tabPending.className = 'nav-link fw-medium px-3'; tabPending.style.cssText = ''; }
+    if (tabAll)     { tabAll.className = 'nav-link active fw-medium px-3'; tabAll.style.cssText = ''; }
     if (filters)    filters.classList.remove('d-none');
     leaveAdminLoadAll();
   }
@@ -782,15 +780,14 @@ function subAdminShowTab(tab) {
   ['Pending','Done','Cancelled'].forEach(function(k){
     var btn = document.getElementById('subTab' + k);
     if (!btn) return;
-    btn.classList.remove('active','btn-accent');
-    btn.style.background = 'var(--p-subtle)';
-    btn.style.color = 'var(--p-text)';
+    btn.classList.remove('active');
+    btn.style.cssText = '';
   });
   var map = { 'รอจัด':'subTabPending', 'จัดแล้ว':'subTabDone', 'ยกเลิก':'subTabCancelled' };
   var activeBtn = document.getElementById(map[tab]);
   if (activeBtn) {
-    activeBtn.classList.add('active','btn-accent');
-    activeBtn.style.background = ''; activeBtn.style.color = '';
+    activeBtn.classList.add('active');
+    activeBtn.style.cssText = '';
   }
   _renderSubAdminTable();
 }

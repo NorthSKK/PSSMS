@@ -372,6 +372,19 @@ body {
 .nav-link-sub i { width: 20px; text-align: center; flex-shrink: 0; font-size: 0.75rem !important; }
 .nav-link-sub:hover { background: var(--p-hover) !important; color: var(--p-text) !important; }
 
+/* pssms-tabs — unified tab bar */
+.pssms-tabs { border-bottom: 1px solid var(--p-border); }
+.pssms-tabs .nav-link {
+  color: var(--p-text-muted) !important; border: none !important;
+  background: transparent !important; border-radius: 6px 6px 0 0 !important;
+  font-weight: 500; padding: 0.375rem 0.75rem;
+}
+.pssms-tabs .nav-link.active {
+  border-bottom: 2px solid var(--p-accent) !important;
+  color: var(--p-accent) !important; background: transparent !important;
+}
+.pssms-tabs .nav-link:hover:not(.active) { background: var(--p-hover) !important; color: var(--p-text) !important; }
+
 /* ==========================================
    📦 3. UI COMPONENTS (การ์ด & ปุ่ม & อื่นๆ)
 ========================================== */
