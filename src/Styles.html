@@ -361,13 +361,15 @@ body {
 
 /* nav-link-sub — sub items under dept */
 .nav-link-sub {
+    display: flex !important; align-items: center;
     font-size: 0.8rem !important;
-    padding: 4px 12px 4px 26px !important;
+    padding: 4px 12px 4px 13px !important;
     color: var(--p-text-muted) !important;
     border-radius: 6px !important;
     margin: 0 10px !important;
     transition: background 0.15s, color 0.15s;
 }
+.nav-link-sub i { width: 20px; text-align: center; flex-shrink: 0; font-size: 0.75rem !important; }
 .nav-link-sub:hover { background: var(--p-hover) !important; color: var(--p-text) !important; }
 
 /* ==========================================
