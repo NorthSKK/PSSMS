@@ -569,10 +569,12 @@ function renderApp(user) {
         menuHTML += `<li class="mb-1 ms-3"><a href="javascript:void(0)" class="nav-link-sub py-1" style="font-size: 0.85rem; color: #f39c12;" onclick="loadPage('Page_Admin_Users')"><i class="fas fa-users-cog me-2" style="font-size: 0.7rem;"></i>จัดการผู้ใช้งาน</a></li>`;
         menuHTML += `<li class="mb-1 ms-3"><a href="javascript:void(0)" class="nav-link-sub py-1" style="font-size: 0.85rem; color: #6366f1;" onclick="loadPage('Page_Leave_Request')"><i class="fas fa-calendar-minus me-2" style="font-size: 0.7rem;"></i>แจ้งลาของฉัน</a></li>`;
         menuHTML += `<li class="mb-1 ms-3"><a href="javascript:void(0)" class="nav-link-sub py-1" style="font-size: 0.85rem; color: #6366f1;" onclick="loadPage('Page_Leave_Admin')"><i class="fas fa-clipboard-check me-2" style="font-size: 0.7rem;"></i>จัดการการลา</a></li>`;
-        menuHTML += `<li class="mb-2 ms-3"><a href="javascript:void(0)" class="nav-link-sub py-1" style="font-size: 0.85rem; color: #14b8a6;" onclick="loadPage('Page_Substitute_Admin')"><i class="fas fa-user-friends me-2" style="font-size: 0.7rem;"></i>จัดสอนแทน</a></li>`;
+        menuHTML += `<li class="mb-1 ms-3"><a href="javascript:void(0)" class="nav-link-sub py-1" style="font-size: 0.85rem; color: #14b8a6;" onclick="loadPage('Page_Substitute_Admin')"><i class="fas fa-user-friends me-2" style="font-size: 0.7rem;"></i>จัดสอนแทน</a></li>`;
+        menuHTML += `<li class="mb-2 ms-3"><a href="javascript:void(0)" class="nav-link-sub py-1" style="font-size: 0.85rem; color: var(--p-accent);" onclick="window._ttoAutoTab='homeroom';loadPage('Page_Admin_Timetable')"><i class="fas fa-home me-2" style="font-size: 0.7rem;"></i>ครูที่ปรึกษา</a></li>`;
     } else {
         menuHTML += `<li class="mb-1"><a href="javascript:void(0)" class="dept-btn personnel" onclick="loadPage('Page_Personnel')"><i class="fas fa-users"></i> <span>ฝ่ายบุคคล</span></a></li>`;
-        menuHTML += `<li class="mb-2 ms-3"><a href="javascript:void(0)" class="nav-link-sub py-1" style="font-size: 0.85rem; color: #6366f1;" onclick="loadPage('Page_Leave_Request')"><i class="fas fa-calendar-minus me-2" style="font-size: 0.7rem;"></i>แจ้งลา</a></li>`;
+        menuHTML += `<li class="mb-1 ms-3"><a href="javascript:void(0)" class="nav-link-sub py-1" style="font-size: 0.85rem; color: #6366f1;" onclick="loadPage('Page_Leave_Request')"><i class="fas fa-calendar-minus me-2" style="font-size: 0.7rem;"></i>แจ้งลา</a></li>`;
+        menuHTML += `<li class="mb-2 ms-3"><a href="javascript:void(0)" class="nav-link-sub py-1" style="font-size: 0.85rem; color: var(--p-accent);" onclick="window._ttoAutoTab='homeroom';loadPage('Page_Admin_Timetable')"><i class="fas fa-home me-2" style="font-size: 0.7rem;"></i>ครูที่ปรึกษา</a></li>`;
     }
 
     menuHTML += `

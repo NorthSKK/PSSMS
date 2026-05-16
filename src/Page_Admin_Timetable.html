@@ -16,16 +16,16 @@
   <!-- Shared term/year filter -->
   <div class="pssms-card mb-3">
     <div class="row g-2 align-items-end">
-      <div class="col-auto">
+      <div class="col-sm-3">
         <label class="form-label small fw-medium text-muted">ภาคเรียน</label>
         <select class="form-select form-select-sm" id="ttoTerm" onchange="initAdminTimetable()">
           <option value="1">ภาคเรียนที่ 1</option>
           <option value="2">ภาคเรียนที่ 2</option>
         </select>
       </div>
-      <div class="col-auto">
+      <div class="col-sm-3">
         <label class="form-label small fw-medium text-muted">ปีการศึกษา</label>
-        <input type="number" class="form-control form-control-sm" id="ttoYear" style="width:100px;" onchange="initAdminTimetable()">
+        <input type="number" class="form-control form-control-sm" id="ttoYear" onchange="initAdminTimetable()">
       </div>
       <div class="col-auto ms-auto" id="ttoLoadingBadge" style="display:none;">
         <span class="badge bg-secondary"><div class="spinner-border spinner-border-sm me-1" style="width:.7rem;height:.7rem;"></div>กำลังโหลด</span>
@@ -159,8 +159,26 @@
 
   <!-- Tab: แลกตารางสอน -->
   <div id="ttoTabSwap" class="d-none">
+    <div id="ttoSwapPreview" class="d-none mb-3">
+      <div class="pssms-card p-3" style="border:2px solid var(--p-accent);">
+        <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">
+          <div>
+            <div class="small fw-bold text-muted mb-2"><i class="fas fa-exchange-alt me-1"></i>ตัวอย่างการแลก</div>
+            <div class="d-flex align-items-start gap-3 flex-wrap">
+              <div class="small" id="ttoPreviewA" style="color:var(--p-accent);"></div>
+              <i class="fas fa-arrows-alt-h text-muted mt-1"></i>
+              <div class="small" id="ttoPreviewB" style="color:#198754;"></div>
+            </div>
+          </div>
+          <button class="btn btn-accent btn-sm flex-shrink-0" onclick="ttoConfirmSwap()">
+            <i class="fas fa-check me-1"></i>ยืนยันแลกตาราง
+          </button>
+        </div>
+      </div>
+    </div>
+
     <div class="row g-3">
-      <div class="col-md-5">
+      <div class="col-md-6">
         <div class="pssms-card h-100">
           <div class="pssms-card-header" style="color:var(--p-accent);"><i class="fas fa-user me-2"></i>ครู A</div>
           <div class="p-3">
@@ -174,22 +192,7 @@
         </div>
       </div>
 
-      <div class="col-md-2 d-flex flex-column align-items-center justify-content-center gap-3">
-        <div class="text-muted" style="font-size:1.8rem;"><i class="fas fa-exchange-alt"></i></div>
-        <div id="ttoSwapPreview" class="d-none w-100">
-          <div class="pssms-card p-3 text-center" style="border:2px solid var(--p-accent);">
-            <div class="small fw-bold text-muted mb-2">ตัวอย่างการแลก</div>
-            <div id="ttoPreviewA" class="small mb-1 text-primary"></div>
-            <i class="fas fa-arrows-alt-v text-muted my-1"></i>
-            <div id="ttoPreviewB" class="small mt-1 text-success"></div>
-          </div>
-          <button class="btn btn-accent btn-sm w-100 mt-2" onclick="ttoConfirmSwap()">
-            <i class="fas fa-check me-1"></i>ยืนยันแลกตาราง
-          </button>
-        </div>
-      </div>
-
-      <div class="col-md-5">
+      <div class="col-md-6">
         <div class="pssms-card h-100">
           <div class="pssms-card-header" style="color:#198754;"><i class="fas fa-user me-2"></i>ครู B</div>
           <div class="p-3">

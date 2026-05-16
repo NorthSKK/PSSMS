@@ -622,6 +622,13 @@ function initAdminTimetable() {
   var subtitle = document.getElementById('ttoSubtitle');
   if (subtitle) subtitle.textContent = 'เทอม ' + (termEl ? termEl.value : '') + '/' + (yearEl ? yearEl.value : '');
 
+  if (window._ttoAutoTab) {
+    var _at = window._ttoAutoTab;
+    window._ttoAutoTab = null;
+    var _atBtn = document.getElementById('ttoTab' + _at.charAt(0).toUpperCase() + _at.slice(1) + 'Btn');
+    ttoSwitchTab(_at, _atBtn || null);
+  }
+
   var wrap = document.getElementById('ttoGridWrap');
   if (wrap) wrap.innerHTML = _skelCards(3);
 
