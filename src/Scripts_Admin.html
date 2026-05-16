@@ -623,7 +623,7 @@ function initAdminTimetable() {
   if (subtitle) subtitle.textContent = 'เทอม ' + (termEl ? termEl.value : '') + '/' + (yearEl ? yearEl.value : '');
 
   var wrap = document.getElementById('ttoGridWrap');
-  if (wrap) wrap.innerHTML = '<div class="text-center text-muted p-5"><div class="spinner-border spinner-border-sm me-2"></div>กำลังโหลด...</div>';
+  if (wrap) wrap.innerHTML = _skelCards(3);
 
   google.script.run
     .withSuccessHandler(function(teachers) {
@@ -671,7 +671,7 @@ function viewTimetable() {
   const year = yearEl ? yearEl.value : '';
   if(!tid) return;
   const tbody = document.getElementById('timetableDisplayBody');
-  if(tbody) tbody.innerHTML = '<tr><td colspan="8" class="text-center p-4">กำลังโหลด...</td></tr>';
+  if(tbody) tbody.innerHTML = _skelTbody(8);
   google.script.run.withSuccessHandler(function(data) {
     currentTimetableData = data;
     _ttoComputeConflicts();
@@ -1212,7 +1212,7 @@ function loadClubList() {
   const tbody = document.getElementById('clubListBody');
   if (!tbody) return;
   const user = JSON.parse(localStorage.getItem('pssms_user'));
-  tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted p-5"><div class="spinner-border spinner-border-sm me-2"></div>กำลังโหลด...</td></tr>';
+  tbody.innerHTML = _skelTbody(5);
 
   google.script.run.withSuccessHandler(list => {
     _clubList = list || [];
@@ -1404,7 +1404,7 @@ function openClubMembers(clubId, clubName, term, year) {
   _currentClubForMembers = { clubId, clubName, term, year };
   document.getElementById('clubMembersName').textContent = clubName;
   document.getElementById('clubMembersCount').textContent = '0';
-  document.getElementById('clubMembersList').innerHTML = '<div class="text-muted text-center p-3"><div class="spinner-border spinner-border-sm me-2"></div>กำลังโหลด...</div>';
+  document.getElementById('clubMembersList').innerHTML = _skelCards(3, 40);
   document.getElementById('clubMembersStudentList').innerHTML = '<div class="text-muted text-center p-3 small">เลือกชั้นเรียนเพื่อเริ่มเพิ่มนักเรียน</div>';
 
   // populate class filter from cached user list
@@ -1854,7 +1854,7 @@ function ttoLoadHomeroom() {
   var tbody = document.getElementById('ttoHomeroomBody');
   if (!tbody) return;
   var termEl = document.getElementById('ttoTerm'), yearEl = document.getElementById('ttoYear');
-  tbody.innerHTML = '<tr><td colspan="5" class="text-center p-4"><div class="spinner-border spinner-border-sm me-2"></div>กำลังโหลด...</td></tr>';
+  tbody.innerHTML = _skelTbody(5);
   google.script.run
     .withSuccessHandler(function(data) {
       _ttoHomeroomData = data || [];
@@ -1966,7 +1966,7 @@ function ttoCheckDuplicates() {
   var btnRemove = document.getElementById('ttoBtnRemoveDup');
   if (!result) return;
   var termEl = document.getElementById('ttoTerm'), yearEl = document.getElementById('ttoYear');
-  result.innerHTML = '<div class="text-center text-muted p-4"><div class="spinner-border spinner-border-sm me-2"></div>กำลังตรวจสอบ...</div>';
+  result.innerHTML = _skelCards(2, 60);
   google.script.run
     .withSuccessHandler(function(groups) {
       var total = groups.reduce(function(s,g){ return s + g.length - 1; }, 0);

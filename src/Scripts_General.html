@@ -188,7 +188,7 @@ window.loadSarabunHistory = function() {
     const tbody = document.getElementById('sarabunTableBody');
     if (!tbody) return;
     
-    tbody.innerHTML = '<tr><td colspan="4" class="text-center py-5 text-muted"><div class="spinner-border spinner-border-sm text-primary me-2"></div>กำลังโหลดข้อมูล...</td></tr>';
+    tbody.innerHTML = _skelTbody(4);
     
     const user = getSessionUser();
     const userName = user ? user.name : "";
@@ -799,7 +799,7 @@ function subAdminReload() {
   var from = document.getElementById('subFilterFrom').value;
   var to   = document.getElementById('subFilterTo').value;
   var tbody = document.getElementById('subAdminTableBody');
-  if (tbody) tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin me-1"></i>กำลังโหลด...</td></tr>';
+  if (tbody) tbody.innerHTML = _skelTbody(8);
   google.script.run
     .withSuccessHandler(function(rows) {
       _subAdminData = rows || [];
@@ -867,7 +867,7 @@ function openAssignModal(assignmentId) {
     '<div class="mt-2"><strong>วิชา:</strong> ' + _escH(rec.subjectName) + ' <span class="text-muted">[' + _escH(rec.subjectCode) + ']</span></div>' +
     '<div class="mt-1"><strong>ครูเดิม:</strong> ' + _escH(rec.originalTeacherName) + '</div>';
 
-  document.getElementById('subTeacherList').innerHTML = '<div class="text-muted small text-center py-3"><i class="fas fa-spinner fa-spin me-1"></i>กำลังหาครูว่าง...</div>';
+  document.getElementById('subTeacherList').innerHTML = _skelCards(3, 40);
   var user = getSessionUser() || {};
   google.script.run
     .withSuccessHandler(function(list) {

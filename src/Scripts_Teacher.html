@@ -454,7 +454,7 @@ function loadTeacherAtRiskDashboard(teacherId, term, year) {
     renderTeacherAtRiskDashboard(JSON.parse(sessionStorage.getItem(riskCacheKey)), container); return; 
   }
   
-  container.innerHTML = `<div class="text-center p-4"><div class="spinner-border text-danger mb-2" role="status"></div><div class="text-muted small">กำลังสแกนหานักเรียนกลุ่มเสี่ยงจากทุกรายวิชา...</div></div>`;
+  container.innerHTML = _skelCards(4, 40);
   google.script.run.withSuccessHandler(function(data) {
     sessionStorage.setItem(riskCacheKey, JSON.stringify(data));
     renderTeacherAtRiskDashboard(data, container);
@@ -492,10 +492,10 @@ function loadTeacherRiskDashboard(teacherId, term, year) {
     return;
   }
 
-  el0.innerHTML = '<span class="spinner-grow spinner-border-sm"></span>';
-  elR.innerHTML = '<span class="spinner-grow spinner-border-sm"></span>';
-  elMS.innerHTML = '<span class="spinner-grow spinner-border-sm"></span>';
-  container.innerHTML = `<div class="text-center text-muted py-5"><div class="spinner-border text-danger mb-3" role="status"></div><br>กำลังประมวลผลข้อมูลกลุ่มเสี่ยง...</div>`;
+  el0.innerHTML = '<span class="pssms-skel d-inline-block" style="height:22px;width:44px;border-radius:4px;"></span>';
+  elR.innerHTML = '<span class="pssms-skel d-inline-block" style="height:22px;width:44px;border-radius:4px;"></span>';
+  elMS.innerHTML = '<span class="pssms-skel d-inline-block" style="height:22px;width:44px;border-radius:4px;"></span>';
+  container.innerHTML = _skelCards(4, 40);
 
   safeRun(3).withSuccessHandler(function(res) {
     if (res.status === 'success') {
@@ -861,7 +861,7 @@ function _tcLoadMembers() {
   const user = JSON.parse(localStorage.getItem('pssms_user'));
   if (!user || !_tcCurrentClub) return;
   const body = document.getElementById('tcMembersBody'); if (!body) return;
-  body.innerHTML = '<div class="text-center text-muted py-3"><div class="spinner-border spinner-border-sm me-2"></div>กำลังโหลดสมาชิก...</div>';
+  body.innerHTML = _skelCards(3, 44);
   google.script.run
     .withSuccessHandler(function(res) {
       if (res && res.error) { body.innerHTML = '<div class="text-danger text-center py-3">❌ ' + res.error + '</div>'; return; }
@@ -903,7 +903,7 @@ function _tcLoadAttSummary(cb) {
 function tcShowAttendanceForDate(date) {
   if (!date) return;
   const attBody = document.getElementById('tcAttBody'); if (!attBody) return;
-  attBody.innerHTML = '<div class="text-center text-muted py-3"><div class="spinner-border spinner-border-sm me-2"></div>กำลังโหลด...</div>';
+  attBody.innerHTML = _skelCards(3, 40);
   _tcLoadAttSummary(function(summary) {
     if (summary.error) { attBody.innerHTML = '<div class="text-danger text-center py-3">❌ ' + summary.error + '</div>'; return; }
     const sessions = summary.sessions || [];
@@ -928,7 +928,7 @@ function tcGoToAttendance() {
 
 function _tcRenderStats() {
   const statsBody = document.getElementById('tcStatsBody'); if (!statsBody) return;
-  statsBody.innerHTML = '<div class="text-center text-muted py-3"><div class="spinner-border spinner-border-sm me-2"></div>กำลังโหลด...</div>';
+  statsBody.innerHTML = _skelCards(3, 40);
   _tcLoadAttSummary(function(summary) {
     if (summary.error) { statsBody.innerHTML = '<div class="text-danger text-center py-3">❌ ' + summary.error + '</div>'; return; }
     const members = summary.members || [];
