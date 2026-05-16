@@ -91,9 +91,11 @@
   overflow: hidden;
 }
 .pssms-card-header {
-  font-weight: 700; font-size: 0.95rem; color: var(--p-text);
+  font-weight: 700; font-size: 1.1rem; color: var(--p-text);
   letter-spacing: .01em;
-  padding: .75rem 1rem; border-bottom: 1px solid var(--p-border); margin-bottom: 0;
+  padding: .7rem 1rem .55rem;
+  border-bottom: 1px solid var(--p-border);
+  margin: -1rem -1rem .25rem -1rem;
   display: flex; justify-content: space-between; align-items: center; gap: 0.5rem;
   background: var(--p-sec);
 }
@@ -106,24 +108,45 @@
 .btn-soft i { color: var(--p-text-muted); }
 
 /* Forms */
+.form-control, .form-select, .input-group-text, .form-check-label {
+  font-size: 0.82rem;
+}
+.form-control, .form-select {
+  padding: 0.4rem 0.7rem;
+}
 .form-control:focus, .form-select:focus {
   border-color: var(--p-accent);
   box-shadow: 0 0 0 0.15rem var(--p-accent-soft);
 }
+.form-label, label { font-size: 0.85rem; }
+.dropdown-menu { font-size: 0.85rem; }
+.dropdown-item { font-size: 0.85rem; padding: 0.4rem 0.9rem; }
 
 /* Tables — minimal */
 .pssms-table { width: 100%; }
-.pssms-table thead th {
-  background: transparent;
-  font-size: 0.78rem;
+.pssms-table thead th,
+#page-content .table thead th,
+#page-content table.table thead th {
+  background: transparent !important;
+  background-color: transparent !important;
+  font-size: 0.7rem;
   letter-spacing: 0.01em;
-  color: var(--p-text-muted);
-  font-weight: 500;
-  border-bottom: 1px solid var(--p-border);
-  padding: 0.55rem 0.75rem;
+  color: var(--p-text-muted) !important;
+  font-weight: 500 !important;
+  border-bottom: 1px solid var(--p-border) !important;
+  padding: 0.25rem 0.75rem 0.5rem;
   opacity: .75;
+  text-transform: none !important;
+  --bs-table-bg: transparent;
+  --bs-table-color: var(--p-text-muted);
 }
-.pssms-table tbody td { padding: 0.65rem 0.75rem; border-bottom: 1px solid var(--p-border); vertical-align: middle; font-size: 0.9rem; }
+.pssms-table tbody td,
+#page-content .table tbody td,
+#page-content table.table tbody td { padding: 0.6rem 0.75rem; border-bottom: 1px solid var(--p-border); vertical-align: middle; font-size: 0.88rem; }
+.pssms-table tbody td .text-muted,
+.pssms-table tbody td small,
+#page-content .table tbody td .text-muted,
+#page-content .table tbody td small { font-size: 0.72rem; }
 .pssms-table tbody tr:hover td { background: var(--p-hover); }
 
 /* Chip / soft badge */
@@ -214,63 +237,138 @@ body {
    🗂️ 2. SIDEBAR & MENU (เมนูซ้ายมือ)
    Aligned with dept palette tokens (--p-dept-*).
 ========================================== */
+/* Override Bootstrap .bg-dark / .text-white on sidebar (light mode default) */
+#sidebar.bg-dark { background-color: rgba(255,255,255,0.85) !important; }
+#sidebar.text-white { color: #1f2937 !important; }
+#sidebar.text-white h5.text-white,
+#sidebar.text-white .text-white { color: #111827 !important; }
+.dark-mode #sidebar.bg-dark { background-color: rgba(14,28,31,0.92) !important; }
+.dark-mode #sidebar.text-white { color: #f3f4f6 !important; }
+.dark-mode #sidebar.text-white h5.text-white,
+.dark-mode #sidebar.text-white .text-white { color: #ffffff !important; }
+
 #sidebar {
-    min-width: 250px; max-width: 250px; min-height: 100vh;
-    transition: all 0.3s ease; z-index: 999;
-    background: #15171b;
-    border-right: 1px solid #1f2228;
+    /* Force neutral Admin tokens — sidebar stays consistent across dept pages */
+    --p-surface: #ffffff;
+    --p-text: #1f2937;
+    --p-text-muted: #6b7280;
+    --p-border: #e5e7eb;
+    --p-hover: #f3f4f6;
+    --p-subtle: #f9fafb;
+    --p-sec: #f1f5f9;
+    --p-accent: #076874;
+
+    min-width: 250px; max-width: 250px;
+    transition: all 0.3s ease; z-index: 1030;
+    background: rgba(255,255,255,0.85);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-right: 1px solid var(--p-border);
+    color: var(--p-text);
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+    align-self: flex-start;
+    scrollbar-width: thin;
+    /* fade-out mask at bottom — hints there's more content below */
+    -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 48px), transparent 100%);
+            mask-image: linear-gradient(to bottom, #000 calc(100% - 48px), transparent 100%);
+}
+.dark-mode #sidebar {
+    --p-surface: #0e1c1f;
+    --p-text: #f3f4f6;
+    --p-text-muted: #b8bdc4;
+    --p-border: #1c2528;
+    --p-hover: rgba(255,255,255,0.06);
+    --p-subtle: #14252a;
+    --p-sec: #14252a;
+    --p-accent: #20bdc9;
+    background: rgba(14,28,31,0.92);
+    border-right-color: var(--p-border);
 }
 #sidebar.active { margin-left: -250px; }
-#sidebar .sidebar-header { background: #15171b; padding: 18px 20px; border-bottom: 1px solid #1f2228; }
+#sidebar .sidebar-header { background: var(--p-subtle); padding: 14px 16px; border-bottom: 1px solid var(--p-border); }
+#sidebar .sidebar-header h5 { color: var(--p-text) !important; }
+#sidebar .sidebar-header .text-info { color: var(--p-accent) !important; }
+#sidebar .sidebar-header .text-secondary { color: var(--p-text-muted) !important; }
+#sidebar ul.components { padding: .5rem !important; }
+#sidebar ul li { margin-bottom: 0 !important; }
 #sidebar ul li a {
-    padding: 10px 18px; display: block; color: #cdd1d8;
-    text-decoration: none; transition: background 0.15s, color 0.15s; font-size: 0.92rem;
+    padding: 7px 14px; display: block; color: var(--p-text);
+    text-decoration: none; transition: background 0.15s, color 0.15s; font-size: 0.88rem;
 }
-#sidebar ul li a:hover { background: rgba(255,255,255,0.06); color: #fff; }
+#sidebar ul li a:hover { background: var(--p-hover); color: var(--p-text); }
 
 .menu-divider {
-    font-size: 0.7rem; text-transform: uppercase; color: #7a808b;
-    margin: 18px 18px 8px 18px; letter-spacing: 0.04em;
-    border-bottom: 1px solid #25282f; padding-bottom: 5px;
+    font-size: 0.65rem; text-transform: uppercase; color: var(--p-text-muted);
+    margin: 10px 14px 4px 14px; letter-spacing: 0.05em;
+    border-bottom: 1px solid var(--p-border); padding-bottom: 3px;
 }
 
-/* dept-btn — section label / clickable section */
+/* Reusable bottom fade overlay — fades to surface color, dark-mode aware */
+.pssms-fade-bottom {
+  height: 35px;
+  background: linear-gradient(to bottom, rgba(255,255,255,0) 0%, var(--p-surface) 90%);
+  border-radius: 0 0 12px 12px;
+}
+.dark-mode .pssms-fade-bottom {
+  background: linear-gradient(to bottom, rgba(30,32,36,0) 0%, var(--p-surface) 90%);
+}
+
+/* dept-btn — section label / clickable section (token-driven, compact) */
 .dept-btn {
-    display: flex !important; align-items: center; margin: 3px 12px;
-    padding: 9px 12px !important; border-radius: 8px !important;
+    display: flex !important; align-items: center; margin: 2px 10px;
+    padding: 6px 10px !important; border-radius: 7px !important;
     border-left: 3px solid transparent !important;
     background: transparent !important;
-    color: #d4d7dc !important; border-bottom: none !important;
+    color: var(--p-text) !important; border-bottom: none !important;
     transition: background 0.15s, color 0.15s;
 }
 .dept-btn i { width: 22px; font-size: 0.95rem; margin-right: 10px; text-align: center; }
-.dept-btn:hover { background: rgba(255,255,255,0.05) !important; color: #fff !important; }
+.dept-btn:hover { background: var(--p-hover) !important; color: var(--p-text) !important; }
 
-/* Dept accent (matches --p-dept-* tokens) */
+/* Dept accent — light mode uses dept tokens, dark mode brighter */
 .academic   { border-left-color: var(--p-dept-academic)   !important; } .academic i   { color: var(--p-dept-academic); }
 .budget     { border-left-color: var(--p-dept-budget)     !important; } .budget i     { color: var(--p-dept-budget); }
 .personnel  { border-left-color: var(--p-dept-personnel)  !important; } .personnel i  { color: var(--p-dept-personnel); }
 .general    { border-left-color: var(--p-dept-general)    !important; } .general i    { color: var(--p-dept-general); }
 
+/* Dark mode: brighter icon contrast on dark sidebar */
+.dark-mode .academic i  { color: #3de1ed; }
+.dark-mode .budget i    { color: #7dd383; }
+.dark-mode .personnel i { color: #ff8a5c; }
+.dark-mode .general i   { color: #e6c14a; }
+
+/* Force sidebar dept-btn text bright — guard against inherited tints/opacity */
+#sidebar .dept-btn,
+#sidebar .dept-btn span,
+#sidebar .nav-link-custom,
+#sidebar .nav-link-custom span,
+#sidebar .nav-link-sub,
+#sidebar .nav-link-sub span { color: var(--p-text) !important; opacity: 1 !important; }
+#sidebar .nav-link-sub,
+#sidebar .nav-link-sub span { color: var(--p-text-muted) !important; }
+
 /* nav-link-custom — top dashboard link */
 .nav-link-custom {
-    display: flex !important; align-items: center; margin: 3px 12px;
-    padding: 10px 14px !important; border-radius: 8px !important;
-    color: #e3e6eb !important; font-weight: 500;
-    background: rgba(255,255,255,0.04) !important;
+    display: flex !important; align-items: center; margin: 2px 10px;
+    padding: 8px 12px !important; border-radius: 7px !important;
+    color: var(--p-text) !important; font-weight: 500;
+    background: var(--p-subtle) !important;
 }
-.nav-link-custom:hover { background: rgba(255,255,255,0.08) !important; color: #fff !important; }
+.nav-link-custom:hover { background: var(--p-hover) !important; color: var(--p-text) !important; }
 
 /* nav-link-sub — sub items under dept */
 .nav-link-sub {
-    font-size: 0.82rem !important;
-    padding: 6px 14px 6px 42px !important;
-    color: #9ba0a8 !important;
+    font-size: 0.8rem !important;
+    padding: 4px 12px 4px 26px !important;
+    color: var(--p-text-muted) !important;
     border-radius: 6px !important;
-    margin: 1px 12px !important;
+    margin: 0 10px !important;
     transition: background 0.15s, color 0.15s;
 }
-.nav-link-sub:hover { background: rgba(255,255,255,0.05) !important; color: #fff !important; }
+.nav-link-sub:hover { background: var(--p-hover) !important; color: var(--p-text) !important; }
 
 /* ==========================================
    📦 3. UI COMPONENTS (การ์ด & ปุ่ม & อื่นๆ)
@@ -382,7 +480,7 @@ body.dark-mode {
 
 /* Explicit pssms-* surfaces in dark (most inherit via tokens) */
 .dark-mode .pssms-card { background: var(--p-surface); border-color: var(--p-border); color: var(--p-text); }
-.dark-mode .pssms-card-header { color: var(--p-text); border-color: var(--p-border); }
+.dark-mode .pssms-card-header { background: var(--p-sec) !important; color: var(--p-text); border-color: var(--p-border); }
 .dark-mode .pssms-table thead th { background: var(--p-subtle); color: var(--p-text-muted); border-color: var(--p-border); }
 .dark-mode .pssms-table tbody td { color: var(--p-text); border-color: var(--p-border); }
 .dark-mode .pssms-table tbody tr:hover td { background: var(--p-hover); }
@@ -392,6 +490,47 @@ body.dark-mode {
 .dark-mode .btn-soft i { color: var(--p-text-muted); }
 .dark-mode .pssms-page-header h4 { color: var(--p-text); }
 .dark-mode .pssms-subtitle { color: var(--p-text-muted); }
+
+/* Sticky thead — frosted glass, floats over scrolling rows
+   Applies to score grid + any table inside .grid-scroll-container */
+#allInOneTable thead th,
+.grid-scroll-container table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background-color: rgba(255,255,255,0.85) !important;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  box-shadow: 0 1px 0 var(--p-border);
+}
+.dark-mode #allInOneTable thead th,
+.dark-mode .grid-scroll-container table thead th {
+  background-color: rgba(30,32,36,0.85) !important;
+}
+
+/* Top navbar — sticky on scroll, token-driven, matches sidebar approach */
+#content > .navbar {
+  /* Neutral Admin tokens — navbar stays consistent across dept pages */
+  --p-surface-rgb: 255,255,255;
+  position: sticky;
+  top: 0;
+  z-index: 1020;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  background-color: rgba(var(--p-surface-rgb), 0.85) !important;
+  border-bottom: 1px solid #e5e7eb;
+  color: #1f2937;
+}
+.dark-mode #content > .navbar {
+  --p-surface-rgb: 14,28,31;
+  background-color: rgba(var(--p-surface-rgb), 0.92) !important;
+  border-bottom-color: #1c2528;
+  color: #f3f4f6;
+}
+.dark-mode #content > .navbar .btn-primary {
+  background-color: var(--p-accent);
+  border-color: var(--p-accent);
+}
 
 /* Top navbar in dark */
 .dark-mode .navbar.bg-white {
@@ -646,6 +785,29 @@ body.dark-mode.dept-personnel {
   --p-border:rgba(224,112,69,.18); --p-border-strong:rgba(224,112,69,.3); --p-hover:rgba(224,112,69,.1);
 }
 body.dark-mode.dept-general {
+  --p-dom:#1c1800; --p-sec:#302a00;
+  --p-accent:#d4a520; --p-accent-hover:#b88c14; --p-accent-soft:#201c00;
+  --p-border:rgba(212,165,32,.18); --p-border-strong:rgba(212,165,32,.3); --p-hover:rgba(212,165,32,.1);
+}
+
+/* Dept wrapper overrides in dark — page wrappers like .pssms-dept-academic
+   reset --p-sec to LIGHT values locally; re-apply dark dept tokens so deeper elements get dark bg */
+body.dark-mode .pssms-dept-academic {
+  --p-dom:#0a1e22; --p-sec:#163840;
+  --p-accent:#22ccd8; --p-accent-hover:#1ab8c4; --p-accent-soft:#0d3038;
+  --p-border:rgba(34,204,216,.18); --p-border-strong:rgba(34,204,216,.3); --p-hover:rgba(34,204,216,.1);
+}
+body.dark-mode .pssms-dept-budget {
+  --p-dom:#0a1c0d; --p-sec:#153220;
+  --p-accent:#5bbf68; --p-accent-hover:#4da659; --p-accent-soft:#102214;
+  --p-border:rgba(91,191,104,.18); --p-border-strong:rgba(91,191,104,.3); --p-hover:rgba(91,191,104,.1);
+}
+body.dark-mode .pssms-dept-personnel {
+  --p-dom:#1f100a; --p-sec:#3a1c11;
+  --p-accent:#e07045; --p-accent-hover:#d05e32; --p-accent-soft:#2a140a;
+  --p-border:rgba(224,112,69,.18); --p-border-strong:rgba(224,112,69,.3); --p-hover:rgba(224,112,69,.1);
+}
+body.dark-mode .pssms-dept-general {
   --p-dom:#1c1800; --p-sec:#302a00;
   --p-accent:#d4a520; --p-accent-hover:#b88c14; --p-accent-soft:#201c00;
   --p-border:rgba(212,165,32,.18); --p-border-strong:rgba(212,165,32,.3); --p-hover:rgba(212,165,32,.1);

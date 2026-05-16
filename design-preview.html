@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PSSMS Design v4 — 60·30·10</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ════════════════════════════════
+   60-30-10 Token System — Light
+════════════════════════════════ */
+:root {
+  --p-dom:           #f4fbfc;
+  --p-sec:           #cce8eb;
+  --p-accent:        #076874;
+  --p-surface:       #ffffff;
+  --p-border:        rgba(7,104,116,.13);
+  --p-border-strong: rgba(7,104,116,.24);
+  --p-hover:         rgba(7,104,116,.07);
+  --p-text:          #1a2332;
+  --p-text-muted:    #6b7a85;
+  --p-radius:    16px;
+  --p-radius-sm: 10px;
+}
+.dept-academic  { --p-dom:#f0fbfd; --p-sec:#b8e2e7; --p-accent:#0d95a0; --p-border:rgba(13,149,160,.13); --p-border-strong:rgba(13,149,160,.24); --p-hover:rgba(13,149,160,.07); }
+.dept-budget    { --p-dom:#f2faf3; --p-sec:#c4e2c8; --p-accent:#4a8a54; --p-border:rgba(74,138,84,.13); --p-border-strong:rgba(74,138,84,.24); --p-hover:rgba(74,138,84,.07); }
+.dept-personnel { --p-dom:#fef6f3; --p-sec:#f7d0c4; --p-accent:#c4501e; --p-border:rgba(196,80,30,.13); --p-border-strong:rgba(196,80,30,.24); --p-hover:rgba(196,80,30,.07); }
+.dept-general   { --p-dom:#fefdf0; --p-sec:#f0e5b0; --p-accent:#7a5e00; --p-border:rgba(122,94,0,.13); --p-border-strong:rgba(122,94,0,.24); --p-hover:rgba(122,94,0,.07); }
+
+/* ════════════════════════════════
+   60-30-10 Token System — Dark
+════════════════════════════════ */
+body[data-theme="dark"] {
+  --p-dom:           #0e1c1f;
+  --p-sec:           #1c3237;
+  --p-accent:        #20bdc9;
+  --p-surface:       #162628;
+  --p-border:        rgba(32,189,201,.18);
+  --p-border-strong: rgba(32,189,201,.32);
+  --p-hover:         rgba(32,189,201,.10);
+  --p-text:          #ddf0f2;
+  --p-text-muted:    #7ab8bf;
+}
+body[data-theme="dark"].dept-academic  { --p-dom:#0a1e22; --p-sec:#163840; --p-accent:#22ccd8; --p-surface:#112226; --p-border:rgba(34,204,216,.18); --p-border-strong:rgba(34,204,216,.32); --p-text:#d8f0f3; --p-text-muted:#72b4bb; }
+body[data-theme="dark"].dept-budget    { --p-dom:#0c1e0f; --p-sec:#1a3020; --p-accent:#5dbc68; --p-surface:#122016; --p-border:rgba(93,188,104,.18); --p-border-strong:rgba(93,188,104,.32); --p-text:#d8f0dc; --p-text-muted:#72b480; }
+body[data-theme="dark"].dept-personnel { --p-dom:#1e0f08; --p-sec:#32180e; --p-accent:#e8804e; --p-surface:#281410; --p-border:rgba(232,128,78,.18); --p-border-strong:rgba(232,128,78,.32); --p-text:#f2e0d6; --p-text-muted:#c09080; }
+body[data-theme="dark"].dept-general   { --p-dom:#1c1800; --p-sec:#2e2600; --p-accent:#c8a020; --p-surface:#221e00; --p-border:rgba(200,160,32,.18); --p-border-strong:rgba(200,160,32,.32); --p-text:#f0ecd6; --p-text-muted:#b09860; }
+
+/* ── Base ── */
+* { font-family:'IBM Plex Sans Thai',sans-serif; box-sizing:border-box; }
+body {
+  background:var(--p-dom); color:var(--p-text);
+  font-size:15px; transition:background .2s, color .2s;
+}
+
+/* ── Page layout ── */
+.pssms-page-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:1.25rem; gap:1rem; }
+.pssms-page-header h4 { font-size:1.2rem; font-weight:700; letter-spacing:-.02em; margin:0; }
+.pssms-subtitle { font-size:.83rem; color:var(--p-text-muted); margin:.1rem 0 0; }
+.pssms-actions { display:flex; gap:.5rem; flex-wrap:wrap; align-items:center; }
+
+/* ── Card ── */
+.pssms-card {
+  background:var(--p-surface);
+  border:1px solid var(--p-border);
+  border-radius:var(--p-radius);
+  overflow:hidden;
+  transition:background .2s, border-color .2s;
+}
+.pssms-card-header {
+  display:flex; justify-content:space-between; align-items:center;
+  padding:.75rem 1rem;
+  border-bottom:1px solid var(--p-border);
+  font-size:.95rem; font-weight:700;
+  letter-spacing:.01em;
+  color:var(--p-text);
+  background:var(--p-sec);
+  transition:background .2s;
+  margin-bottom:0;
+}
+.pssms-card-accent { border-left:3px solid var(--p-accent); }
+.pssms-card-link { cursor:pointer; transition:transform .15s, box-shadow .15s; box-shadow:0 1px 4px var(--p-border); }
+.pssms-card-link:hover { transform:translateY(-2px); box-shadow:0 8px 24px rgba(0,0,0,.12); }
+.pssms-card-link:hover .pssms-icon-circle { transform:scale(1.08); }
+
+/* ── Icon circle ── */
+.pssms-icon-circle {
+  width:44px; height:44px; border-radius:50%;
+  background:var(--p-dom); color:var(--p-accent);
+  display:flex; align-items:center; justify-content:center;
+  font-size:1.05rem; flex-shrink:0;
+  border:1px solid var(--p-border); transition:transform .15s, background .2s;
+}
+.pssms-icon-circle.lg { width:56px; height:56px; font-size:1.4rem; }
+
+/* ── KPI ── */
+.pssms-kpi-value { font-size:1.9rem; font-weight:700; letter-spacing:-.03em; color:var(--p-accent); line-height:1; }
+.pssms-kpi-sub { font-size:.78rem; color:var(--p-text-muted); margin-top:.2rem; }
+
+/* ── Buttons ── */
+.btn-accent {
+  background:var(--p-accent); color:#fff; border:none;
+  border-radius:999px; padding:.4rem 1.2rem;
+  font-size:.875rem; font-weight:600;
+  transition:filter .15s, transform .12s;
+  font-family:inherit; cursor:pointer;
+}
+.btn-accent:hover { filter:brightness(.88); transform:translateY(-1px); }
+.btn-soft {
+  background:var(--p-surface); color:var(--p-text);
+  border:1px solid var(--p-border-strong);
+  border-radius:999px; padding:.4rem 1.2rem;
+  font-size:.875rem; font-weight:500;
+  transition:all .15s; font-family:inherit; cursor:pointer;
+}
+.btn-soft:hover { background:var(--p-hover); transform:translateY(-1px); }
+
+/* ── Table ── */
+.pssms-table { width:100%; border-collapse:collapse; }
+.pssms-table thead th { background:transparent; color:var(--p-text-muted); font-size:.78rem; font-weight:500; letter-spacing:.01em; padding:.55rem 1rem; border-bottom:1px solid var(--p-border); opacity:.75; }
+.pssms-table tbody td { padding:.7rem 1rem; border-bottom:1px solid var(--p-border); font-size:.875rem; }
+.pssms-table tbody tr:last-child td { border-bottom:none; }
+.pssms-table tbody tr:hover td { background:var(--p-hover); }
+
+/* ── Status chips ── */
+.pssms-status { padding:3px 12px; border-radius:999px; font-size:.72rem; font-weight:700; display:inline-block; letter-spacing:.02em; }
+.pssms-status-pending  { background:#fef9c3; color:#92600a; }
+.pssms-status-approved { background:#dcfce7; color:#15593a; }
+.pssms-status-rejected { background:#fee2e2; color:#991b1b; }
+.pssms-status-done     { background:var(--p-dom); color:var(--p-accent); border:1px solid var(--p-border-strong); }
+.pssms-status-cancelled{ background:#f3f4f6; color:#6b7280; }
+/* dark overrides */
+body[data-theme="dark"] .pssms-status-pending  { background:#2e2400; color:#f0c840; }
+body[data-theme="dark"] .pssms-status-approved { background:#0a2814; color:#4cde80; }
+body[data-theme="dark"] .pssms-status-rejected { background:#2e0a0a; color:#f87070; }
+body[data-theme="dark"] .pssms-status-cancelled{ background:#22262a; color:#8898a0; }
+
+/* ── Nav pills ── */
+.pssms-pills { display:flex; gap:.4rem; flex-wrap:wrap; }
+.pssms-pill { border-radius:999px; padding:.35rem 1rem; font-size:.85rem; font-weight:500; border:1px solid var(--p-border-strong); background:var(--p-surface); color:var(--p-text-muted); cursor:pointer; font-family:inherit; transition:all .15s; }
+.pssms-pill.active { background:var(--p-accent); color:#fff; border-color:var(--p-accent); }
+.pssms-pill:not(.active):hover { background:var(--p-hover); color:var(--p-text); }
+
+/* ── Badge ── */
+.pssms-badge { display:inline-block; padding:2px 9px; border-radius:999px; font-size:.7rem; font-weight:700; letter-spacing:.02em; background:var(--p-dom); color:var(--p-accent); border:1px solid var(--p-border-strong); }
+
+/* ── Progress ── */
+.pssms-progress { height:7px; border-radius:999px; background:var(--p-dom); border:1px solid var(--p-border); overflow:hidden; }
+.pssms-progress-bar { height:100%; border-radius:999px; background:var(--p-accent); transition:width .4s; }
+
+/* ── Empty state ── */
+.pssms-empty { text-align:center; padding:2.5rem 1rem; color:var(--p-text-muted); }
+.pssms-empty-title { font-weight:600; font-size:.95rem; color:var(--p-text); margin:.6rem 0 .25rem; }
+
+/* ── Form ── */
+.form-control, .form-select { border-radius:var(--p-radius-sm) !important; border-color:var(--p-border-strong) !important; background:var(--p-surface); font-family:inherit; font-size:.875rem; color:var(--p-text); transition:background .2s, border-color .15s; }
+.form-control:focus, .form-select:focus { border-color:var(--p-accent) !important; box-shadow:0 0 0 3px var(--p-dom) !important; }
+body[data-theme="dark"] .form-control,
+body[data-theme="dark"] .form-select { background:var(--p-surface) !important; color:var(--p-text) !important; }
+.form-label { font-size:.8rem; font-weight:600; color:var(--p-text-muted); margin-bottom:.3rem; }
+
+/* ── Skeleton — animates between dom ↔ sec ── */
+.pssms-skel { background:linear-gradient(90deg, var(--p-sec) 25%, var(--p-dom) 50%, var(--p-sec) 75%); background-size:200% 100%; animation:skel 1.4s infinite; border-radius:6px; }
+@keyframes skel { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+
+/* ── Divider ── */
+.pssms-divider { border:none; border-top:1px solid var(--p-border); margin:1.5rem 0; }
+
+/* ── Mini sidebar (30% secondary) ── */
+.mini-sidebar { background:var(--p-sec); border-radius:var(--p-radius); padding:.75rem; min-width:175px; border:1px solid var(--p-border); transition:background .2s; }
+.mini-sidebar-label { font-size:.6rem; text-transform:uppercase; letter-spacing:.1em; color:var(--p-text-muted); padding:.2rem .6rem .5rem; font-weight:700; }
+.mini-sidebar-item { display:flex; align-items:center; gap:.55rem; padding:.45rem .65rem; border-radius:var(--p-radius-sm); font-size:.83rem; font-weight:500; color:var(--p-text); margin-bottom:.15rem; cursor:pointer; transition:all .12s; }
+.mini-sidebar-item.active { background:var(--p-accent); color:#fff; }
+.mini-sidebar-item:not(.active):hover { background:var(--p-dom); }
+
+/* ── Dark mode — btn-outline-danger ── */
+body[data-theme="dark"] .btn-outline-danger { color:#f87070; border-color:rgba(248,112,112,.4); }
+body[data-theme="dark"] .btn-outline-danger:hover { background:rgba(248,112,112,.1); }
+
+/* ── Preview chrome only ── */
+.preview-label { font-size:.63rem; text-transform:uppercase; letter-spacing:.1em; color:var(--p-text-muted); margin-bottom:.65rem; padding-bottom:.4rem; border-bottom:1px dashed var(--p-border-strong); }
+.section-wrap { margin-bottom:2.25rem; }
+.dept-toggle { display:flex; gap:.4rem; flex-wrap:wrap; }
+.dept-btn { display:flex; align-items:center; gap:.5rem; padding:.35rem .9rem; border-radius:999px; border:2px solid transparent; cursor:pointer; font-size:.8rem; font-weight:600; font-family:inherit; background:var(--p-surface); color:var(--p-text); transition:all .15s; }
+.dept-btn.active { border-color:var(--p-accent); background:var(--p-dom); color:var(--p-accent); }
+.dept-dot { width:9px; height:9px; border-radius:50%; flex-shrink:0; }
+.dark-toggle { display:flex; align-items:center; gap:.4rem; padding:.35rem .9rem; border-radius:999px; border:1px solid var(--p-border-strong); background:var(--p-surface); color:var(--p-text); font-size:.82rem; font-weight:600; font-family:inherit; cursor:pointer; transition:all .15s; }
+.dark-toggle:hover { background:var(--p-hover); }
+</style>
+</head>
+<body>
+
+<div style="max-width:1020px;margin:0 auto;padding:2rem 1rem;">
+
+  <!-- Title bar -->
+  <div class="d-flex align-items-center gap-3 mb-1">
+    <div>
+      <h2 style="font-weight:800;letter-spacing:-.03em;margin:0;">PSSMS Design v4</h2>
+      <div style="font-size:.82rem;color:var(--p-text-muted);">60·30·10 Color Theory · Rounded · Dark mode</div>
+    </div>
+    <div class="ms-auto d-flex gap-2 align-items-center">
+      <span class="pssms-badge">Preview</span>
+      <button class="dark-toggle" id="darkToggle" onclick="toggleDark()">
+        <span id="darkIcon">☾</span> Dark mode
+      </button>
+    </div>
+  </div>
+  <hr class="pssms-divider">
+
+  <!-- Color ratio bar -->
+  <div class="section-wrap">
+    <div class="preview-label">60·30·10 — Color ratio</div>
+    <div id="colorBar" style="display:flex;border-radius:var(--p-radius);overflow:hidden;height:56px;border:1px solid var(--p-border);"></div>
+    <div style="display:flex;gap:1.5rem;margin-top:.65rem;font-size:.78rem;color:var(--p-text-muted);">
+      <div><span style="font-weight:700;color:var(--p-text);">60% Dominant</span> — page background</div>
+      <div><span style="font-weight:700;color:var(--p-text);">30% Secondary</span> — headers · sidebar</div>
+      <div><span style="font-weight:700;color:var(--p-text);">10% Accent</span> — CTA · icons · active</div>
+    </div>
+  </div>
+
+  <!-- Dept switcher -->
+  <div class="section-wrap">
+    <div class="preview-label">Department scope</div>
+    <div class="dept-toggle" id="deptToggle">
+      <button class="dept-btn active" onclick="setDept('',this)"><span class="dept-dot" style="background:#076874;"></span>Admin</button>
+      <button class="dept-btn" onclick="setDept('academic',this)"><span class="dept-dot" style="background:#0d95a0;"></span>วิชาการ</button>
+      <button class="dept-btn" onclick="setDept('budget',this)"><span class="dept-dot" style="background:#4a8a54;"></span>งบประมาณ</button>
+      <button class="dept-btn" onclick="setDept('personnel',this)"><span class="dept-dot" style="background:#c4501e;"></span>บุคคล</button>
+      <button class="dept-btn" onclick="setDept('general',this)"><span class="dept-dot" style="background:#7a5e00;"></span>ทั่วไป</button>
+    </div>
+  </div>
+
+  <!-- ── SIDEBAR + PAGE LAYOUT ── -->
+  <div class="section-wrap">
+    <div class="preview-label">Layout — Sidebar (30% sec) + Page (60% dom)</div>
+    <div class="d-flex gap-3">
+      <div class="mini-sidebar flex-shrink-0">
+        <div class="mini-sidebar-label">เมนู</div>
+        <div class="mini-sidebar-item active"><i class="fas fa-tachometer-alt fa-fw"></i>Dashboard</div>
+        <div class="mini-sidebar-item"><i class="fas fa-users fa-fw"></i>ผู้ใช้งาน</div>
+        <div class="mini-sidebar-item"><i class="fas fa-calendar fa-fw"></i>ปฏิทิน</div>
+        <div class="mini-sidebar-item"><i class="fas fa-cog fa-fw"></i>ตั้งค่า</div>
+      </div>
+      <div class="flex-grow-1" style="background:var(--p-dom);border-radius:var(--p-radius);padding:1rem;border:1px solid var(--p-border);">
+        <div class="pssms-page-header" style="margin-bottom:.75rem;">
+          <div>
+            <h4><i class="fas fa-tachometer-alt me-2" style="color:var(--p-accent);"></i>ระบบบริหารจัดการ</h4>
+            <p class="pssms-subtitle">ภาคเรียนที่ 1 ปีการศึกษา 2568</p>
+          </div>
+          <div class="pssms-actions">
+            <button class="btn-soft" style="font-size:.78rem;padding:.3rem .85rem;">รีเฟรช</button>
+            <button class="btn-accent" style="font-size:.78rem;padding:.3rem .85rem;"><i class="fas fa-plus me-1"></i>เพิ่ม</button>
+          </div>
+        </div>
+        <div class="row g-2">
+          <div class="col-6">
+            <div class="pssms-card p-2">
+              <div class="pssms-icon-circle mb-1" style="width:32px;height:32px;font-size:.8rem;"><i class="fas fa-user-graduate"></i></div>
+              <div style="font-size:1.35rem;font-weight:700;color:var(--p-accent);">482</div>
+              <div style="font-size:.72rem;color:var(--p-text-muted);">นักเรียน</div>
+            </div>
+          </div>
+          <div class="col-6">
+            <div class="pssms-card p-2">
+              <div class="pssms-icon-circle mb-1" style="width:32px;height:32px;font-size:.8rem;"><i class="fas fa-chalkboard-teacher"></i></div>
+              <div style="font-size:1.35rem;font-weight:700;color:var(--p-accent);">38</div>
+              <div style="font-size:.72rem;color:var(--p-text-muted);">ครูผู้สอน</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── KPI CARDS ── -->
+  <div class="section-wrap">
+    <div class="preview-label">KPI Cards</div>
+    <div class="row g-3">
+      <div class="col-6 col-md-3">
+        <div class="pssms-card pssms-card-link p-3 h-100">
+          <div class="pssms-icon-circle mb-2"><i class="fas fa-user-graduate"></i></div>
+          <div class="pssms-kpi-value">482</div>
+          <div class="pssms-kpi-sub">นักเรียนทั้งหมด</div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="pssms-card pssms-card-link p-3 h-100">
+          <div class="pssms-icon-circle mb-2"><i class="fas fa-chalkboard-teacher"></i></div>
+          <div class="pssms-kpi-value">38</div>
+          <div class="pssms-kpi-sub">ครูผู้สอน</div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="pssms-card pssms-card-link pssms-card-accent p-3 h-100">
+          <div class="pssms-icon-circle mb-2"><i class="fas fa-calendar-minus"></i></div>
+          <div class="pssms-kpi-value">5</div>
+          <div class="pssms-kpi-sub">ลารอพิจารณา</div>
+          <div style="font-size:.7rem;color:var(--p-accent);margin-top:.25rem;font-weight:600;">คลิกเพื่อจัดการ →</div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="pssms-card pssms-card-link p-3 h-100">
+          <div class="pssms-icon-circle mb-2"><i class="fas fa-user-friends"></i></div>
+          <div class="pssms-kpi-value">12</div>
+          <div class="pssms-kpi-sub">สอนแทนรอจัด</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── TABLE ── -->
+  <div class="section-wrap">
+    <div class="preview-label">Table — header: sec (30%) · thead: dom (60%) · body: surface</div>
+    <div class="pssms-card">
+      <div class="pssms-card-header">
+        <span><i class="fas fa-list me-2"></i>รายการลาล่าสุด</span>
+        <button class="btn-soft" style="padding:.2rem .8rem;font-size:.75rem;">ดูทั้งหมด</button>
+      </div>
+      <table class="pssms-table">
+        <thead>
+          <tr>
+            <th>ชื่อ-สกุล</th><th>ประเภท</th><th>วันที่ลา</th><th class="text-center">สถานะ</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><div style="font-weight:600;">นางสาวสมใจ ดีงาม</div><div style="font-size:.75rem;color:var(--p-text-muted);">ฝ่ายวิชาการ</div></td>
+            <td>ลาป่วย</td><td>16–17 พ.ค. 68</td>
+            <td class="text-center"><span class="pssms-status pssms-status-approved">อนุมัติ</span></td>
+          </tr>
+          <tr>
+            <td><div style="font-weight:600;">นายวิชัย รักเรียน</div><div style="font-size:.75rem;color:var(--p-text-muted);">ฝ่ายบุคคล</div></td>
+            <td>ลากิจ</td><td>19 พ.ค. 68</td>
+            <td class="text-center"><span class="pssms-status pssms-status-pending">รอพิจารณา</span></td>
+          </tr>
+          <tr>
+            <td><div style="font-weight:600;">นางประภา สุขสม</div><div style="font-size:.75rem;color:var(--p-text-muted);">ฝ่ายทั่วไป</div></td>
+            <td>ลาราชการ</td><td>20–22 พ.ค. 68</td>
+            <td class="text-center"><span class="pssms-status pssms-status-done">จัดแล้ว</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── PROGRESS + CALENDAR ── -->
+  <div class="section-wrap">
+    <div class="preview-label">Progress + Calendar strip</div>
+    <div class="row g-3">
+      <div class="col-md-6">
+        <div class="pssms-card">
+          <div class="pssms-card-header"><span><i class="fas fa-chart-bar me-2"></i>งบประมาณโครงการ</span></div>
+          <div style="padding:1rem;">
+            <div class="mb-3">
+              <div class="d-flex justify-content-between mb-1" style="font-size:.82rem;"><span style="font-weight:600;">โครงการพัฒนาห้องเรียน</span><span style="color:var(--p-accent);font-weight:700;">72%</span></div>
+              <div class="pssms-progress"><div class="pssms-progress-bar" style="width:72%;"></div></div>
+              <div class="d-flex justify-content-between mt-1" style="font-size:.72rem;color:var(--p-text-muted);"><span>720,000 บาท</span><span>งบ 1,000,000 บาท</span></div>
+            </div>
+            <div class="mb-3">
+              <div class="d-flex justify-content-between mb-1" style="font-size:.82rem;"><span style="font-weight:600;">โครงการกีฬาสี</span><span style="color:var(--p-accent);font-weight:700;">35%</span></div>
+              <div class="pssms-progress"><div class="pssms-progress-bar" style="width:35%;"></div></div>
+              <div class="d-flex justify-content-between mt-1" style="font-size:.72rem;color:var(--p-text-muted);"><span>175,000 บาท</span><span>งบ 500,000 บาท</span></div>
+            </div>
+            <div>
+              <div class="d-flex justify-content-between mb-1" style="font-size:.82rem;"><span style="font-weight:600;">โครงการแนะแนว</span><span style="color:#e05050;font-weight:700;">91%</span></div>
+              <div class="pssms-progress"><div class="pssms-progress-bar" style="width:91%;background:#e05050;"></div></div>
+              <div class="d-flex justify-content-between mt-1" style="font-size:.72rem;color:var(--p-text-muted);"><span>182,000 บาท</span><span>งบ 200,000 บาท</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="pssms-card h-100">
+          <div class="pssms-card-header"><span><i class="fas fa-calendar-day me-2"></i>กิจกรรมที่กำลังจะมา</span></div>
+          <div style="padding:.5rem;">
+            <div class="d-flex gap-2 align-items-center p-2 rounded-3 mb-1" style="background:var(--p-dom);">
+              <div style="width:4px;height:38px;border-radius:2px;background:#0d95a0;flex-shrink:0;"></div>
+              <div><div style="font-weight:600;font-size:.85rem;">สอบกลางภาค</div><div style="font-size:.74rem;color:var(--p-text-muted);">จ. 19 พ.ค. 68</div></div>
+              <span class="pssms-badge ms-auto">วิชาการ</span>
+            </div>
+            <div class="d-flex gap-2 align-items-center p-2 rounded-3 mb-1" style="background:var(--p-dom);">
+              <div style="width:4px;height:38px;border-radius:2px;background:#c4501e;flex-shrink:0;"></div>
+              <div><div style="font-weight:600;font-size:.85rem;">ประชุมผู้ปกครอง</div><div style="font-size:.74rem;color:var(--p-text-muted);">พฤ. 22 พ.ค. 68</div></div>
+              <span class="pssms-badge ms-auto">บุคคล</span>
+            </div>
+            <div class="d-flex gap-2 align-items-center p-2 rounded-3" style="background:var(--p-dom);">
+              <div style="width:4px;height:38px;border-radius:2px;background:#4a8a54;flex-shrink:0;"></div>
+              <div><div style="font-weight:600;font-size:.85rem;">ส่งรายงานงบประมาณ</div><div style="font-size:.74rem;color:var(--p-text-muted);">ศ. 23 พ.ค. 68</div></div>
+              <span class="pssms-badge ms-auto">งบ</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── STATUS + PILLS + BUTTONS ── -->
+  <div class="section-wrap">
+    <div class="preview-label">Status chips · Nav pills · Buttons</div>
+    <div class="pssms-card" style="padding:1rem;">
+      <div class="mb-3">
+        <div style="font-size:.75rem;color:var(--p-text-muted);margin-bottom:.4rem;font-weight:600;">Status chips</div>
+        <div class="d-flex gap-2 flex-wrap">
+          <span class="pssms-status pssms-status-pending">รอพิจารณา</span>
+          <span class="pssms-status pssms-status-approved">อนุมัติ</span>
+          <span class="pssms-status pssms-status-rejected">ปฏิเสธ</span>
+          <span class="pssms-status pssms-status-done">จัดแล้ว</span>
+          <span class="pssms-status pssms-status-cancelled">ยกเลิก</span>
+        </div>
+      </div>
+      <div class="mb-3">
+        <div style="font-size:.75rem;color:var(--p-text-muted);margin-bottom:.4rem;font-weight:600;">Nav pills</div>
+        <div class="pssms-pills">
+          <button class="pssms-pill active"><i class="fas fa-clock me-1"></i>รอจัด <span style="background:rgba(255,255,255,.25);border-radius:999px;padding:0 6px;font-size:.7rem;margin-left:2px;">3</span></button>
+          <button class="pssms-pill"><i class="fas fa-check me-1"></i>จัดแล้ว</button>
+          <button class="pssms-pill"><i class="fas fa-ban me-1"></i>ยกเลิก</button>
+        </div>
+      </div>
+      <div>
+        <div style="font-size:.75rem;color:var(--p-text-muted);margin-bottom:.4rem;font-weight:600;">Buttons</div>
+        <div class="d-flex gap-2 flex-wrap align-items-center">
+          <button class="btn-accent"><i class="fas fa-plus me-1"></i>เพิ่มรายการ</button>
+          <button class="btn-soft"><i class="fas fa-sync me-1"></i>รีเฟรช</button>
+          <button class="btn btn-outline-danger" style="border-radius:999px;font-family:inherit;font-size:.875rem;"><i class="fas fa-trash me-1"></i>ลบ</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── FORM ── -->
+  <div class="section-wrap">
+    <div class="preview-label">Form inputs</div>
+    <div class="pssms-card" style="padding:1rem;">
+      <div class="row g-3">
+        <div class="col-md-4">
+          <label class="form-label">ชื่อ-สกุล</label>
+          <input type="text" class="form-control" placeholder="พิมพ์ชื่อ...">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">ประเภทการลา</label>
+          <select class="form-select"><option>ลาป่วย</option><option>ลากิจ</option><option>ลาพักร้อน</option></select>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">วันที่</label>
+          <input type="date" class="form-control">
+        </div>
+        <div class="col-12 d-flex gap-2 justify-content-end">
+          <button class="btn-soft">ยกเลิก</button>
+          <button class="btn-accent"><i class="fas fa-save me-1"></i>บันทึก</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── EMPTY STATE ── -->
+  <div class="section-wrap">
+    <div class="preview-label">Empty state</div>
+    <div class="pssms-card">
+      <div class="pssms-empty">
+        <div class="pssms-icon-circle lg mx-auto"><i class="fas fa-inbox"></i></div>
+        <div class="pssms-empty-title">ยังไม่มีใบลารอพิจารณา</div>
+        <div style="font-size:.82rem;color:var(--p-text-muted);">เมื่อครูยื่นคำร้องลา จะปรากฏที่นี่</div>
+        <button class="btn-accent mt-3" style="font-size:.82rem;padding:.3rem 1rem;"><i class="fas fa-plus me-1"></i>เพิ่มรายการแรก</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── SKELETON ── -->
+  <div class="section-wrap">
+    <div class="preview-label">Skeleton — animates dom ↔ sec (adapts to dark mode automatically)</div>
+    <div class="pssms-card" style="padding:1rem;">
+      <div class="d-flex gap-3 align-items-start mb-3">
+        <div class="pssms-skel" style="width:44px;height:44px;border-radius:50%;flex-shrink:0;"></div>
+        <div class="flex-grow-1">
+          <div class="pssms-skel mb-2" style="height:26px;width:90px;"></div>
+          <div class="pssms-skel" style="height:13px;width:140px;"></div>
+        </div>
+      </div>
+      <div class="pssms-skel mb-2" style="height:11px;"></div>
+      <div class="pssms-skel mb-2" style="height:11px;width:80%;"></div>
+      <div class="pssms-skel" style="height:11px;width:60%;"></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+var DEPTS = {
+  '':          { light:{dom:'#f4fbfc',sec:'#cce8eb',accent:'#076874'}, dark:{dom:'#0e1c1f',sec:'#1c3237',accent:'#20bdc9'} },
+  'academic':  { light:{dom:'#f0fbfd',sec:'#b8e2e7',accent:'#0d95a0'}, dark:{dom:'#0a1e22',sec:'#163840',accent:'#22ccd8'} },
+  'budget':    { light:{dom:'#f2faf3',sec:'#c4e2c8',accent:'#4a8a54'}, dark:{dom:'#0c1e0f',sec:'#1a3020',accent:'#5dbc68'} },
+  'personnel': { light:{dom:'#fef6f3',sec:'#f7d0c4',accent:'#c4501e'}, dark:{dom:'#1e0f08',sec:'#32180e',accent:'#e8804e'} },
+  'general':   { light:{dom:'#fefdf0',sec:'#f0e5b0',accent:'#7a5e00'}, dark:{dom:'#1c1800',sec:'#2e2600',accent:'#c8a020'} },
+};
+var DEPT_CLASSES = ['dept-academic','dept-budget','dept-personnel','dept-general'];
+var currentDept = '';
+var isDark = false;
+
+function setDept(d, btn) {
+  currentDept = d;
+  DEPT_CLASSES.forEach(function(c){ document.body.classList.remove(c); });
+  if (d) document.body.classList.add('dept-' + d);
+  document.querySelectorAll('.dept-btn').forEach(function(b){ b.classList.remove('active'); });
+  if (btn) btn.classList.add('active');
+  renderColorBar();
+}
+
+function toggleDark() {
+  isDark = !isDark;
+  if (isDark) {
+    document.body.setAttribute('data-theme','dark');
+    document.getElementById('darkIcon').textContent = '☀';
+    document.getElementById('darkToggle').childNodes[1].textContent = ' Light mode';
+  } else {
+    document.body.removeAttribute('data-theme');
+    document.getElementById('darkIcon').textContent = '☾';
+    document.getElementById('darkToggle').childNodes[1].textContent = ' Dark mode';
+  }
+  renderColorBar();
+}
+
+function renderColorBar() {
+  var p = (DEPTS[currentDept] || DEPTS['']).light;
+  if (isDark) p = (DEPTS[currentDept] || DEPTS['']).dark;
+  var textColor = isDark ? '#ddf0f2' : '#1a2332';
+  document.getElementById('colorBar').innerHTML =
+    '<div style="flex:6;background:'+p.dom+';display:flex;align-items:center;justify-content:center;font-size:.78rem;font-weight:700;color:'+textColor+';gap:.4rem;">'+
+      '<span>60%</span><span style="font-size:.66rem;opacity:.65;">'+p.dom+'</span>'+
+    '</div>'+
+    '<div style="flex:3;background:'+p.sec+';display:flex;align-items:center;justify-content:center;font-size:.78rem;font-weight:700;color:'+textColor+';gap:.4rem;">'+
+      '<span>30%</span><span style="font-size:.66rem;opacity:.65;">'+p.sec+'</span>'+
+    '</div>'+
+    '<div style="flex:1;background:'+p.accent+';display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:.7rem;font-weight:700;color:#fff;line-height:1.35;text-align:center;">'+
+      '<span>10%</span><span style="font-size:.58rem;opacity:.85;">'+p.accent+'</span>'+
+    '</div>';
+}
+
+// init
+setDept('', document.querySelector('.dept-btn.active'));
+</script>
+</body>
+</html>
