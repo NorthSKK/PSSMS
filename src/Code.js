@@ -2144,12 +2144,32 @@ function getPrintConfigData(term, year) {
   let sheet = ss.getSheetByName('Print_Config');
   if (!sheet) { sheet = ss.insertSheet('Print_Config'); sheet.appendRow(['term', 'year', 'sys_data_json', 'homeroom_data_json']); }
   const data = sheet.getDataRange().getValues();
-  for (let i = 1; i < data.length; i++) {
-     if (String(data[i][0]) === String(term) && String(data[i][1]) === String(year)) {
-         return { status: 'success', sys: JSON.parse(data[i][2] || '{}'), hr: JSON.parse(data[i][3] || '[]') };
-     }
+  var sys = { school_name: 'โรงเรียนภูพระบาทวิทยา', principal_name: '', measure_head: '', academic_head: '' };
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === String(term) && String(data[i][1]) === String(year)) {
+      sys = JSON.parse(data[i][2] || '{}');
+      break;
+    }
   }
-  return { status: 'success', sys: { school_name: 'โรงเรียนภูพระบาทวิทยา', principal_name: '', measure_head: '', academic_head: '' }, hr: [] };
+  // pull homeroom from Timetable_Database (single source of truth)
+  var hrRaw = getHomeroomAssignments(term, year);
+  var userSheet = ss.getSheetByName('User_Database');
+  var nameMap = {};
+  if (userSheet) {
+    var uData = userSheet.getDataRange().getValues();
+    for (var j = 1; j < uData.length; j++) {
+      nameMap[String(uData[j][0]).trim()] = String(uData[j][2]).trim();
+    }
+  }
+  var hr = hrRaw.map(function(h) {
+    var ids = h.teacherIds || [];
+    return {
+      cls: h.level + '/' + h.room,
+      t1: ids[0] ? (nameMap[ids[0]] || ids[0]) : '',
+      t2: ids[1] ? (nameMap[ids[1]] || ids[1]) : ''
+    };
+  });
+  return { status: 'success', sys: sys, hr: hr };
 }
 
 function savePrintConfigData(payload) {
