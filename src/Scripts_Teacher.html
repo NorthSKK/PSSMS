@@ -883,7 +883,7 @@ function tcFilterMembers(q) {
   let html = '';
   Object.keys(byClass).sort().forEach(function(cls) {
     const rows = byClass[cls];
-    html += '<div class="pssms-card mb-2"><div class="pssms-card-header d-flex justify-content-between align-items-center px-3 py-2"><span class="fw-bold small">ห้อง ' + _tcEsc(cls) + '</span><span class="badge bg-secondary">' + rows.length + ' คน</span></div><table class="pssms-table table mb-0"><thead><tr><th style="width:40px" class="text-center">ที่</th><th style="width:110px">รหัส</th><th>ชื่อ-สกุล</th><th style="width:110px" class="text-muted small">ลงทะเบียน</th></tr></thead><tbody>';
+    html += '<div class="pssms-card mb-2"><div class="pssms-card-header d-flex justify-content-between align-items-center"><span class="fw-bold small">ห้อง ' + _tcEsc(cls) + '</span><span class="badge bg-secondary">' + rows.length + ' คน</span></div><table class="pssms-table table mb-0"><thead><tr><th style="width:40px" class="text-center">ที่</th><th style="width:110px">รหัส</th><th>ชื่อ-สกุล</th><th style="width:110px" class="text-muted small">ลงทะเบียน</th></tr></thead><tbody>';
     rows.forEach(function(m, i) { html += '<tr><td class="text-center text-muted">'+(i+1)+'</td><td class="font-monospace small">'+_tcEsc(m.studentId)+'</td><td>'+_tcEsc(m.studentName)+'</td><td class="text-muted small">'+(m.registeredAt?m.registeredAt.split(' ')[0]:'-')+'</td></tr>'; });
     html += '</tbody></table></div>';
   });
@@ -937,7 +937,7 @@ function _tcRenderStats() {
     const avgPct = members.length ? Math.round(members.reduce(function(s,m){return s+(m.pct||0);},0)/members.length) : 0;
     let html = '<div class="row g-2 mb-3 text-center"><div class="col-4"><div class="pssms-card p-3"><div class="fw-bold fs-4 text-primary">'+totalSessions+'</div><div class="small text-muted">คาบที่เช็คแล้ว</div></div></div><div class="col-4"><div class="pssms-card p-3"><div class="fw-bold fs-4 text-success">'+avgPct+'%</div><div class="small text-muted">เฉลี่ยเข้าร่วม</div></div></div><div class="col-4"><div class="pssms-card p-3"><div class="fw-bold fs-4 text-danger">'+members.filter(function(m){return(m.pct||0)<80;}).length+'</div><div class="small text-muted">ต่ำกว่า 80%</div></div></div></div>';
     const sorted = members.slice().sort(function(a,b){return(a.pct||0)-(b.pct||0);});
-    html += '<div class="pssms-card"><div class="pssms-card-header px-3 py-2 fw-bold small">สถิติรายคน</div><div class="p-2">';
+    html += '<div class="pssms-card"><div class="pssms-card-header fw-bold small">สถิติรายคน</div><div class="p-2">';
     sorted.forEach(function(m) {
       const pct = m.pct !== null ? m.pct : 0;
       const barColor = pct<60?'bg-danger':pct<80?'bg-warning':'bg-success';
