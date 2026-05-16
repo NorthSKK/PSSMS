@@ -1736,6 +1736,39 @@ function _ttoEsc(s) { return String(s == null ? '' : s).replace(/&/g,'&amp;').re
 var _ttoHomeroomData = [];
 var _ttoClassList = [];
 
+function initHomeroomPage() {
+  var root = document.getElementById('homeroomPageRoot');
+  if (!root) return;
+  var user = getUser();
+  if (!user) return;
+  var termEl = document.getElementById('ttoTerm');
+  var yearEl = document.getElementById('ttoYear');
+  if (termEl) termEl.value = user.currentTerm || '1';
+  if (yearEl) yearEl.value = user.currentYear || '';
+  var tbody = document.getElementById('ttoHomeroomBody');
+  if (tbody) tbody.innerHTML = _skelTbody(6);
+  google.script.run
+    .withSuccessHandler(function(teachers) {
+      if (!document.getElementById('homeroomPageRoot')) return;
+      _ttoTeachers = teachers || [];
+      google.script.run
+        .withSuccessHandler(function(rows) {
+          if (!document.getElementById('homeroomPageRoot')) return;
+          _ttoAllRows = rows || [];
+          _ttoBuildClassList();
+          ttoLoadHomeroom();
+        })
+        .withFailureHandler(function() {
+          if (document.getElementById('homeroomPageRoot')) ttoLoadHomeroom();
+        })
+        .getFilteredTimetables('', termEl ? termEl.value : user.currentTerm, yearEl ? yearEl.value : user.currentYear);
+    })
+    .withFailureHandler(function() {
+      if (document.getElementById('homeroomPageRoot')) ttoLoadHomeroom();
+    })
+    .getTeachersForTimetable();
+}
+
 function _ttoBuildClassList() {
   var seen = {};
   _ttoClassList = [];
@@ -1796,7 +1829,7 @@ function ttoLoadHomeroom() {
   var tbody = document.getElementById('ttoHomeroomBody');
   if (!tbody) return;
   var termEl = document.getElementById('ttoTerm'), yearEl = document.getElementById('ttoYear');
-  tbody.innerHTML = _skelTbody(5);
+  tbody.innerHTML = _skelTbody(6);
   google.script.run
     .withSuccessHandler(function(data) {
       _ttoHomeroomData = data || [];
@@ -1813,7 +1846,7 @@ function ttoLoadHomeroom() {
       _ttoRenderHomeroomTable();
     })
     .withFailureHandler(function(err) {
-      tbody.innerHTML = '<tr><td colspan="5" class="text-center text-danger p-4">' + _ttoEsc(err.message) + '</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center text-danger p-4">' + _ttoEsc(err.message) + '</td></tr>';
     })
     .getHomeroomAssignments(termEl ? termEl.value : '', yearEl ? yearEl.value : '');
 }
@@ -1821,10 +1854,13 @@ function ttoLoadHomeroom() {
 function _ttoRenderHomeroomTable() {
   var tbody = document.getElementById('ttoHomeroomBody');
   if (!tbody) return;
+  var badge = document.getElementById('hrCountBadge');
   if (_ttoHomeroomData.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted p-5">ยังไม่มีข้อมูลครูที่ปรึกษาในเทอมนี้ กด "เพิ่มห้อง" เพื่อเพิ่ม</td></tr>';
+    if (badge) badge.textContent = '0 ห้อง';
+    tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted p-5">ยังไม่มีข้อมูลครูที่ปรึกษาในเทอมนี้ กด "เพิ่มห้อง" เพื่อเพิ่ม</td></tr>';
     return;
   }
+  if (badge) badge.textContent = _ttoHomeroomData.length + ' ห้อง';
   var html = '';
   _ttoHomeroomData.forEach(function(h) {
     var t1 = (h.teacherIds && h.teacherIds[0]) || '';
@@ -1836,6 +1872,7 @@ function _ttoRenderHomeroomTable() {
           + '<select class="form-select form-select-sm hr-teacher-2">' + _ttoHrTeacherOpts(t2) + '</select></td>';
     html += '<td><input type="text" class="form-control form-control-sm hr-advisory-loc" value="' + _ttoEsc(h.advisoryLoc || '') + '" placeholder="ห้อง/อาคาร"></td>';
     html += '<td><input type="text" class="form-control form-control-sm hr-buddhist-loc" value="' + _ttoEsc(h.buddhistLoc || '') + '" placeholder="ห้อง/อาคาร"></td>';
+    html += '<td><button class="btn btn-sm btn-outline-danger shadow-none" onclick="this.closest(\'tr\').remove()" title="ลบ"><i class="fas fa-trash"></i></button></td>';
     html += '</tr>';
   });
   tbody.innerHTML = html;
@@ -1851,7 +1888,8 @@ function ttoAddHomeroomRow() {
     + '<td><select class="form-select form-select-sm hr-teacher-1 mb-1">' + _ttoHrTeacherOpts('') + '</select>'
     + '<select class="form-select form-select-sm hr-teacher-2">' + _ttoHrTeacherOpts('') + '</select></td>'
     + '<td><input type="text" class="form-control form-control-sm hr-advisory-loc" placeholder="ห้อง/อาคาร"></td>'
-    + '<td><input type="text" class="form-control form-control-sm hr-buddhist-loc" placeholder="ห้อง/อาคาร"></td>';
+    + '<td><input type="text" class="form-control form-control-sm hr-buddhist-loc" placeholder="ห้อง/อาคาร"></td>'
+    + '<td><button class="btn btn-sm btn-outline-danger shadow-none" onclick="this.closest(\'tr\').remove()" title="ลบ"><i class="fas fa-trash"></i></button></td>';
   tbody.appendChild(tr);
   tr.querySelector('.hr-level').focus();
 }
