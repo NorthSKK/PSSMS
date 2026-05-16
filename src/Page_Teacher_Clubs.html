@@ -1,11 +1,12 @@
 <div class="container-fluid pssms-page pssms-dept-academic" id="teacherClubsPage">
-  <!-- Header -->
-  <div class="d-flex justify-content-between align-items-center mb-3">
+  <div class="pssms-page-header">
     <div>
-      <h4 class="fw-bold mb-1"><i class="fas fa-users me-2" style="color:var(--p-accent);"></i>ชุมนุมที่ดูแล</h4>
-      <p class="text-muted small mb-0">เทอม <span id="tcTerm">-</span>/<span id="tcYear">-</span></p>
+      <h4><i class="fas fa-users me-2" style="color:var(--p-accent);"></i>ชุมนุมที่ดูแล</h4>
+      <p class="pssms-subtitle">เทอม <span id="tcTerm">-</span>/<span id="tcYear">-</span></p>
     </div>
-    <button class="btn btn-outline-secondary btn-sm" onclick="initTeacherClubs()"><i class="fas fa-sync me-1"></i>รีเฟรช</button>
+    <div class="pssms-actions">
+      <button class="btn btn-soft btn-sm" onclick="initTeacherClubs()"><i class="fas fa-sync me-1"></i>รีเฟรช</button>
+    </div>
   </div>
 
   <!-- Club selector (ถ้ามีหลายชุมนุม) -->

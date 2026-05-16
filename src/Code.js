@@ -161,8 +161,48 @@ function verifyTeacherPermission(teacherId, subjectCode, className, term, year) 
     }
   }
   
+  // 3. เช็ค Substitute_Assignments (สอนแทน)
+  try {
+    const subSheet = ss.getSheetByName('Substitute_Assignments');
+    if (subSheet) {
+      const subData = subSheet.getDataRange().getValues();
+      for (let i = 1; i < subData.length; i++) {
+        if (String(subData[i][13]) !== 'จัดแล้ว') continue;
+        if (String(subData[i][7]).trim().toLowerCase() !== sTeacher) continue;
+        const tSubCode = String(subData[i][9]).trim().toLowerCase();
+        const tSubClass = String(subData[i][11]).trim().replace(/\s/g,'').toLowerCase();
+        if (tSubCode === sSub && tSubClass === sClass) return true;
+      }
+    }
+  } catch(eSub) { Logger.log('verify sub err: ' + eSub.message); }
+
   // ถ้าหาจนจบแล้วไม่เจอชื่อครูคนนี้สอนวิชานี้ = แอบอ้าง!
-  return false; 
+  return false;
+}
+
+// Look up original teacher for substitute (used when saving attendance)
+function getOriginalTeacherForSub(substituteTeacherId, subjectCode, className, dateStr) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const subSheet = ss.getSheetByName('Substitute_Assignments');
+    if (!subSheet) return '';
+    const subData = subSheet.getDataRange().getValues();
+    const sTid = String(substituteTeacherId).trim().toLowerCase();
+    const sCode = String(subjectCode).trim().toLowerCase();
+    const sCls = String(className).trim().replace(/\s/g,'').toLowerCase();
+    const dStr = dateStr ? Utilities.formatDate(new Date(dateStr),'Asia/Bangkok','yyyy-MM-dd')
+                         : Utilities.formatDate(new Date(),'Asia/Bangkok','yyyy-MM-dd');
+    for (let i = 1; i < subData.length; i++) {
+      if (String(subData[i][13]) !== 'จัดแล้ว') continue;
+      if (String(subData[i][7]).trim().toLowerCase() !== sTid) continue;
+      const rDate = subData[i][2] ? Utilities.formatDate(new Date(subData[i][2]),'Asia/Bangkok','yyyy-MM-dd') : '';
+      if (rDate !== dStr) continue;
+      const rCode = String(subData[i][9]).trim().toLowerCase();
+      const rCls = String(subData[i][11]).trim().replace(/\s/g,'').toLowerCase();
+      if (rCode === sCode && rCls === sCls) return String(subData[i][5] || '');
+    }
+    return '';
+  } catch(e) { return ''; }
 }
 
 // ==========================================
@@ -688,6 +728,7 @@ function getTeacherTimetableByDate(teacherId, dateStr) {
 
   let targetDateObj = dateStr ? new Date(dateStr) : new Date();
   const targetDayName = days[targetDateObj.getDay()];
+  const targetDateOnly = Utilities.formatDate(targetDateObj, 'Asia/Bangkok', 'yyyy-MM-dd');
 
   if (!sheet) return [];
   const data = sheet.getDataRange().getValues();
@@ -697,7 +738,7 @@ function getTeacherTimetableByDate(teacherId, dateStr) {
   const searchYear = String(config.year).trim();
   const club = _getTeacherClubForTerm(teacherId, searchTerm, searchYear);
 
-  return data.slice(1).map(r => {
+  var rows = data.slice(1).map(r => {
       const tTeacherID = String(r[5]).trim().toLowerCase();
       const tDay = String(r[6]).trim();
       const tTerm = String(r[8]).trim();
@@ -712,6 +753,37 @@ function getTeacherTimetableByDate(teacherId, dateStr) {
       }
       return null;
   }).filter(item => item !== null);
+
+  // Merge substitute assignments for this teacher on this date
+  try {
+    var subSheet = ss.getSheetByName('Substitute_Assignments');
+    if (subSheet) {
+      var subData = subSheet.getDataRange().getValues();
+      for (var i = 1; i < subData.length; i++) {
+        if (String(subData[i][13]) !== 'จัดแล้ว') continue;
+        if (String(subData[i][7]).trim().toLowerCase() !== searchTeacherId) continue;
+        var subDate = subData[i][2] ? Utilities.formatDate(new Date(subData[i][2]),'Asia/Bangkok','yyyy-MM-dd') : '';
+        if (subDate !== targetDateOnly) continue;
+        var className = String(subData[i][11] || '');
+        var room = String(subData[i][12] || '');
+        var row = [
+          String(subData[i][9] || ''),       // SubjectCode
+          String(subData[i][10] || ''),      // SubjectName
+          className,                          // ClassID
+          room,                               // Room
+          '',                                 // Location
+          String(subData[i][3] || ''),       // Period
+          String(subData[i][4] || '')        // Day
+        ];
+        row.push(true);                       // [7] isSubstitute
+        row.push(String(subData[i][6] || '')); // [8] originalTeacherName
+        row.push(String(subData[i][5] || '')); // [9] originalTeacherId
+        rows.push(row);
+      }
+    }
+  } catch(eSub) { Logger.log('merge sub err: ' + eSub.message); }
+
+  return rows;
 }
 
 function getTeacherTimetable(teacherId) {
@@ -1090,16 +1162,19 @@ function saveAttendanceBatch(list) {
 
   const lock = LockService.getScriptLock();
   try {
-    lock.waitLock(15000); 
+    lock.waitLock(15000);
     const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Attendance_Database");
     const ts = new Date();
+    // Resolve original teacher if substituting
+    const origTid = getOriginalTeacherForSub(first.teacherId, first.subjectCode, first.className, first.date) || String(first.teacherId);
     const rows = list.map(item => [
       ts, item.date, item.term, item.year, item.subjectCode, item.subjectName,
-      item.className, item.period, item.studentId, item.studentName, item.status, 
-      item.teacherId, `${item.date}|${item.subjectCode}|${item.className}|${item.period}`
+      item.className, item.period, item.studentId, item.studentName, item.status,
+      item.teacherId, `${item.date}|${item.subjectCode}|${item.className}|${item.period}`,
+      origTid
     ]);
     sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, rows[0].length).setValues(rows);
-    SpreadsheetApp.flush(); 
+    SpreadsheetApp.flush();
     return { status: "success", message: "✅ เช็คชื่อเรียบร้อย" };
   } catch (e) { 
     return { status: "error", message: "คิวบันทึกเต็ม กรุณากดบันทึกอีกครั้งครับ" }; 
@@ -1370,11 +1445,13 @@ function saveLessonRecord(record) {
     lock.waitLock(15000); 
     const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Academic_Records");
     const config = getSystemConfig();
+    const origTid = getOriginalTeacherForSub(record.teacherId, record.subjectCode, record.className, record.date) || String(record.teacherId);
     sheet.appendRow([
-      new Date(), record.date, config.term, config.year, record.subjectCode, record.subjectName, 
-      record.className, record.period, record.topic, record.totalPresent, record.totalAbsent, 
-      record.totalLeave, record.teacherId, record.signature, 
-      `${record.date}|${record.subjectCode}|${record.className}|${record.period}`
+      new Date(), record.date, config.term, config.year, record.subjectCode, record.subjectName,
+      record.className, record.period, record.topic, record.totalPresent, record.totalAbsent,
+      record.totalLeave, record.teacherId, record.signature,
+      `${record.date}|${record.subjectCode}|${record.className}|${record.period}`,
+      origTid
     ]);
     SpreadsheetApp.flush(); 
     return { status: "success", message: "✅ บันทึกข้อมูลการสอนเรียบร้อยแล้ว" };
@@ -4075,12 +4152,424 @@ function reviewLeave(leaveId, status, comment, reviewerName) {
       sheet.getRange(i + 1, 12).setValue(comment || '');
       sheet.getRange(i + 1, 13).setValue(reviewerName || '');
       var tid = String(data[i][1]), yr = String(data[i][9]);
+      var prevStatus = String(data[i][8] || '');
       invalidateCacheKeys(['leave_pending','leave_mine_'+tid+'_'+yr,'leave_stats_'+tid+'_'+yr,
         'leave_all_'+yr+'_all','leave_all_'+yr+'_รอพิจารณา','leave_all_'+yr+'_'+status]);
+      // Substitute hook
+      try {
+        if (status === 'อนุมัติ') {
+          autoGenSubstitutesOnApprove(String(leaveId));
+        } else if (prevStatus === 'อนุมัติ' && status !== 'อนุมัติ') {
+          cancelSubstitutesForLeave(String(leaveId));
+        }
+      } catch(eSub) { Logger.log('substitute hook err: ' + eSub.message); }
       return { status: 'success' };
     }
     return { status: 'error', message: 'ไม่พบรายการ' };
   } catch(e) {
     return { status: 'error', message: e.message };
   } finally { try { LockService.getScriptLock().releaseLock(); } catch(e2) {} }
+}
+
+// ============================================================
+// SUBSTITUTE TEACHING SYSTEM (Phase 1: Backend Core)
+// ============================================================
+var _SUB_HEADERS = [
+  'AssignmentID','LeaveID','Date','Period','DayOfWeek',
+  'OriginalTeacherID','OriginalTeacherName',
+  'SubstituteTeacherID','SubstituteTeacherName',
+  'SubjectCode','SubjectName','Class','Room',
+  'Status','AssignedBy','AssignedAt','Note'
+];
+var _SUB_DAY_NAMES = ['อาทิตย์','จันทร์','อังคาร','พุธ','พฤหัสบดี','ศุกร์','เสาร์'];
+
+function _getSubAssignSheet() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName('Substitute_Assignments');
+  if (!sheet) {
+    sheet = ss.insertSheet('Substitute_Assignments');
+    sheet.appendRow(_SUB_HEADERS);
+    sheet.getRange(1, 1, 1, _SUB_HEADERS.length).setFontWeight('bold');
+    return sheet;
+  }
+  var hdr = sheet.getRange(1, 1, 1, Math.max(sheet.getLastColumn(), 1)).getValues()[0];
+  if (hdr[0] !== 'AssignmentID') {
+    sheet.clearContents();
+    sheet.appendRow(_SUB_HEADERS);
+  }
+  return sheet;
+}
+
+function _subRowToObj(row) {
+  return {
+    id: String(row[0]),
+    leaveId: String(row[1] || ''),
+    date: row[2] ? Utilities.formatDate(new Date(row[2]), 'Asia/Bangkok', 'yyyy-MM-dd') : '',
+    period: String(row[3]),
+    dayOfWeek: String(row[4] || ''),
+    originalTeacherId: String(row[5] || ''),
+    originalTeacherName: String(row[6] || ''),
+    substituteTeacherId: String(row[7] || ''),
+    substituteTeacherName: String(row[8] || ''),
+    subjectCode: String(row[9] || ''),
+    subjectName: String(row[10] || ''),
+    className: String(row[11] || ''),
+    room: String(row[12] || ''),
+    status: String(row[13] || 'รอจัด'),
+    assignedBy: String(row[14] || ''),
+    assignedAt: row[15] ? (row[15] instanceof Date
+        ? Utilities.formatDate(row[15], 'Asia/Bangkok', 'yyyy-MM-dd HH:mm')
+        : String(row[15])) : '',
+    note: String(row[16] || '')
+  };
+}
+
+function _genSubId() {
+  var d = Utilities.formatDate(new Date(), 'Asia/Bangkok', 'yyyyMMdd');
+  return 'SUB-' + d + '-' + Math.floor(Math.random() * 9000 + 1000);
+}
+
+function _isSkipSubject(subjectCode, subjectName) {
+  var c = String(subjectCode || '').trim().toLowerCase();
+  var n = String(subjectName || '').trim();
+  if (c === 'hr' || c === 'homeroom') return true;
+  if (c.indexOf('club_') === 0) return true;
+  if (n.indexOf('ชุมนุม') >= 0) return true;
+  if (n.indexOf('ลูกเสือ') >= 0 || n.indexOf('เนตรนารี') >= 0) return true;
+  if (n === 'ลส' || n === 'นน' || n === 'ลส/นน') return true;
+  return false;
+}
+
+function _enumDatesInRange(startStr, endStr) {
+  var out = [];
+  var s = new Date(startStr), e = new Date(endStr);
+  s.setHours(0,0,0,0); e.setHours(0,0,0,0);
+  while (s <= e) {
+    out.push(Utilities.formatDate(s, 'Asia/Bangkok', 'yyyy-MM-dd'));
+    s.setDate(s.getDate() + 1);
+  }
+  return out;
+}
+
+function _getTeacherNameMap(onlyTeachers) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sh = ss.getSheetByName('User_Database');
+  var data = sh.getDataRange().getValues();
+  var map = {};
+  for (var i = 1; i < data.length; i++) {
+    if (onlyTeachers) {
+      var role = String(data[i][3] || '').toUpperCase();
+      if (role !== 'TEACHER') continue;
+    }
+    map[String(data[i][0]).trim()] = { name: String(data[i][2] || ''), dept: String(data[i][4] || '') };
+  }
+  return map;
+}
+
+// Core: generate pending assignments for given teacher + date range
+function _genAffectedPeriodsForRange(teacherId, startDate, endDate, leaveId) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var ttSheet = ss.getSheetByName('Timetable_Database');
+  if (!ttSheet) return { created: 0, rows: [] };
+  var subSheet = _getSubAssignSheet();
+  var existing = subSheet.getDataRange().getValues();
+  var existingKey = {}; // date|period|origTeacher → assignmentId (skip dups)
+  for (var i = 1; i < existing.length; i++) {
+    if (String(existing[i][13]) === 'ยกเลิก') continue;
+    var k = String(existing[i][2] ? Utilities.formatDate(new Date(existing[i][2]),'Asia/Bangkok','yyyy-MM-dd') : '')
+          + '|' + String(existing[i][3]) + '|' + String(existing[i][5]);
+    existingKey[k] = String(existing[i][0]);
+  }
+
+  var config = getSystemConfig();
+  var term = String(config.term), year = String(config.year);
+  var ttData = ttSheet.getDataRange().getValues();
+  var teacherKey = String(teacherId).trim().toLowerCase();
+
+  var userMap = _getTeacherNameMap();
+  var teacherInfo = userMap[String(teacherId).trim()] || { name: '', dept: '' };
+
+  var club = _getTeacherClubForTerm(teacherId, term, year);
+  var dates = _enumDatesInRange(startDate, endDate);
+  var newRows = [];
+  var now = Utilities.formatDate(new Date(),'Asia/Bangkok','yyyy-MM-dd HH:mm:ss');
+
+  dates.forEach(function(dateStr) {
+    var d = new Date(dateStr);
+    var dayName = _SUB_DAY_NAMES[d.getDay()];
+    if (dayName === 'เสาร์' || dayName === 'อาทิตย์') return; // skip weekend
+
+    for (var r = 1; r < ttData.length; r++) {
+      var row = ttData[r];
+      if (String(row[5]).trim().toLowerCase() !== teacherKey) continue;
+      if (String(row[6]).trim() !== dayName) continue;
+      if (String(row[8]).trim() !== term) continue;
+      if (String(row[9]).trim() !== year) continue;
+
+      var subjectCode = String(row[0] || '');
+      var subjectName = String(row[1] || '');
+      if (club && (subjectName.indexOf('ชุมนุม') >= 0)) {
+        // override with real club name → still skip (we don't substitute clubs)
+        subjectName = club.clubName;
+        subjectCode = 'CLUB_' + club.clubId;
+      }
+      if (_isSkipSubject(subjectCode, subjectName)) continue;
+
+      var key = dateStr + '|' + String(row[7]) + '|' + String(teacherId).trim();
+      if (existingKey[key]) continue;
+
+      newRows.push([
+        _genSubId(),
+        leaveId || '',
+        dateStr,
+        String(row[7]),
+        dayName,
+        String(teacherId).trim(),
+        teacherInfo.name,
+        '', '',
+        subjectCode,
+        subjectName,
+        String(row[2] || ''),
+        String(row[3] || ''),
+        'รอจัด',
+        '', '',
+        ''
+      ]);
+    }
+  });
+
+  if (newRows.length) {
+    subSheet.getRange(subSheet.getLastRow() + 1, 1, newRows.length, _SUB_HEADERS.length).setValues(newRows);
+  }
+  invalidateCacheKeys(['sub_pending','sub_teacher_'+String(teacherId).trim()]);
+  return { created: newRows.length, rows: newRows.map(_subRowToObj) };
+}
+
+function autoGenSubstitutesOnApprove(leaveId) {
+  var sheet = _getLeaveSheet();
+  var data = sheet.getDataRange().getValues();
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][0]) !== String(leaveId)) continue;
+    var teacherId = String(data[i][1]);
+    var startStr = data[i][4] ? Utilities.formatDate(new Date(data[i][4]),'Asia/Bangkok','yyyy-MM-dd') : '';
+    var endStr   = data[i][5] ? Utilities.formatDate(new Date(data[i][5]),'Asia/Bangkok','yyyy-MM-dd') : '';
+    if (!startStr || !endStr) return { status: 'error', message: 'ไม่มีวันที่ลา' };
+    return _genAffectedPeriodsForRange(teacherId, startStr, endStr, leaveId);
+  }
+  return { status: 'error', message: 'ไม่พบใบลา' };
+}
+
+function cancelSubstitutesForLeave(leaveId) {
+  var sheet = _getSubAssignSheet();
+  var data = sheet.getDataRange().getValues();
+  var cnt = 0;
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][1]) !== String(leaveId)) continue;
+    if (String(data[i][13]) === 'ยกเลิก') continue;
+    sheet.getRange(i + 1, 14).setValue('ยกเลิก');
+    cnt++;
+  }
+  invalidateCacheKeys(['sub_pending']);
+  return { cancelled: cnt };
+}
+
+function manualCreateAffected(teacherId, startDate, endDate) {
+  return _genAffectedPeriodsForRange(teacherId, startDate, endDate, '');
+}
+
+function getAffectedByLeave(leaveId) {
+  var sheet = _getSubAssignSheet();
+  var data = sheet.getDataRange().getValues();
+  var out = [];
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][1]) !== String(leaveId)) continue;
+    out.push(_subRowToObj(data[i]));
+  }
+  return out;
+}
+
+function getPendingSubstitutes(fromDate, toDate) {
+  var sheet = _getSubAssignSheet();
+  var data = sheet.getDataRange().getValues();
+  // build approved leaveId set
+  var approvedLeaves = {};
+  try {
+    var leaveSheet = _getLeaveSheet();
+    var lData = leaveSheet.getDataRange().getValues();
+    for (var li = 1; li < lData.length; li++) {
+      if (String(lData[li][8]) === 'อนุมัติ') approvedLeaves[String(lData[li][0])] = true;
+    }
+  } catch(e) {}
+
+  var out = [];
+  var from = fromDate ? new Date(fromDate) : null;
+  var to   = toDate   ? new Date(toDate)   : null;
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][13]) === 'ยกเลิก') continue;
+    var leaveId = String(data[i][1] || '');
+    if (leaveId && !approvedLeaves[leaveId]) continue; // skip non-approved
+    if (from || to) {
+      if (!data[i][2]) continue;
+      var d = new Date(data[i][2]);
+      if (from && d < from) continue;
+      if (to && d > to) continue;
+    }
+    out.push(_subRowToObj(data[i]));
+  }
+  return out.sort(function(a,b) { return (a.date + a.period).localeCompare(b.date + b.period); });
+}
+
+// rank: exact(teacher taught same SubjectCode) > group(same dept) > none; then subCount ASC
+function getAvailableSubstitutes(date, period, originalSubjectCode, originalTeacherId, term, year) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var userMap = _getTeacherNameMap(true);
+  var ttSheet = ss.getSheetByName('Timetable_Database');
+  var ttData = ttSheet ? ttSheet.getDataRange().getValues() : [];
+
+  var d = new Date(date);
+  var dayName = _SUB_DAY_NAMES[d.getDay()];
+  var origDept = (userMap[String(originalTeacherId).trim()] || {}).dept || '';
+
+  var taughtBy = {};   // teacherId → has taught same subject
+  var deptCheck = {};  // teacherId → dept
+  var hasConflict = {};
+  Object.keys(userMap).forEach(function(tid) {
+    deptCheck[tid] = userMap[tid].dept;
+  });
+
+  for (var r = 1; r < ttData.length; r++) {
+    var tid = String(ttData[r][5]).trim();
+    if (!tid) continue;
+    if (String(ttData[r][0]).trim() === String(originalSubjectCode).trim()) {
+      taughtBy[tid] = true;
+    }
+    if (String(ttData[r][6]).trim() === dayName
+        && String(ttData[r][7]).trim() === String(period)
+        && String(ttData[r][8]).trim() === String(term)
+        && String(ttData[r][9]).trim() === String(year)) {
+      hasConflict[tid] = true;
+    }
+  }
+
+  // also conflict if already assigned as substitute that date+period
+  var subSheet = _getSubAssignSheet();
+  var subData = subSheet.getDataRange().getValues();
+  var subCount = {}; // teacherId → assigned count (this term/year window)
+  for (var i = 1; i < subData.length; i++) {
+    var status = String(subData[i][13]);
+    if (status === 'ยกเลิก') continue;
+    var subDate = subData[i][2] ? Utilities.formatDate(new Date(subData[i][2]),'Asia/Bangkok','yyyy-MM-dd') : '';
+    var subPeriod = String(subData[i][3]);
+    var subTid = String(subData[i][7]).trim();
+    if (subTid) {
+      subCount[subTid] = (subCount[subTid] || 0) + 1;
+      if (subDate === date && subPeriod === String(period) && status === 'จัดแล้ว') {
+        hasConflict[subTid] = true;
+      }
+    }
+  }
+
+  var out = [];
+  Object.keys(userMap).forEach(function(tid) {
+    if (String(tid).trim() === String(originalTeacherId).trim()) return;
+    var info = userMap[tid];
+    var match = taughtBy[tid] ? 'exact'
+              : (origDept && deptCheck[tid] === origDept ? 'group' : 'none');
+    out.push({
+      teacherId: tid,
+      name: info.name,
+      department: info.dept,
+      hasConflict: !!hasConflict[tid],
+      subjectMatch: match,
+      subCount: subCount[tid] || 0
+    });
+  });
+
+  // sort: no conflict first, then match exact>group>none, then subCount ASC
+  var rank = { exact: 0, group: 1, none: 2 };
+  out.sort(function(a,b) {
+    if (a.hasConflict !== b.hasConflict) return a.hasConflict ? 1 : -1;
+    if (rank[a.subjectMatch] !== rank[b.subjectMatch]) return rank[a.subjectMatch] - rank[b.subjectMatch];
+    return a.subCount - b.subCount;
+  });
+  return out;
+}
+
+function assignSubstitute(assignmentId, substituteTeacherId, note, assignedByName) {
+  try {
+    var lock = LockService.getScriptLock(); lock.waitLock(10000);
+    var sheet = _getSubAssignSheet();
+    var data = sheet.getDataRange().getValues();
+    var userMap = _getTeacherNameMap();
+    var subName = (userMap[String(substituteTeacherId).trim()] || {}).name || '';
+    for (var i = 1; i < data.length; i++) {
+      if (String(data[i][0]) !== String(assignmentId)) continue;
+      sheet.getRange(i + 1, 8).setValue(String(substituteTeacherId).trim());
+      sheet.getRange(i + 1, 9).setValue(subName);
+      sheet.getRange(i + 1, 14).setValue('จัดแล้ว');
+      sheet.getRange(i + 1, 15).setValue(assignedByName || '');
+      sheet.getRange(i + 1, 16).setValue(Utilities.formatDate(new Date(),'Asia/Bangkok','yyyy-MM-dd HH:mm:ss'));
+      sheet.getRange(i + 1, 17).setValue(note || '');
+      invalidateCacheKeys(['sub_pending','sub_teacher_'+String(substituteTeacherId).trim(),
+        'sub_teacher_'+String(data[i][5]).trim()]);
+      return { status: 'success' };
+    }
+    return { status: 'error', message: 'ไม่พบรายการ' };
+  } catch(e) {
+    return { status: 'error', message: e.message };
+  } finally { try { LockService.getScriptLock().releaseLock(); } catch(e2) {} }
+}
+
+function unassignSubstitute(assignmentId) {
+  try {
+    var lock = LockService.getScriptLock(); lock.waitLock(10000);
+    var sheet = _getSubAssignSheet();
+    var data = sheet.getDataRange().getValues();
+    for (var i = 1; i < data.length; i++) {
+      if (String(data[i][0]) !== String(assignmentId)) continue;
+      var prevSub = String(data[i][7] || '').trim();
+      sheet.getRange(i + 1, 8).setValue('');
+      sheet.getRange(i + 1, 9).setValue('');
+      sheet.getRange(i + 1, 14).setValue('รอจัด');
+      invalidateCacheKeys(['sub_pending','sub_teacher_'+prevSub,'sub_teacher_'+String(data[i][5]).trim()]);
+      return { status: 'success' };
+    }
+    return { status: 'error', message: 'ไม่พบรายการ' };
+  } catch(e) {
+    return { status: 'error', message: e.message };
+  } finally { try { LockService.getScriptLock().releaseLock(); } catch(e2) {} }
+}
+
+function getMySubstitutes(teacherId, fromDate, toDate) {
+  var sheet = _getSubAssignSheet();
+  var data = sheet.getDataRange().getValues();
+  var out = [];
+  var from = fromDate ? new Date(fromDate) : null;
+  var to   = toDate   ? new Date(toDate)   : null;
+  var tid = String(teacherId).trim();
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][7]).trim() !== tid) continue;
+    if (String(data[i][13]) !== 'จัดแล้ว') continue;
+    if (from || to) {
+      if (!data[i][2]) continue;
+      var d = new Date(data[i][2]);
+      if (from && d < from) continue;
+      if (to && d > to) continue;
+    }
+    out.push(_subRowToObj(data[i]));
+  }
+  return out.sort(function(a,b) { return (a.date + a.period).localeCompare(b.date + b.period); });
+}
+
+function getSubstituteCount(teacherId, term, year) {
+  var sheet = _getSubAssignSheet();
+  var data = sheet.getDataRange().getValues();
+  var tid = String(teacherId).trim();
+  var cnt = 0;
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][7]).trim() !== tid) continue;
+    if (String(data[i][13]) !== 'จัดแล้ว') continue;
+    cnt++;
+  }
+  return cnt;
 }

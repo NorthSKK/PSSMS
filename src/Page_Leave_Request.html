@@ -8,7 +8,13 @@
 
   <!-- สถิติวันลา -->
   <div id="leaveStatsStrip" class="row g-2 mb-3">
-    <div class="col-12"><div class="p-3"><?= _skelCards ?></div></div>
+    <div class="col-12"><div class="p-2 d-flex gap-2 flex-wrap">
+      <div class="pssms-skel" style="height:64px;width:130px;border-radius:10px;"></div>
+      <div class="pssms-skel" style="height:64px;width:130px;border-radius:10px;"></div>
+      <div class="pssms-skel" style="height:64px;width:130px;border-radius:10px;"></div>
+      <div class="pssms-skel" style="height:64px;width:130px;border-radius:10px;"></div>
+      <div class="pssms-skel" style="height:64px;width:130px;border-radius:10px;"></div>
+    </div></div>
   </div>
 
   <div class="row g-3">
@@ -66,6 +72,12 @@
           <span><i class="fas fa-history me-2" style="color:var(--p-text-muted);"></i>ประวัติการลาปีนี้</span>
           <span class="badge" style="background:var(--p-accent-soft);color:var(--p-accent);" id="leaveYearBadge"></span>
         </div>
+        <div class="px-3 pt-3 pb-0 d-flex gap-2 flex-wrap">
+          <button class="btn btn-sm btn-accent" id="leaveTabAll" onclick="leaveHistoryFilter('all')">ทั้งหมด</button>
+          <button class="btn btn-sm" id="leaveTabPending" onclick="leaveHistoryFilter('รอพิจารณา')" style="background:var(--p-subtle);color:var(--p-text);">⏳ รอพิจารณา <span id="leaveCountPending" class="badge bg-danger ms-1" style="display:none;"></span></button>
+          <button class="btn btn-sm" id="leaveTabApproved" onclick="leaveHistoryFilter('อนุมัติ')" style="background:var(--p-subtle);color:var(--p-text);">✅ อนุมัติ</button>
+          <button class="btn btn-sm" id="leaveTabRejected" onclick="leaveHistoryFilter('ปฏิเสธ')" style="background:var(--p-subtle);color:var(--p-text);">❌ ปฏิเสธ</button>
+        </div>
         <div id="leaveHistoryContainer" class="p-3">
           <div class="text-muted small text-center py-3"><i class="fas fa-spinner fa-spin me-1"></i>กำลังโหลด...</div>
         </div>
@@ -73,3 +85,4 @@
     </div>
   </div>
 </div>
+

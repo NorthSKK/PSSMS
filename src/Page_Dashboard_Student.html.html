@@ -1,32 +1,53 @@
-<div class="container-fluid">
-  <div class="text-center mb-4">
-    <div class="avatar-lg bg-info rounded-circle mx-auto mb-2 d-flex align-items-center justify-content-center text-white">
-      <i class="fas fa-user-graduate fa-3x"></i>
-    </div>
-    <h5 class="fw-bold mb-0" id="studentName">นักเรียนภูพระบาท</h5>
-    <p class="text-muted small">ชั้น ม.4/1 | เลขที่ 1</p>
-  </div>
-
-  <div class="row g-2 mb-4">
-    <div class="col-6">
-      <div class="card border-0 shadow-sm text-center p-3">
-        <p class="mb-0 small text-muted">ร้อยละการมาเรียน</p>
-        <h4 class="fw-bold text-success mb-0">98%</h4>
-      </div>
-    </div>
-    <div class="col-6">
-      <div class="card border-0 shadow-sm text-center p-3">
-        <p class="mb-0 small text-muted">เกรดเฉลี่ยสะสม</p>
-        <h4 class="fw-bold text-primary mb-0">3.85</h4>
-      </div>
+<div class="container-fluid pssms-page pssms-dept-academic">
+  <div class="pssms-page-header">
+    <div>
+      <h4><i class="fas fa-user-graduate me-2" style="color:var(--p-accent);"></i><span id="studentName">นักเรียน</span></h4>
+      <p class="pssms-subtitle" id="studentSubtitle">กำลังโหลด...</p>
     </div>
   </div>
 
-  <div class="card border-0 shadow-sm">
-    <div class="card-header bg-white fw-bold">ตารางเรียนวันนี้</div>
-    <div class="card-body p-0">
-      <div class="list-group list-group-flush" id="studentTodaySchedule">
-        </div>
+  <!-- KPI strip -->
+  <div class="row g-2 mb-3">
+    <div class="col-6">
+      <div class="pssms-card p-3 text-center">
+        <div class="text-muted small">ร้อยละการมาเรียน</div>
+        <div class="fw-bold fs-4" id="studentAttendPct" style="color:var(--p-accent);">—</div>
+      </div>
+    </div>
+    <div class="col-6">
+      <div class="pssms-card p-3 text-center">
+        <div class="text-muted small">เกรดเฉลี่ยสะสม</div>
+        <div class="fw-bold fs-4" id="studentGPA" style="color:var(--p-accent);">—</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Next/Current class banner -->
+  <div id="studentNextClassCard" class="pssms-card mb-3 overflow-hidden" style="background:var(--p-accent);border:none;">
+    <div class="p-3 position-relative">
+      <div style="position:absolute;right:-10px;top:-10px;opacity:.08;font-size:5rem;line-height:1;"><i class="fas fa-book-open"></i></div>
+      <div class="text-white opacity-75 small mb-1" style="letter-spacing:.05em;text-transform:uppercase;">คาบเรียนถัดไป</div>
+      <div id="studentNextClassTitle" class="fw-bold text-white" style="font-size:1.1rem;">กำลังตรวจสอบ...</div>
+      <div id="studentNextClassDetail" class="text-white opacity-75 small mt-1"></div>
+    </div>
+  </div>
+
+  <!-- ตารางเรียนวันนี้ -->
+  <div class="pssms-card mb-3">
+    <div class="pssms-card-header"><span><i class="fas fa-calendar-day me-2" style="color:var(--p-text-muted);"></i>ตารางเรียนวันนี้</span></div>
+    <div id="studentTodaySchedule" class="p-2">
+      <div class="text-muted small text-center py-3"><i class="fas fa-spinner fa-spin me-1"></i>กำลังโหลด...</div>
+    </div>
+  </div>
+
+  <!-- Score Feed -->
+  <div class="pssms-card mb-3">
+    <div class="pssms-card-header d-flex justify-content-between align-items-center">
+      <span><i class="fas fa-clipboard-list me-2" style="color:var(--p-text-muted);"></i>คะแนนรายวิชา</span>
+      <span class="badge bg-secondary" id="scoreFeedTermBadge"></span>
+    </div>
+    <div id="scoreFeedContainer" class="p-3">
+      <div class="text-muted small text-center py-3"><i class="fas fa-spinner fa-spin me-1"></i>กำลังโหลด...</div>
     </div>
   </div>
 </div>

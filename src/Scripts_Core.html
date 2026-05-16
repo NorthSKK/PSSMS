@@ -568,7 +568,8 @@ function renderApp(user) {
         menuHTML += `<li class="mb-1"><a href="javascript:void(0)" class="dept-btn personnel" onclick="loadPage('Page_Personnel')"><i class="fas fa-users"></i> <span>ฝ่ายบุคคล</span></a></li>`;
         menuHTML += `<li class="mb-1 ms-3"><a href="javascript:void(0)" class="nav-link-sub py-1" style="font-size: 0.85rem; color: #f39c12;" onclick="loadPage('Page_Admin_Users')"><i class="fas fa-users-cog me-2" style="font-size: 0.7rem;"></i>จัดการผู้ใช้งาน</a></li>`;
         menuHTML += `<li class="mb-1 ms-3"><a href="javascript:void(0)" class="nav-link-sub py-1" style="font-size: 0.85rem; color: #6366f1;" onclick="loadPage('Page_Leave_Request')"><i class="fas fa-calendar-minus me-2" style="font-size: 0.7rem;"></i>แจ้งลาของฉัน</a></li>`;
-        menuHTML += `<li class="mb-2 ms-3"><a href="javascript:void(0)" class="nav-link-sub py-1" style="font-size: 0.85rem; color: #6366f1;" onclick="loadPage('Page_Leave_Admin')"><i class="fas fa-clipboard-check me-2" style="font-size: 0.7rem;"></i>จัดการการลา</a></li>`;
+        menuHTML += `<li class="mb-1 ms-3"><a href="javascript:void(0)" class="nav-link-sub py-1" style="font-size: 0.85rem; color: #6366f1;" onclick="loadPage('Page_Leave_Admin')"><i class="fas fa-clipboard-check me-2" style="font-size: 0.7rem;"></i>จัดการการลา</a></li>`;
+        menuHTML += `<li class="mb-2 ms-3"><a href="javascript:void(0)" class="nav-link-sub py-1" style="font-size: 0.85rem; color: #14b8a6;" onclick="loadPage('Page_Substitute_Admin')"><i class="fas fa-user-friends me-2" style="font-size: 0.7rem;"></i>จัดสอนแทน</a></li>`;
     } else {
         menuHTML += `<li class="mb-1"><a href="javascript:void(0)" class="dept-btn personnel" onclick="loadPage('Page_Personnel')"><i class="fas fa-users"></i> <span>ฝ่ายบุคคล</span></a></li>`;
         menuHTML += `<li class="mb-2 ms-3"><a href="javascript:void(0)" class="nav-link-sub py-1" style="font-size: 0.85rem; color: #6366f1;" onclick="loadPage('Page_Leave_Request')"><i class="fas fa-calendar-minus me-2" style="font-size: 0.7rem;"></i>แจ้งลา</a></li>`;
@@ -615,7 +616,7 @@ function _setupMenuPrefetch() {
       timer = setTimeout(function() {
         if (!_pgCacheGet(pageName)) {
           google.script.run
-            .withSuccessHandler(function(html) { if (html) _pgCacheSet(pageName, html); })
+            .withSuccessHandler(function(html) { if (html && html.indexOf('ไม่พบหน้าเว็บ:') !== 0) _pgCacheSet(pageName, html); })
             .withFailureHandler(function() {})
             .getPage(pageName);
         }
@@ -643,7 +644,7 @@ function _setupIdlePrefetch(role) {
     var pg = pages[i++];
     if (_pgCacheGet(pg)) { _idle(_next); return; }
     google.script.run
-      .withSuccessHandler(function(html) { if (html) _pgCacheSet(pg, html); _idle(_next); })
+      .withSuccessHandler(function(html) { if (html && html.indexOf('ไม่พบหน้าเว็บ:') !== 0) _pgCacheSet(pg, html); _idle(_next); })
       .withFailureHandler(function() { _idle(_next); })
       .getPage(pg);
   }
@@ -745,6 +746,12 @@ function loadPage(pageName) {
         alert("โหลดหน้าเว็บไม่สำเร็จ: " + err.message);
     })
     .withSuccessHandler(function(html) {
+        if (!html || html.indexOf('ไม่พบหน้าเว็บ:') === 0) {
+          showLoader(false);
+          sessionStorage.removeItem('pssms_pg_' + pageName);
+          alert('โหลดหน้าเว็บไม่สำเร็จ: ' + (html || 'ไม่ทราบสาเหตุ'));
+          return;
+        }
         _pgCacheSet(pageName, html);
         setupPageContent(pageName, html);
     })
@@ -757,7 +764,7 @@ function setupPageContent(pageName, html) {
   if (window.innerWidth <= 768) { const sidebar = document.getElementById('sidebar'); if(sidebar) sidebar.classList.remove('active'); }
   setTimeout(applyThaiDatePickers, 100);
   
-  if(pageName === 'Page_Dashboard_Admin') loadStudentSummary();
+  if(pageName === 'Page_Dashboard_Admin') initAdminDashboard();
   if(pageName === 'Page_Dashboard_Teacher') initTeacherDashboard();
   if(pageName === 'Page_Dashboard_Student') initStudentDashboard();
   if(pageName === 'Page_Admin_Users') loadUserData();
@@ -780,6 +787,7 @@ function setupPageContent(pageName, html) {
   if(pageName === 'Page_Teacher_Timetable') initTeacherTimetable();
   if(pageName === 'Page_Leave_Request') initLeaveRequestPage();
   if(pageName === 'Page_Leave_Admin')   initLeaveAdminPage();
+  if(pageName === 'Page_Substitute_Admin') initSubstituteAdminPage();
 }
 
 // ==========================================

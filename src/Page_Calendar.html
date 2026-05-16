@@ -52,11 +52,11 @@
 .cal-legend-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
 </style>
 
-<div class="container-fluid pssms-page pssms-dept-general animate__animated animate__fadeIn" id="calendarPageWrap">
-  <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-start mb-3 gap-3">
+<div class="container-fluid pssms-page pssms-dept-general" id="calendarPageWrap">
+  <div class="pssms-page-header">
     <div>
-      <h4 class="fw-bold mb-1" style="letter-spacing: -0.01em;"><i class="fas fa-calendar-alt me-2" style="color: var(--p-accent);"></i>ปฏิทินปฏิบัติงาน</h4>
-      <div class="d-flex flex-wrap gap-3 small text-muted">
+      <h4><i class="fas fa-calendar-alt me-2" style="color: var(--p-accent);"></i>ปฏิทินปฏิบัติงาน</h4>
+      <div class="d-flex flex-wrap gap-3 small text-muted mt-1">
         <span><span class="cal-legend-dot" style="background:#0d6efd"></span>ทั่วไป</span>
         <span><span class="cal-legend-dot" style="background:#198754"></span>วิชาการ</span>
         <span><span class="cal-legend-dot" style="background:#ffc107"></span>ประชุม</span>
@@ -64,15 +64,15 @@
         <span><span class="cal-legend-dot" style="background:#6f42c1"></span>ส่วนตัว</span>
       </div>
     </div>
-    <div class="d-flex gap-2 flex-wrap">
-      <button class="btn btn-light border fw-medium pssms-admin-only" onclick="initCalendarDB()" style="font-size:0.85rem;">
-        <i class="fas fa-tools me-1 text-muted"></i> Setup DB
+    <div class="pssms-actions">
+      <button class="btn btn-soft btn-sm pssms-admin-only" onclick="initCalendarDB()">
+        <i class="fas fa-tools me-1"></i>Setup DB
       </button>
-      <button class="btn btn-light border fw-medium pssms-admin-only" onclick="openImportCalendarModal()" style="font-size:0.85rem;">
-        <i class="fas fa-file-import me-1 text-muted"></i> นำเข้า
+      <button class="btn btn-soft btn-sm pssms-admin-only" onclick="openImportCalendarModal()">
+        <i class="fas fa-file-import me-1"></i>นำเข้า
       </button>
       <button class="btn btn-accent btn-sm" id="btnAddCalendarEvent" onclick="openCalendarModal('add')">
-        <i class="fas fa-plus me-1"></i> <span id="btnAddCalendarEventLabel">เพิ่มกิจกรรม</span>
+        <i class="fas fa-plus me-1"></i><span id="btnAddCalendarEventLabel">เพิ่มกิจกรรม</span>
       </button>
     </div>
   </div>
@@ -94,18 +94,18 @@
     </div>
   </div>
 
-  <div class="bg-white rounded-3" style="border: 1px solid #eef0f3; padding: 16px;">
+  <div class="pssms-card p-3">
     <div id="schoolCalendar" style="min-height: 640px;"></div>
   </div>
 </div>
 
 <!-- 🌟 Modal นำเข้าปฏิทินจากไฟล์ CSV -->
-<div class="modal fade" id="calImportModal" tabindex="-1" aria-hidden="true">
+<div class="modal fade pssms-modal" id="calImportModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered modal-lg">
-    <div class="modal-content border-0 shadow-lg rounded-4">
-      <div class="modal-header text-white border-0" style="background-color: #0d6efd;">
-        <h5 class="modal-title fw-bold"><i class="fas fa-file-import me-2"></i>นำเข้ากิจกรรมจากไฟล์ CSV</h5>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="fas fa-file-import me-2" style="color:var(--p-accent);"></i>นำเข้ากิจกรรมจากไฟล์ CSV</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body p-4">
 
@@ -146,25 +146,25 @@
         </div>
 
       </div>
-      <div class="modal-footer border-0 bg-white">
-        <button type="button" class="btn btn-light" data-bs-dismiss="modal">ยกเลิก</button>
-        <button type="button" class="btn btn-primary fw-bold px-4" id="btnConfirmImport" onclick="confirmCalendarImport()" disabled>
-          <i class="fas fa-file-import me-2"></i>นำเข้าทั้งหมด
+      <div class="modal-footer gap-2">
+        <button type="button" class="btn btn-sm btn-soft" data-bs-dismiss="modal">ยกเลิก</button>
+        <button type="button" class="btn btn-sm btn-accent" id="btnConfirmImport" onclick="confirmCalendarImport()" disabled>
+          <i class="fas fa-file-import me-1"></i>นำเข้าทั้งหมด
         </button>
       </div>
     </div>
   </div>
 </div>
 
-<!-- 🌟 Modal สำหรับเพิ่ม/แก้ไขกิจกรรม -->
-<div class="modal fade" id="calendarModal" tabindex="-1" aria-hidden="true">
+<!-- Modal สำหรับเพิ่ม/แก้ไขกิจกรรม -->
+<div class="modal fade pssms-modal" id="calendarModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content border-0 shadow-lg rounded-4">
-      <div class="modal-header text-white border-0" style="background-color: var(--p-accent);" id="calModalHeader">
-        <h5 class="modal-title fw-bold" id="calModalTitle"><i class="fas fa-calendar-plus me-2"></i>เพิ่มกิจกรรมใหม่</h5>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+    <div class="modal-content">
+      <div class="modal-header" id="calModalHeader">
+        <h5 class="modal-title" id="calModalTitle"><i class="fas fa-calendar-plus me-2" style="color:var(--p-accent);"></i>เพิ่มกิจกรรมใหม่</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
-      <div class="modal-body p-4 bg-light">
+      <div class="modal-body">
         <form id="calendarForm">
           <input type="hidden" id="calEventId">
           
@@ -201,11 +201,11 @@
           </div>
         </form>
       </div>
-      <div class="modal-footer border-0 bg-white d-flex justify-content-between">
-        <button type="button" class="btn btn-outline-danger fw-bold d-none" id="btnDeleteEvent" onclick="deleteCalendarEvent()"><i class="fas fa-trash-alt me-1"></i>ลบ</button>
-        <div class="ms-auto">
-          <button type="button" class="btn btn-light" data-bs-dismiss="modal">ยกเลิก</button>
-          <button type="button" class="btn text-white fw-bold px-4" style="background-color: var(--p-accent);" id="btnSaveEvent" onclick="saveCalendarEvent()"><i class="fas fa-save me-1"></i>บันทึก</button>
+      <div class="modal-footer gap-2">
+        <button type="button" class="btn btn-sm btn-outline-danger d-none" id="btnDeleteEvent" onclick="deleteCalendarEvent()"><i class="fas fa-trash-alt me-1"></i>ลบ</button>
+        <div class="ms-auto d-flex gap-2">
+          <button type="button" class="btn btn-sm btn-soft" data-bs-dismiss="modal">ยกเลิก</button>
+          <button type="button" class="btn btn-sm btn-accent" id="btnSaveEvent" onclick="saveCalendarEvent()"><i class="fas fa-save me-1"></i>บันทึก</button>
         </div>
       </div>
     </div>

@@ -1,5 +1,140 @@
 <script>
 // ==========================================
+// 0. Admin Dashboard
+// ==========================================
+
+function initAdminDashboard() {
+  if (!document.getElementById('adminDashboardRoot')) return;
+  var cached = _dashCacheGet('admin_bundle');
+  if (cached) _renderAdminDashboard(cached);
+  google.script.run
+    .withSuccessHandler(function(bundle) {
+      if (!bundle) return;
+      _dashCacheSet('admin_bundle', bundle);
+      _renderAdminDashboard(bundle);
+    })
+    .withFailureHandler(function(e) { console.error('admin bundle fail', e); })
+    .getAdminDashboardBundle();
+}
+
+function _renderAdminDashboard(bundle) {
+  if (!document.getElementById('adminDashboardRoot')) return;
+
+  // System config / subtitle
+  var cfg = bundle.systemConfig && bundle.systemConfig.ok ? bundle.systemConfig.data : null;
+  if (cfg) {
+    var sub = document.getElementById('adminDashSubtitle');
+    if (sub) sub.textContent = 'ภาคเรียนที่ ' + cfg.term + ' ปีการศึกษา ' + cfg.year;
+  }
+
+  // Staff stats KPI
+  var stats = bundle.staffStats && bundle.staffStats.ok ? bundle.staffStats.data : null;
+  if (stats) {
+    var elS = document.getElementById('adminKpiStudents');
+    var elT = document.getElementById('adminKpiTeachers');
+    var elL = document.getElementById('adminKpiLeave');
+    var elSb = document.getElementById('adminKpiSub');
+    var cardL = document.getElementById('adminKpiLeaveCard');
+    var cardSb = document.getElementById('adminKpiSubCard');
+
+    if (elS) elS.textContent = stats.studentCount.toLocaleString() + ' คน';
+    if (elT) elT.textContent = stats.teacherCount + ' คน';
+
+    if (elL) {
+      var lCount = stats.pendingLeaveCount || 0;
+      elL.textContent = lCount + ' ใบ';
+      if (cardL) cardL.style.borderLeft = lCount > 0 ? '3px solid var(--p-warning)' : '';
+      if (lCount > 0) elL.style.color = 'var(--p-warning)';
+    }
+    if (elSb) {
+      var sCount = stats.pendingSubstitutes || 0;
+      elSb.textContent = sCount + ' คาบ';
+      if (cardSb) cardSb.style.borderLeft = sCount > 0 ? '3px solid var(--p-warning)' : '';
+      if (sCount > 0) elSb.style.color = 'var(--p-warning)';
+    }
+
+    // Pending leave list
+    _renderAdminPendingLeave(stats.pendingLeaveList || [], stats.pendingLeaveCount || 0);
+  }
+
+  // Student summary table + chart
+  if (bundle.studentSummary && bundle.studentSummary.ok && bundle.studentSummary.data.length) {
+    renderStudentTable(bundle.studentSummary.data);
+    renderStudentChart(bundle.studentSummary.data);
+  }
+
+  // Calendar strip
+  if (bundle.calendarEvents && bundle.calendarEvents.ok) {
+    _renderAdminCalendarStrip(bundle.calendarEvents.data || []);
+  }
+}
+
+function _renderAdminPendingLeave(list, total) {
+  var el = document.getElementById('adminPendingLeaveList');
+  if (!el) return;
+  if (!list || list.length === 0) {
+    el.innerHTML = '<div class="text-center text-muted small py-3"><i class="fas fa-check-circle me-1 text-success"></i>ไม่มีใบลารอพิจารณา</div>';
+    return;
+  }
+  var _thDays = ['อา.','จ.','อ.','พ.','พฤ.','ศ.','ส.'];
+  var html = '';
+  list.forEach(function(r) {
+    var d = r.start ? new Date(r.start) : null;
+    var dayLabel = d ? _thDays[d.getDay()] + ' ' + r.start.slice(8,10) + '/' + r.start.slice(5,7) : '-';
+    html += '<div class="d-flex align-items-center gap-2 p-2 rounded-2 mb-1" style="background:var(--p-subtle);">'
+          + '<div class="text-center flex-shrink-0" style="width:42px;font-size:.7rem;color:var(--p-text-muted);">' + dayLabel + '</div>'
+          + '<div class="flex-grow-1 overflow-hidden">'
+          + '<div class="fw-medium small text-truncate">' + _escH(r.name) + '</div>'
+          + '<div class="text-muted" style="font-size:.75rem;">' + _escH(r.type) + '</div>'
+          + '</div>'
+          + '</div>';
+  });
+  if (total > list.length) {
+    html += '<div class="text-center small text-muted mt-1">และอีก ' + (total - list.length) + ' ใบ...</div>';
+  }
+  el.innerHTML = html;
+}
+
+function _renderAdminCalendarStrip(events) {
+  var el = document.getElementById('adminCalendarStrip');
+  if (!el) return;
+  var today = new Date();
+  today.setHours(0,0,0,0);
+  var in14 = new Date(today.getTime() + 14*86400000);
+  var _thM = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+  var _thD = ['อา.','จ.','อ.','พ.','พฤ.','ศ.','ส.'];
+  var upcoming = (events || []).filter(function(e) {
+    var d = new Date(e.start || e.date);
+    return d >= today && d <= in14;
+  }).slice(0, 7);
+
+  if (upcoming.length === 0) {
+    el.innerHTML = '<div class="text-center text-muted small py-3">ไม่มีกิจกรรมใน 14 วันข้างหน้า</div>';
+    return;
+  }
+  var html = '';
+  upcoming.forEach(function(e) {
+    var d = new Date(e.start || e.date);
+    var dateLabel = _thD[d.getDay()] + ' ' + d.getDate() + ' ' + _thM[d.getMonth()];
+    var color = e.color || '#0d6efd';
+    html += '<div class="d-flex align-items-center gap-2 p-2 rounded-2 mb-1" style="background:var(--p-subtle);">'
+          + '<div style="width:4px;height:36px;border-radius:2px;background:' + color + ';flex-shrink:0;"></div>'
+          + '<div class="flex-grow-1 overflow-hidden">'
+          + '<div class="fw-medium small text-truncate">' + _escH(e.title || e.name || '') + '</div>'
+          + '<div class="text-muted" style="font-size:.75rem;">' + dateLabel + '</div>'
+          + '</div>'
+          + '</div>';
+  });
+  el.innerHTML = html;
+}
+
+function _escH(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, function(c) {
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+  });
+}
+
+// ==========================================
 // 1. System Settings Logic
 // ==========================================
 let systemConfigHistory = {}; 

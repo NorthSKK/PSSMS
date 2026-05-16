@@ -233,6 +233,9 @@ function initTeacherDashboard() {
     if (bundle.calendarEvents && bundle.calendarEvents.ok && bundle.calendarEvents.data) {
       if (document.getElementById('dashTeacherName')) renderDashboardCalendarEvents(bundle.calendarEvents.data);
     }
+    if (bundle.substitutes && bundle.substitutes.ok && document.getElementById('dashTeacherName')) {
+      renderDashboardSubstitutes(bundle.substitutes.data || []);
+    }
   }).withFailureHandler(function() {
     loadTeacherDashboardLegacy(user);
   }).getTeacherDashboardBundle(user.id, user.currentTerm, user.currentYear);
@@ -295,6 +298,36 @@ function renderDashboardCalendarEvents(events) {
     return '<span class="badge rounded-pill shadow-sm" style="background-color:' + color + ';font-size:0.78rem;padding:5px 11px;cursor:default;" title="' + (ev.description || '') + '">'
       + dot + '<i class="fas fa-calendar-day me-1"></i>' + dayLabel + ' · ' + ev.title + '</span>';
   }).join('');
+}
+
+function renderDashboardSubstitutes(rows) {
+  var pc = document.getElementById('page-content');
+  if (!pc) return;
+  var holder = document.getElementById('dashSubstituteStrip');
+  if (!holder) {
+    pc.insertAdjacentHTML('afterbegin',
+      '<div id="dashSubstituteStrip" class="mb-3 d-none"></div>');
+    holder = document.getElementById('dashSubstituteStrip');
+  }
+  if (!rows || !rows.length) { holder.classList.add('d-none'); holder.innerHTML = ''; return; }
+  var html = '<div class="pssms-card" style="border-left:4px solid #14b8a6;">' +
+    '<div class="pssms-card-header d-flex justify-content-between align-items-center">' +
+      '<span><i class="fas fa-user-friends me-2" style="color:#14b8a6;"></i>คาบสอนแทนของฉัน (7 วันข้างหน้า)</span>' +
+      '<span class="badge" style="background:#ccfbf1;color:#0f766e;">' + rows.length + ' คาบ</span>' +
+    '</div>' +
+    '<div class="p-2"><div class="d-flex flex-wrap gap-2">';
+  rows.forEach(function(r) {
+    var d = new Date(r.date);
+    var dayLabel = d.toLocaleDateString('th-TH', { weekday:'short', day:'numeric', month:'short' });
+    html += '<div class="p-2 rounded-2" style="background:#f0fdfa;border:1px solid #99f6e4;min-width:220px;">' +
+      '<div class="small fw-bold" style="color:#0f766e;">' + dayLabel + ' · คาบ ' + (r.period||'-') + '</div>' +
+      '<div class="small">' + (r.subjectName||'') + ' <span class="text-muted">' + (r.className||'') + '</span></div>' +
+      '<div class="small text-muted">แทน ' + (r.originalTeacherName||'-') + ' · ห้อง ' + (r.room||'-') + '</div>' +
+    '</div>';
+  });
+  html += '</div></div></div>';
+  holder.innerHTML = html;
+  holder.classList.remove('d-none');
 }
 
 function loadDashboardCalendarEvents() {

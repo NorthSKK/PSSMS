@@ -158,12 +158,12 @@
         </h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
-      <div class="modal-body bg-light">
+      <div class="modal-body">
         <form id="detailedLessonForm">
-          
-          <div class="card border-0 shadow-sm mb-3">
-            <div class="card-header bg-white fw-bold text-primary"><i class="fas fa-edit me-2"></i>1. ผลการจัดการเรียนรู้และปัญหา</div>
-            <div class="card-body">
+
+          <div class="pssms-card mb-3">
+            <div class="pssms-card-header"><span><i class="fas fa-edit me-2" style="color:var(--p-text-muted);"></i>1. ผลการจัดการเรียนรู้และปัญหา</span></div>
+            <div class="p-3">
               <div class="mb-3">
                 <label class="form-label fw-bold">1.1 ผลการจัดการเรียนรู้</label>
                 <textarea class="form-control" id="dl_outcomes" rows="3" placeholder="อธิบายผลที่เกิดจากการจัดกิจกรรม..."></textarea>
@@ -181,9 +181,9 @@
             </div>
           </div>
 
-          <div class="card border-0 shadow-sm mb-3">
-            <div class="card-header bg-white fw-bold text-info"><i class="fas fa-check-double me-2"></i>2. การประเมินตนเอง (8 ตัวชี้วัด DPA)</div>
-            <div class="card-body">
+          <div class="pssms-card mb-3">
+            <div class="pssms-card-header"><span><i class="fas fa-check-double me-2" style="color:var(--p-text-muted);"></i>2. การประเมินตนเอง (8 ตัวชี้วัด DPA)</span></div>
+            <div class="p-3">
               <div class="row g-2">
                 <div class="col-md-6"><div class="form-check"><input class="form-check-input dpa-check" type="checkbox" value="ผู้เรียนเข้าถึงสิ่งที่เรียน" id="dpa1"><label class="form-check-label" for="dpa1">1. ผู้เรียนเข้าถึงสิ่งที่เรียน</label></div></div>
                 <div class="col-md-6"><div class="form-check"><input class="form-check-input dpa-check" type="checkbox" value="ผู้เรียนเชื่อมโยงความรู้เดิม" id="dpa2"><label class="form-check-label" for="dpa2">2. ผู้เรียนเชื่อมโยงความรู้เดิม</label></div></div>
@@ -197,9 +197,9 @@
             </div>
           </div>
 
-          <div class="card border-0 shadow-sm mb-3">
-            <div class="card-header bg-white fw-bold text-warning"><i class="fas fa-cogs me-2"></i>3. ทักษะ 3R8C ที่เกิดขึ้น</div>
-            <div class="card-body">
+          <div class="pssms-card mb-3">
+            <div class="pssms-card-header"><span><i class="fas fa-cogs me-2" style="color:var(--p-text-muted);"></i>3. ทักษะ 3R8C ที่เกิดขึ้น</span></div>
+            <div class="p-3">
               <div class="row g-2">
                 <div class="col-md-4"><div class="form-check"><input class="form-check-input skill-check" type="checkbox" value="Reading" id="s1"><label class="form-check-label" for="s1">Reading (อ่านออก)</label></div></div>
                 <div class="col-md-4"><div class="form-check"><input class="form-check-input skill-check" type="checkbox" value="Writing" id="s2"><label class="form-check-label" for="s2">Writing (เขียนได้)</label></div></div>
@@ -216,9 +216,9 @@
             </div>
           </div>
 
-          <div class="card border-0 shadow-sm">
-            <div class="card-header bg-white fw-bold text-secondary"><i class="fas fa-paperclip me-2"></i>4. ผลลัพธ์และไฟล์แนบ</div>
-            <div class="card-body">
+          <div class="pssms-card">
+            <div class="pssms-card-header"><span><i class="fas fa-paperclip me-2" style="color:var(--p-text-muted);"></i>4. ผลลัพธ์และไฟล์แนบ</span></div>
+            <div class="p-3">
               <div class="mb-3">
                 <label class="form-label fw-bold">ผลลัพธ์ที่เกิดกับผู้เรียน</label>
                 <textarea class="form-control" id="dl_student_results" rows="2" placeholder="เช่น ชิ้นงานนักเรียน, พฤติกรรมที่เปลี่ยนไป..."></textarea>
@@ -238,9 +238,9 @@
 
         </form>
       </div>
-      <div class="modal-footer bg-light">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>
-        <button type="button" class="btn btn-primary fw-bold" onclick="submitDetailedLesson()"><i class="fas fa-save me-2"></i>บันทึกแบบละเอียดครบถ้วน</button>
+      <div class="modal-footer gap-2">
+        <button type="button" class="btn btn-sm btn-soft" data-bs-dismiss="modal">ยกเลิก</button>
+        <button type="button" class="btn btn-sm btn-accent" onclick="submitDetailedLesson()"><i class="fas fa-save me-1"></i>บันทึกแบบละเอียดครบถ้วน</button>
       </div>
     </div>
   </div>

@@ -40,6 +40,12 @@ function getTeacherDashboardBundle(teacherId, term, year) {
       }),
       calendarEvents: _bundleSection('calendarEvents', function() {
         return getCalendarEvents();
+      }),
+      substitutes: _bundleSection('substitutes', function() {
+        var today = Utilities.formatDate(new Date(), 'Asia/Bangkok', 'yyyy-MM-dd');
+        var to = new Date(); to.setDate(to.getDate() + 7);
+        var toStr = Utilities.formatDate(to, 'Asia/Bangkok', 'yyyy-MM-dd');
+        return getMySubstitutes(teacherId, today, toStr);
       })
     };
   });
@@ -241,11 +247,58 @@ function getAdminDashboardBundle() {
   return withTiming('getAdminDashboardBundle', function() {
     return {
       ts: Date.now(),
-      adminStats: _bundleSection('adminStats', function() { return getAdminStats(); }),
+      staffStats:     _bundleSection('staffStats',     function() { return _adminStaffStats(); }),
       studentSummary: _bundleSection('studentSummary', function() { return getStudentSummaryStats(); }),
       calendarEvents: _bundleSection('calendarEvents', function() { return getCalendarEvents(); }),
       availableTerms: _bundleSection('availableTerms', function() { return getAvailableTerms(); }),
-      systemConfig: _bundleSection('systemConfig', function() { return getSystemConfig(); })
+      systemConfig:   _bundleSection('systemConfig',   function() { return getSystemConfig(); })
     };
   });
+}
+
+function _adminStaffStats() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var config = getSystemConfig();
+  var year = String(config.year);
+
+  var studentCount = 0, teacherCount = 0;
+  var ud = ss.getSheetByName('User_Database');
+  if (ud && ud.getLastRow() > 1) {
+    ud.getDataRange().getValues().slice(1).forEach(function(r) {
+      var role = String(r[3]).toUpperCase();
+      if (role === 'STUDENT' && String(r[6]) === year) studentCount++;
+      if (role === 'TEACHER') teacherCount++;
+    });
+  }
+
+  var pendingLeaveCount = 0, pendingLeaveList = [];
+  var lr = ss.getSheetByName('Leave_Records');
+  if (lr && lr.getLastRow() > 1) {
+    lr.getDataRange().getValues().slice(1).forEach(function(r) {
+      if (String(r[5]) === 'รอพิจารณา' && String(r[6]) === year) {
+        pendingLeaveCount++;
+        if (pendingLeaveList.length < 5) {
+          var start = r[2] instanceof Date ? Utilities.formatDate(r[2], 'Asia/Bangkok', 'yyyy-MM-dd') : String(r[2]);
+          var end   = r[3] instanceof Date ? Utilities.formatDate(r[3], 'Asia/Bangkok', 'yyyy-MM-dd') : String(r[3]);
+          pendingLeaveList.push({ name: String(r[0]), type: String(r[1]), start: start, end: end });
+        }
+      }
+    });
+  }
+
+  var pendingSubstitutes = 0;
+  var subSheet = ss.getSheetByName('Substitute_Assignments');
+  if (subSheet && subSheet.getLastRow() > 1) {
+    subSheet.getDataRange().getValues().slice(1).forEach(function(r) {
+      if (String(r[13]) === 'รอจัด') pendingSubstitutes++;
+    });
+  }
+
+  return {
+    studentCount: studentCount,
+    teacherCount: teacherCount,
+    pendingLeaveCount: pendingLeaveCount,
+    pendingLeaveList: pendingLeaveList,
+    pendingSubstitutes: pendingSubstitutes
+  };
 }

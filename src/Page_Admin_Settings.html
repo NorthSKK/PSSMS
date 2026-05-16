@@ -53,17 +53,46 @@
     </div>
 
     <div class="col-12 col-lg-6">
-      <div class="pssms-card h-100 d-flex flex-column justify-content-center align-items-center text-center" style="background: var(--p-subtle);">
-        <div class="rounded-circle mb-3 d-flex align-items-center justify-content-center" style="width: 64px; height: 64px; background: var(--p-surface); border: 1px solid var(--p-border);">
-          <i class="fas fa-shield-alt fa-lg" style="color: var(--p-accent);"></i>
-        </div>
-        <h5 class="fw-bold mb-1" style="color: var(--p-text);">PSSMS Core System</h5>
-        <p class="text-muted small mb-3">ระบบบริหารจัดการสถานศึกษา 4 ฝ่าย · โรงเรียนภูพระบาทวิทยา</p>
-        <div class="p-3 rounded-3 text-start w-100" style="background: var(--p-surface); border: 1px solid var(--p-border);">
-          <h6 class="fw-semibold mb-2 small" style="color: var(--p-text);"><i class="fas fa-info-circle me-2" style="color: var(--p-text-muted);"></i>หมายเหตุ</h6>
-          <p class="mb-0 small text-muted" style="line-height: 1.6;">
-            หากเปลี่ยนปีการศึกษาใหม่ ต้องกดปุ่ม <b>"บันทึกและตั้งเป็นปีปัจจุบัน"</b> เพื่อให้ระบบอัปเดตอ้างอิงปีล่าสุด
-          </p>
+      <div class="pssms-card h-100">
+        <div class="pssms-card-header"><span><i class="fas fa-school me-2" style="color: var(--p-text-muted);"></i>ข้อมูลโรงเรียน &amp; Logo</span></div>
+        <div class="p-3">
+
+          <!-- preview -->
+          <div class="text-center mb-3">
+            <div id="logoPreviewWrap" class="d-inline-flex align-items-center justify-content-center rounded-circle mx-auto mb-2"
+                 style="width:80px;height:80px;background:var(--p-subtle);border:2px dashed var(--p-border);overflow:hidden;">
+              <i id="logoPlaceholderIcon" class="fas fa-school fa-2x" style="color:var(--p-text-muted);"></i>
+              <img id="logoPreviewImg" src="" alt="logo" style="width:100%;height:100%;object-fit:contain;display:none;">
+            </div>
+            <div class="text-muted small">ตัวอย่าง Logo</div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label small fw-medium text-muted">ชื่อโรงเรียน</label>
+            <input type="text" class="form-control" id="inputSchoolName" placeholder="โรงเรียนภูพระบาทวิทยา">
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label small fw-medium text-muted">Logo โรงเรียน</label>
+            <div class="d-flex gap-2 align-items-center">
+              <label class="btn btn-soft btn-sm mb-0 flex-grow-1" style="cursor:pointer;">
+                <i class="fas fa-upload me-1"></i>เลือกไฟล์รูป
+                <input type="file" id="logoFileInput" accept="image/*" class="d-none" onchange="previewLogoFile(this)">
+              </label>
+              <button class="btn btn-soft btn-sm text-danger" onclick="clearLogo()" title="ลบ Logo">
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
+            <div class="text-muted mt-1" style="font-size:.72rem;">PNG / JPG / SVG · แนะนำ 200×200px ขึ้นไป</div>
+          </div>
+
+          <div id="logoSaveStatus" class="d-none mb-2 small p-2 rounded-2"></div>
+
+          <div class="text-end">
+            <button class="btn btn-accent btn-sm" onclick="saveSchoolInfoSettings()">
+              <i class="fas fa-save me-1"></i>บันทึกข้อมูลโรงเรียน
+            </button>
+          </div>
         </div>
       </div>
     </div>
