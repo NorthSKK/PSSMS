@@ -1,16 +1,17 @@
 const { query } = require('../lib/db');
 
 async function getSubjectConfig([subjectCode, className, term, year]) {
-  // Try exact match first, then fall back to any config for this subject
   let rows;
   ({ rows } = await query(
-    `SELECT subject_id, subject_code, class_name, term, year, score_ratio, indicators_json, teacher_id
+    `SELECT subject_id, subject_code, class_name, term, year, score_ratio,
+            indicators_json, teacher_id, exam_indicators_json
      FROM subject_config WHERE subject_code=$1 AND class_name=$2 AND term=$3 AND year=$4`,
     [subjectCode, className, term, year]
   ));
   if (rows.length === 0) {
     ({ rows } = await query(
-      `SELECT subject_id, subject_code, class_name, term, year, score_ratio, indicators_json, teacher_id
+      `SELECT subject_id, subject_code, class_name, term, year, score_ratio,
+              indicators_json, teacher_id, exam_indicators_json
        FROM subject_config WHERE subject_code=$1 ORDER BY subject_id DESC LIMIT 1`,
       [subjectCode]
     ));
@@ -27,26 +28,27 @@ async function getSubjectConfig([subjectCode, className, term, year]) {
     ratio,
     scoreRatio: ratio,
     indicators: r.indicators_json || [],
+    examIndicators: r.exam_indicators_json || null,
     teacherId: r.teacher_id || '',
   };
 }
 
 async function saveSubjectConfig([configData]) {
   const c = configData || {};
-  // Build ratio from formative/midterm/final if scoreRatio not provided
   const ratio = c.scoreRatio || c.ratio ||
     (c.formative !== undefined ? `${c.formative}:${c.midterm || 0}:${c.final || 0}` : '70:10:20');
   await query(
-    `INSERT INTO subject_config(subject_id,subject_code,class_name,term,year,score_ratio,indicators_json,teacher_id)
-     VALUES($1,$2,$3,$4,$5,$6,$7,$8)
+    `INSERT INTO subject_config(subject_id,subject_code,class_name,term,year,score_ratio,indicators_json,teacher_id,exam_indicators_json)
+     VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)
      ON CONFLICT(subject_code,class_name,term,year) DO UPDATE SET
-       subject_id=$1, score_ratio=$6, indicators_json=$7, teacher_id=$8`,
+       subject_id=$1, score_ratio=$6, indicators_json=$7, teacher_id=$8, exam_indicators_json=$9`,
     [
       c.subjectId || `${c.subjectCode}_${c.className}_${c.term}_${c.year}`,
       c.subjectCode, c.className, c.term, c.year,
       ratio,
       JSON.stringify(c.indicators || []),
       c.teacherId || '',
+      c.examIndicators ? JSON.stringify(c.examIndicators) : null,
     ]
   );
   return { status: 'success', message: 'บันทึกโครงสร้างวิชาสำเร็จ' };
@@ -60,11 +62,9 @@ function normID(id) {
 async function getAllInOneScoreGridData([subjectCode, className, term, year]) {
   const students = await require('./students').getStudentsByClass([className, null]);
 
-  // Config
   let configObj = await getSubjectConfig([subjectCode, className, term, year]);
   if (!configObj) configObj = { ratio: '70:10:20', indicators: [], examIndicators: null };
 
-  // Existing scores → flat map: normId_indicatorId → value
   const scoresRes = await query(
     `SELECT student_id, indicator_id, score
      FROM score_database WHERE subject_code=$1 AND term=$2 AND year=$3`,
@@ -83,18 +83,21 @@ async function getAllInOneScoreGridData([subjectCode, className, term, year]) {
     }
   }
 
-  // Existing quals → normId → { read, char, comp }
   const qualRes = await query(
-    `SELECT student_id, reading_writing, char_json, comp_json
+    `SELECT student_id,
+            char1, char2, char3, char4, char_total, char_grade,
+            read1, read2, read3, read4, read_total, read_grade, comp
      FROM qualitative_assess WHERE subject_code=$1 AND term=$2 AND year=$3`,
     [subjectCode, term, year]
   );
   const existingQuals = {};
   for (const r of qualRes.rows) {
     existingQuals[normID(r.student_id)] = {
-      read: r.reading_writing || '3',
-      char: r.char_json ? (typeof r.char_json === 'object' ? '3' : String(r.char_json)) : '3',
-      comp: r.comp_json ? (typeof r.comp_json === 'object' ? '3' : String(r.comp_json)) : '3',
+      char1: r.char1 || '', char2: r.char2 || '', char3: r.char3 || '', char4: r.char4 || '',
+      charTotal: r.char_total || 0, charGrade: r.char_grade || 0,
+      read1: r.read1 || '', read2: r.read2 || '', read3: r.read3 || '', read4: r.read4 || '',
+      readTotal: r.read_total || 0, readGrade: r.read_grade || 0,
+      comp: r.comp || 3,
     };
   }
 
@@ -141,19 +144,20 @@ async function saveAllInOneScores([scoreRows, subjectCode, term, year, teacherId
   return { status: 'success', message: `บันทึกสำเร็จ ${scoreRows.length} รายการ` };
 }
 
-// Frontend sends a single payload object: { subjectCode, className, teacherId, term, year,
+// Frontend sends: { subjectCode, className, teacherId, term, year,
 //   newConfig: { formative, midterm, final, indicators },
-//   scoreRecords: [...], qualRecords: [...], gradeRecords: [...] }
+//   scoreRecords: [{studentId, indicatorId, score, ...}],
+//   qualRecords:  [{studentId, char1-4, charTotal, char(=grade), read1-4, readTotal, read(=grade)}],
+//   gradeRecords: [...] }
 async function saveAllInOneWithConfig([payload]) {
   const p = payload || {};
   const { subjectCode, className, teacherId, term, year, newConfig, scoreRecords, qualRecords } = p;
 
-  // Save config
   if (newConfig) {
     const ratio = `${newConfig.formative || 70}:${newConfig.midterm || 10}:${newConfig.final || 20}`;
     await query(
-      `INSERT INTO subject_config(subject_id,subject_code,class_name,term,year,score_ratio,indicators_json,teacher_id)
-       VALUES($1,$2,$3,$4,$5,$6,$7,$8)
+      `INSERT INTO subject_config(subject_id,subject_code,class_name,term,year,score_ratio,indicators_json,teacher_id,exam_indicators_json)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)
        ON CONFLICT(subject_code,class_name,term,year) DO UPDATE SET
          score_ratio=$6, indicators_json=$7, teacher_id=$8`,
       [
@@ -162,16 +166,15 @@ async function saveAllInOneWithConfig([payload]) {
         ratio,
         JSON.stringify(newConfig.indicators || []),
         teacherId || '',
+        newConfig.examIndicators ? JSON.stringify(newConfig.examIndicators) : null,
       ]
     );
   }
 
-  // Save scores
   if (Array.isArray(scoreRecords) && scoreRecords.length > 0) {
     await saveAllInOneScores([scoreRecords, subjectCode, term, year, teacherId]);
   }
 
-  // Save qualitative
   if (Array.isArray(qualRecords) && qualRecords.length > 0) {
     const { pool } = require('../lib/db');
     const client = await pool.connect();
@@ -179,12 +182,22 @@ async function saveAllInOneWithConfig([payload]) {
       await client.query('BEGIN');
       for (const r of qualRecords) {
         await client.query(
-          `INSERT INTO qualitative_assess(student_id,subject_code,term,year,reading_writing,char_json,comp_json)
-           VALUES($1,$2,$3,$4,$5,$6,$7)
+          `INSERT INTO qualitative_assess(
+             student_id, subject_code, term, year,
+             char1, char2, char3, char4, char_total, char_grade,
+             read1, read2, read3, read4, read_total, read_grade, comp
+           ) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
            ON CONFLICT(student_id,subject_code,term,year) DO UPDATE SET
-             reading_writing=$5, char_json=$6, comp_json=$7`,
-          [r.studentId, r.subjectCode || subjectCode, r.term || term, r.year || year,
-           r.readingWriting || '', JSON.stringify(r.charJson || {}), JSON.stringify(r.compJson || {})]
+             char1=$5, char2=$6, char3=$7, char4=$8, char_total=$9, char_grade=$10,
+             read1=$11, read2=$12, read3=$13, read4=$14, read_total=$15, read_grade=$16, comp=$17`,
+          [
+            r.studentId, r.subjectCode || subjectCode, r.term || term, r.year || year,
+            r.char1 || '', r.char2 || '', r.char3 || '', r.char4 || '',
+            parseInt(r.charTotal) || 0, parseInt(r.char) || 0,
+            r.read1 || '', r.read2 || '', r.read3 || '', r.read4 || '',
+            parseInt(r.readTotal) || 0, parseInt(r.read) || 0,
+            parseInt(r.comp) || 3,
+          ]
         );
       }
       await client.query('COMMIT');
