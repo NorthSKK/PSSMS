@@ -387,6 +387,7 @@ async function fnName([arg1, arg2, arg3]) { ... }
 - `editUser(form)` — รับ object เดียว, อย่าใส่ `[username, form]` แยก
 - `getAllInOneScoreGridData(subjectCode, className, term, year)` — 4 args, ไม่มี teacherId
 - `getSemesterReport(subjectCode, className, term, year)` — 4 args, ไม่ใช่ `(teacherId, term, year)`
+- `createClub(payload)` / `updateClub(payload)` — 1 object, clubId อยู่ใน payload (สำหรับ update). createClub generate clubId ใหม่ใน backend เสมอ (format `CLUB${Date.now()}` ตรง GAS)
 
 ### Field naming
 GAS form objects ใช้ลำดับ priority `fullname > fullName > full_name` และ `dept > department` — backend ต้องรองรับทั้งคู่. Helper pattern ใน `users.js`:
