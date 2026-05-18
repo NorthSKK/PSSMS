@@ -11,7 +11,7 @@ async function getSubjectConfig([subjectCode, className, term, year]) {
   if (rows.length === 0) {
     ({ rows } = await query(
       `SELECT subject_id, subject_code, class_name, term, year, score_ratio, indicators_json, teacher_id
-       FROM subject_config WHERE subject_code=$1 ORDER BY id DESC LIMIT 1`,
+       FROM subject_config WHERE subject_code=$1 ORDER BY subject_id DESC LIMIT 1`,
       [subjectCode]
     ));
   }
@@ -52,52 +52,60 @@ async function saveSubjectConfig([configData]) {
   return { status: 'success', message: 'บันทึกโครงสร้างวิชาสำเร็จ' };
 }
 
-async function getAllInOneScoreGridData([teacherId, subjectCode, className, term, year]) {
-  const studentsRes = await require('./students').getStudentsByClass([className, null]);
+function normID(id) {
+  const clean = String(id || '').replace(/[^a-zA-Z0-9]/g, '').replace(/^0+/, '');
+  return clean || '0';
+}
 
+async function getAllInOneScoreGridData([teacherId, subjectCode, className, term, year]) {
+  const students = await require('./students').getStudentsByClass([className, null]);
+
+  // Config
+  let configObj = await getSubjectConfig([subjectCode, className, term, year]);
+  if (!configObj) configObj = { ratio: '70:10:20', indicators: [], examIndicators: null };
+
+  // Existing scores → flat map: normId_indicatorId → value
   const scoresRes = await query(
     `SELECT student_id, indicator_id, score
      FROM score_database WHERE subject_code=$1 AND term=$2 AND year=$3`,
     [subjectCode, term, year]
   );
-  const scoreMap = {};
+  const existingScores = {};
   for (const r of scoresRes.rows) {
-    if (!scoreMap[r.student_id]) scoreMap[r.student_id] = {};
-    const val = r.score;
-    // remark/grade stored as text, others as numeric
-    scoreMap[r.student_id][r.indicator_id] = (val === null || val === undefined) ? null
-      : (isNaN(parseFloat(val)) ? val : parseFloat(val));
+    const sid = normID(r.student_id);
+    const iid = String(r.indicator_id || '').toLowerCase().trim();
+    const val = String(r.score ?? '').trim();
+    if (iid === 'remark') {
+      if (val === 'ร' || val === 'มส') existingScores[`${sid}_remark`] = val;
+      else if (!existingScores[`${sid}_remark`]) existingScores[`${sid}_remark`] = '-';
+    } else {
+      existingScores[`${sid}_${iid}`] = val;
+    }
   }
 
-  const configRes = await query(
-    `SELECT indicators_json, score_ratio FROM subject_config
-     WHERE subject_code=$1 AND class_name=$2 AND term=$3 AND year=$4`,
-    [subjectCode, className, term, year]
-  );
-  const config = configRes.rows[0] || {};
-  const ratio = config.score_ratio ? String(config.score_ratio).replace(/^'+/, '') : '';
-
+  // Existing quals → normId → { read, char, comp }
   const qualRes = await query(
     `SELECT student_id, reading_writing, char_json, comp_json
      FROM qualitative_assess WHERE subject_code=$1 AND term=$2 AND year=$3`,
     [subjectCode, term, year]
   );
-  const qualMap = {};
+  const existingQuals = {};
   for (const r of qualRes.rows) {
-    qualMap[r.student_id] = {
-      readingWriting: r.reading_writing || '',
-      charJson: r.char_json || {},
-      compJson: r.comp_json || {},
+    existingQuals[normID(r.student_id)] = {
+      read: r.reading_writing || '3',
+      char: r.char_json ? (typeof r.char_json === 'object' ? '3' : String(r.char_json)) : '3',
+      comp: r.comp_json ? (typeof r.comp_json === 'object' ? '3' : String(r.comp_json)) : '3',
     };
   }
 
   return {
-    students: studentsRes,
-    scoreMap,
-    indicators: config.indicators_json || [],
-    ratio,
-    scoreRatio: ratio,
-    qualMap,
+    config: configObj,
+    students,
+    existingScores,
+    existingQuals,
+    attStats: {},
+    attDetails: {},
+    attSessions: [],
   };
 }
 
