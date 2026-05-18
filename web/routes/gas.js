@@ -18,6 +18,7 @@ const leaveWrite = require('../functions/leave');
 const clubsWrite = require('../functions/clubs_write');
 const sarabun = require('../functions/sarabun');
 const budget = require('../functions/budget');
+const missing = require('../functions/missing');
 
 const handlers = {
   // Auth
@@ -144,6 +145,29 @@ const handlers = {
   // Budget
   getBudgets:                      (args) => budget.getBudgets(args),
   saveBudget:                      (args) => budget.saveBudget(args),
+
+  // Missing functions (Phase 3 supplement)
+  getTeacherRiskDashboard:         (args) => missing.getTeacherRiskDashboard(args),
+  getTeacherAtRiskDashboard:       (args) => missing.getTeacherAtRiskDashboard(args),
+  getStudentDashboardBundle:       (args) => missing.getStudentDashboardBundle(args),
+  getExecutiveDashboardBundle:     (args) => missing.getExecutiveDashboardBundle(args),
+  getClubMembers:                  (args) => missing.getClubMembers(args),
+  getClubMembersForTeacher:        (args) => missing.getClubMembersForTeacher(args),
+  getClubAttendanceSummary:        (args) => missing.getClubAttendanceSummary(args),
+  deleteClub:                      (args) => missing.deleteClub(args),
+  registerToClub:                  (args) => missing.registerToClub(args),
+  unregisterFromClub:              (args) => missing.unregisterFromClub(args),
+  getAllLeaves:                     (args) => missing.getAllLeaves(args),
+  saveSchoolInfo:                  (args) => missing.saveSchoolInfo(args),
+  savePrintConfigData:             (args) => missing.savePrintConfigData(args),
+  getCurriculumData:               (args) => missing.getCurriculumData(args),
+  importCurriculumCSV:             (args) => missing.importCurriculumCSV(args),
+  setupCalendarDatabase:           () => missing.setupCalendarDatabase(),
+  setupClubDatabase:               () => missing.setupClubDatabase(),
+  setupCurriculumDatabase:         () => missing.setupCurriculumDatabase(),
+  saveStudentRemarkDirectly:       (args) => missing.saveStudentRemarkDirectly(args),
+  uploadSarabunFile:               (args) => missing.uploadSarabunFile(args),
+  getTeacherListForDropdown:       () => missing.getTeacherListForDropdown(),
 
   // Todo (in-memory)
   getTodoList:                     require('../functions/getTodoList'),

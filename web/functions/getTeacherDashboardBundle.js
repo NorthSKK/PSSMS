@@ -18,10 +18,10 @@ async function getAtRiskStudents(teacherId, term, year) {
      GROUP BY student_id, student_name, subject_code, subject_name, class
      HAVING COUNT(CASE WHEN status IN ('ขาด','absent','ลา','leave') THEN 1 END)::float
             / NULLIF(COUNT(*), 0) > 0.2
-     ORDER BY absent_count DESC LIMIT 30`,
+     ORDER BY absent_count DESC LIMIT 50`,
     [teacherId, term, year]
   );
-  return rows.map(r => ({
+  const list = rows.map(r => ({
     id: r.student_id, name: r.student_name,
     subjectCode: r.subject_code, subjectName: r.subject_name, className: r.class,
     total: parseInt(r.total),
@@ -29,6 +29,12 @@ async function getAtRiskStudents(teacherId, term, year) {
     leave: parseInt(r.leave_count),
     percent: (((parseInt(r.total) - parseInt(r.absent_count) - parseInt(r.leave_count)) / parseInt(r.total)) * 100).toFixed(1),
   }));
+  // Return {critical, ms, risk} format expected by renderTeacherAtRiskDashboard
+  return {
+    critical: list.filter(s => parseFloat(s.percent) < 60),
+    ms:       list.filter(s => parseFloat(s.percent) >= 60 && parseFloat(s.percent) < 80),
+    risk:     list.filter(s => parseFloat(s.percent) >= 80 && parseFloat(s.percent) < 85),
+  };
 }
 
 module.exports = async function getTeacherDashboardBundle([teacherId, term, year]) {

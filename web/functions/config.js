@@ -36,7 +36,7 @@ async function saveSystemConfig([configData]) {
   }
 
   cache.del('system_config');
-  return { success: true };
+  return { status: 'success', message: 'บันทึกการตั้งค่าสำเร็จ' };
 }
 
 async function saveCalendarEvent([eventData]) {
@@ -58,13 +58,13 @@ async function saveCalendarEvent([eventData]) {
     );
   }
   cache.del('calendar_events');
-  return { success: true };
+  return { status: 'success', message: 'บันทึกกิจกรรมสำเร็จ' };
 }
 
 async function deleteCalendarEvent([eventId]) {
   await query(`DELETE FROM calendar_events WHERE id=$1`, [eventId]);
   cache.del('calendar_events');
-  return { success: true };
+  return { status: 'success', message: 'ลบกิจกรรมสำเร็จ' };
 }
 
 async function importCalendarCSV([rows]) {
