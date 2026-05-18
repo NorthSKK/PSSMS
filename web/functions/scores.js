@@ -57,7 +57,7 @@ function normID(id) {
   return clean || '0';
 }
 
-async function getAllInOneScoreGridData([teacherId, subjectCode, className, term, year]) {
+async function getAllInOneScoreGridData([subjectCode, className, term, year]) {
   const students = await require('./students').getStudentsByClass([className, null]);
 
   // Config
@@ -122,7 +122,7 @@ async function saveAllInOneScores([scoreRows, subjectCode, term, year, teacherId
       await client.query(
         `INSERT INTO score_database(uid,student_id,subject_code,indicator_id,score,term,year)
          VALUES($1,$2,$3,$4,$5,$6,$7)
-         ON CONFLICT(student_id,subject_code,indicator_id,term,year) DO UPDATE SET score=$5`,
+         ON CONFLICT(student_id,subject_code,indicator_id,term,year) DO UPDATE SET score=$5, uid=$1`,
         [uid, studentId, subjectCode, indicatorId, String(score), term, year]
       );
       await client.query(
