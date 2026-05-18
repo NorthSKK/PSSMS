@@ -165,31 +165,7 @@ async function saveMassiveAttendanceGrid([updates, newRows]) {
   return { status: 'success', message: 'บันทึกตารางเช็คชื่อสำเร็จ' };
 }
 
-async function getSemesterReport([teacherId, term, year]) {
-  const { rows } = await query(
-    `SELECT student_id, student_name, class as class_name,
-            COUNT(DISTINCT date) as days_taught,
-            COUNT(CASE WHEN status IN ('มา','present') THEN 1 END) as present,
-            COUNT(CASE WHEN status IN ('สาย','late')   THEN 1 END) as late,
-            COUNT(CASE WHEN status IN ('ลา','leave')   THEN 1 END) as leave,
-            COUNT(CASE WHEN status IN ('ขาด','absent') THEN 1 END) as absent
-     FROM attendance
-     WHERE teacher_id=$1 AND term=$2 AND year=$3
-     GROUP BY student_id, student_name, class
-     ORDER BY class, student_id`,
-    [teacherId, term, year]
-  );
-  return rows.map(r => ({
-    studentId: r.student_id,
-    studentName: r.student_name,
-    className: r.class_name,
-    daysTaught: parseInt(r.days_taught),
-    present: parseInt(r.present),
-    late: parseInt(r.late),
-    leave: parseInt(r.leave),
-    absent: parseInt(r.absent),
-  }));
-}
+const { getSemesterReport, getAllSubjectsReport } = require('./attendanceReport');
 
 module.exports = {
   saveAttendanceBatch,
@@ -201,4 +177,5 @@ module.exports = {
   getMassiveAttendanceGrid,
   saveMassiveAttendanceGrid,
   getSemesterReport,
+  getAllSubjectsReport,
 };
