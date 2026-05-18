@@ -68,7 +68,7 @@ async function deleteCalendarEvent([eventId]) {
 }
 
 async function importCalendarCSV([rows]) {
-  if (!Array.isArray(rows) || rows.length === 0) return { success: true, imported: 0 };
+  if (!Array.isArray(rows) || rows.length === 0) return { status: 'success', message: 'นำเข้า 0 รายการ', imported: 0 };
   const { pool } = require('../lib/db');
   const client = await pool.connect();
   let count = 0;
@@ -91,7 +91,7 @@ async function importCalendarCSV([rows]) {
     client.release();
   }
   cache.del('calendar_events');
-  return { success: true, imported: count };
+  return { status: 'success', message: `นำเข้าสำเร็จ ${count} รายการ`, imported: count };
 }
 
 module.exports = { saveSystemConfig, saveCalendarEvent, deleteCalendarEvent, importCalendarCSV };

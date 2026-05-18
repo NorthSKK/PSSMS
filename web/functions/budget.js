@@ -27,7 +27,7 @@ async function saveBudget([data]) {
     [d.projectId||`proj_${Date.now()}`, d.projectName||'',
      d.budgetAmount||0, d.usedAmount||0, d.status||'active', d.year||'']
   );
-  return { success: true };
+  return { status: 'success', message: 'บันทึกงบประมาณสำเร็จ' };
 }
 
 module.exports = { getBudgets, saveBudget };

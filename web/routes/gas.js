@@ -168,6 +168,15 @@ const handlers = {
   saveStudentRemarkDirectly:       (args) => missing.saveStudentRemarkDirectly(args),
   uploadSarabunFile:               (args) => missing.uploadSarabunFile(args),
   getTeacherListForDropdown:       () => missing.getTeacherListForDropdown(),
+  getPrintConfigData:              (args) => missing.getPrintConfigData(args),
+  getMyClub:                       (args) => missing.getMyClub(args),
+  getMyClubs:                      (args) => missing.getMyClubs(args),
+  getCurriculumBySubject:          (args) => missing.getCurriculumBySubject(args),
+  getAvailableSubstitutes:         (args) => missing.getAvailableSubstitutes(args),
+  updateTaskStatus:                (args) => missing.updateTaskStatus(args),
+  adminAddMember:                  (args) => missing.adminAddMember(args),
+  adminRemoveMember:               (args) => missing.adminRemoveMember(args),
+  promoteStudentsToNextYear:       () => missing.promoteStudentsToNextYear(),
 
   // Todo (in-memory)
   getTodoList:                     require('../functions/getTodoList'),

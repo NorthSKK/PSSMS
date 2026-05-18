@@ -18,7 +18,7 @@ async function getMorningActivityData([date, className]) {
 }
 
 async function saveMorningActivityBatch([list]) {
-  if (!Array.isArray(list) || list.length === 0) return { success: true, saved: 0 };
+  if (!Array.isArray(list) || list.length === 0) return { status: 'success', message: 'ไม่มีรายการ', saved: 0 };
   const first = list[0];
   const sessionId = `${first.date}|morning|${first.className}`;
   const { pool } = require('../lib/db');
@@ -43,7 +43,7 @@ async function saveMorningActivityBatch([list]) {
   } finally {
     client.release();
   }
-  return { success: true, saved: list.length, sessionId };
+  return { status: 'success', message: `บันทึกสำเร็จ ${list.length} รายการ`, saved: list.length, sessionId };
 }
 
 async function getTodayMorningSummary([date, teacherId]) {

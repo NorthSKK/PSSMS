@@ -1,7 +1,7 @@
 const { query } = require('../lib/db');
 
 async function saveAttendanceBatch([list]) {
-  if (!Array.isArray(list) || list.length === 0) return { success: true, saved: 0 };
+  if (!Array.isArray(list) || list.length === 0) return { status: 'success', saved: 0 };
 
   const first = list[0];
   const sessionId = `${first.date}|${first.subjectCode}|${first.className}|${first.period}`;
@@ -26,7 +26,7 @@ async function saveAttendanceBatch([list]) {
   } finally {
     client.release();
   }
-  return { success: true, saved: list.length, sessionId };
+  return { status: 'success', saved: list.length, sessionId };
 }
 
 async function saveLessonRecord([record]) {
@@ -42,7 +42,7 @@ async function saveLessonRecord([record]) {
       r.teacherId || '', r.sessionId || '',
     ]
   );
-  return { success: true };
+  return { status: 'success' };
 }
 
 async function updateAttendanceStatus([sessionId, studentId, newStatus]) {
@@ -50,18 +50,18 @@ async function updateAttendanceStatus([sessionId, studentId, newStatus]) {
     `UPDATE attendance SET status=$1 WHERE session_id=$2 AND student_id=$3`,
     [newStatus, sessionId, studentId]
   );
-  return { success: true };
+  return { status: 'success' };
 }
 
 async function updateAttendanceBatch([updates]) {
-  if (!Array.isArray(updates) || updates.length === 0) return { success: true };
+  if (!Array.isArray(updates) || updates.length === 0) return { status: 'success', message: 'ไม่มีรายการที่ต้องแก้ไข' };
   for (const u of updates) {
     await query(
       `UPDATE attendance SET status=$1 WHERE id=$2`,
       [u.status, u.rowIdx]
     );
   }
-  return { success: true, updated: updates.length };
+  return { status: 'success', message: `อัปเดตสำเร็จ ${updates.length} รายการ` };
 }
 
 async function getTodayAttendanceHistory([date, subjectCode, className]) {
@@ -162,7 +162,7 @@ async function saveMassiveAttendanceGrid([updates, newRows]) {
       );
     }
   }
-  return { success: true };
+  return { status: 'success', message: 'บันทึกตารางเช็คชื่อสำเร็จ' };
 }
 
 async function getSemesterReport([teacherId, term, year]) {

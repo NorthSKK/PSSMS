@@ -30,7 +30,7 @@ async function createClub([clubData]) {
   }
 
   invalidateClubs(c.term, c.year);
-  return { success: true, clubId };
+  return { status: 'success', message: 'สร้างชุมนุมสำเร็จ', clubId };
 }
 
 async function updateClub([clubId, updateData]) {
@@ -65,7 +65,7 @@ async function updateClub([clubId, updateData]) {
   }
 
   if (u.term && u.year) invalidateClubs(u.term, u.year);
-  return { success: true };
+  return { status: 'success', message: 'อัปเดตชุมนุมสำเร็จ' };
 }
 
 async function registerClub([studentId, studentName, className, clubId, term, year, registeredBy]) {
@@ -94,7 +94,7 @@ async function registerClub([studentId, studentName, className, clubId, term, ye
     [clubId, studentId, studentName || '', className || '', term, year, registeredBy || '']
   );
   invalidateClubs(term, year);
-  return { success: true };
+  return { status: 'success', message: 'ลงทะเบียนชุมนุมสำเร็จ' };
 }
 
 async function unregisterClub([studentId, term, year]) {
@@ -103,7 +103,7 @@ async function unregisterClub([studentId, term, year]) {
     [studentId, term, year]
   );
   invalidateClubs(term, year);
-  return { success: true };
+  return { status: 'success', message: 'ยกเลิกลงทะเบียนชุมนุมสำเร็จ' };
 }
 
 module.exports = { createClub, updateClub, registerClub, unregisterClub };

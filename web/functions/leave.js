@@ -17,7 +17,7 @@ async function saveLeaveRequest([requestData]) {
       r.year || '',
     ]
   );
-  return { success: true, id: rows[0].id };
+  return { status: 'success', message: 'ส่งคำขอลาสำเร็จ', id: rows[0].id };
 }
 
 async function approveLeave([leaveId, reviewedBy, comment]) {
@@ -25,7 +25,7 @@ async function approveLeave([leaveId, reviewedBy, comment]) {
     `UPDATE leave_records SET status='อนุมัติ', reviewed_by=$1, admin_comment=$2 WHERE id=$3`,
     [reviewedBy || '', comment || '', leaveId]
   );
-  return { success: true };
+  return { status: 'success', message: 'บันทึกสำเร็จ' };
 }
 
 async function rejectLeave([leaveId, reviewedBy, comment]) {
@@ -33,7 +33,7 @@ async function rejectLeave([leaveId, reviewedBy, comment]) {
     `UPDATE leave_records SET status='ไม่อนุมัติ', reviewed_by=$1, admin_comment=$2 WHERE id=$3`,
     [reviewedBy || '', comment || '', leaveId]
   );
-  return { success: true };
+  return { status: 'success', message: 'บันทึกสำเร็จ' };
 }
 
 async function saveSubstituteAssignment([assignData]) {
@@ -52,7 +52,7 @@ async function saveSubstituteAssignment([assignData]) {
       a.assignedBy || '', a.note || '',
     ]
   );
-  return { success: true, id: rows[0].id };
+  return { status: 'success', message: 'บันทึกการจัดสอนแทนสำเร็จ', id: rows[0].id };
 }
 
 async function confirmSubstitute([subId]) {
@@ -60,7 +60,7 @@ async function confirmSubstitute([subId]) {
     `UPDATE substitute_assignments SET status='ยืนยันแล้ว' WHERE id=$1`,
     [subId]
   );
-  return { success: true };
+  return { status: 'success', message: 'บันทึกสำเร็จ' };
 }
 
 module.exports = { saveLeaveRequest, approveLeave, rejectLeave, saveSubstituteAssignment, confirmSubstitute };

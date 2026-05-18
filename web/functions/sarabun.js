@@ -17,12 +17,12 @@ async function saveSarabun([data]) {
        d.targetDate||null, d.status||'รอดำเนินการ', d.fileURL||'', d.year||'']
     );
   }
-  return { success: true };
+  return { status: 'success', message: 'บันทึกสำเร็จ' };
 }
 
 async function deleteSarabun([id]) {
   await query(`DELETE FROM sarabun WHERE id=$1`, [id]);
-  return { success: true };
+  return { status: 'success', message: 'บันทึกสำเร็จ' };
 }
 
 module.exports = { saveSarabun, deleteSarabun };

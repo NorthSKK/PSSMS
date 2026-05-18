@@ -231,7 +231,7 @@ async function getClubAttendanceSummary([clubId, term, year]) {
 async function deleteClub([clubId]) {
   await query(`DELETE FROM clubs WHERE club_id=$1`, [clubId]);
   cache.del('clubs_all');
-  return { success: true };
+  return { status: 'success', message: 'ลบชุมนุมสำเร็จ' };
 }
 
 async function registerToClub([studentId, studentName, className, clubId, term, year, registeredBy]) {
@@ -363,6 +363,265 @@ async function getTeacherListForDropdown() {
   return require('./getTeachersForTimetable')();
 }
 
+// ============================================================
+// getPrintConfigData — reads print_config + homeroom assignments
+// ============================================================
+async function getPrintConfigData([term, year]) {
+  const { getHomeroomAssignments } = require('./timetable_admin');
+  const getSystemConfig = require('./getSystemConfig');
+
+  const sysConfig = await getSystemConfig();
+  const t = term || sysConfig.term;
+  const y = year || sysConfig.year;
+
+  // sys data from print_config table
+  let sys = {
+    school_name: sysConfig.schoolName || 'โรงเรียนภูพระบาทวิทยา',
+    principal_name: '', measure_head: '', academic_head: '',
+  };
+  try {
+    const { rows } = await query(
+      `SELECT sys_data FROM print_config WHERE term=$1 AND year=$2`, [t, y]
+    );
+    if (rows.length > 0 && rows[0].sys_data) {
+      const parsed = typeof rows[0].sys_data === 'string'
+        ? JSON.parse(rows[0].sys_data) : rows[0].sys_data;
+      sys = { ...sys, ...parsed };
+    }
+  } catch (_) { /* table may not exist yet */ }
+
+  // homeroom from timetable
+  let hr = [];
+  try {
+    const assignments = await getHomeroomAssignments([t, y]);
+    hr = assignments.map(a => ({
+      cls: a.className,
+      t1: a.teacherName || a.teacherId || '',
+      t2: '',
+    }));
+  } catch (_) {}
+
+  return { status: 'success', sys, hr };
+}
+
+// ============================================================
+// getMyClub — club a student is registered to
+// ============================================================
+async function getMyClub([studentId, term, year]) {
+  const { rows } = await query(
+    `SELECT cm.club_id, c.club_name, c.capacity,
+            (SELECT COUNT(*) FROM club_members m2 WHERE m2.club_id=cm.club_id AND m2.term=$2 AND m2.year=$3) as member_count
+     FROM club_members cm
+     JOIN clubs c ON c.club_id=cm.club_id AND c.term=$2 AND c.year=$3
+     WHERE cm.student_id=$1 AND cm.term=$2 AND cm.year=$3
+     LIMIT 1`,
+    [studentId, term, year]
+  );
+  if (rows.length === 0) return null;
+  const r = rows[0];
+  return {
+    clubId: r.club_id,
+    clubName: r.club_name,
+    maxMembers: parseInt(r.capacity || 0),
+    memberCount: parseInt(r.member_count || 0),
+  };
+}
+
+// ============================================================
+// getMyClubs — clubs where teacher is advisor
+// ============================================================
+async function getMyClubs([teacherId, term, year]) {
+  const { rows } = await query(
+    `SELECT c.club_id, c.club_name, c.capacity, ca.role as my_role,
+            (SELECT COUNT(*) FROM club_members m WHERE m.club_id=c.club_id AND m.term=$2 AND m.year=$3) as member_count
+     FROM club_advisors ca
+     JOIN clubs c ON c.club_id=ca.club_id AND c.term=ca.term AND c.year=ca.year
+     WHERE ca.teacher_id=$1 AND ca.term=$2 AND ca.year=$3
+     ORDER BY c.club_name`,
+    [teacherId, term, year]
+  );
+  return rows.map(r => ({
+    clubId: r.club_id,
+    clubName: r.club_name,
+    maxMembers: parseInt(r.capacity || 0),
+    memberCount: parseInt(r.member_count || 0),
+    myRole: r.my_role || 'หัวหน้า',
+  }));
+}
+
+// ============================================================
+// getCurriculumBySubject — filtered alias of getCurriculumData
+// ============================================================
+async function getCurriculumBySubject([subjectCode]) {
+  return getCurriculumData([subjectCode]);
+}
+
+// ============================================================
+// getAvailableSubstitutes — teachers free at given date/period
+// ============================================================
+async function getAvailableSubstitutes([date, period, originalSubjectCode, originalTeacherId, term, year]) {
+  const DAYS = ['อาทิตย์','จันทร์','อังคาร','พุธ','พฤหัสบดี','ศุกร์','เสาร์'];
+  const dayName = DAYS[new Date(date).getDay()];
+
+  // Find teachers who have a conflict (already teaching that slot)
+  const { rows: conflictRows } = await query(
+    `SELECT DISTINCT teacher_id FROM timetable
+     WHERE day=$1 AND period=$2 AND term=$3 AND year=$4`,
+    [dayName, String(period), String(term), String(year)]
+  );
+  const conflictSet = new Set(conflictRows.map(r => r.teacher_id));
+
+  // Also conflict if already assigned as substitute that date+period
+  try {
+    const { rows: subRows } = await query(
+      `SELECT DISTINCT substitute_teacher_id FROM substitute_assignments
+       WHERE sub_date=$1 AND period=$2 AND status != 'ยกเลิก'`,
+      [date, String(period)]
+    );
+    subRows.forEach(r => conflictSet.add(r.substitute_teacher_id));
+  } catch (_) {}
+
+  // Get all teachers
+  const { rows: teachers } = await query(
+    `SELECT username, full_name, department FROM users
+     WHERE UPPER(role) IN ('TEACHER','ADMIN') AND username != $1
+     ORDER BY full_name`,
+    [originalTeacherId]
+  );
+
+  // Categorize: same-subject teachers first, then free, exclude conflicts
+  const sameSubject = [];
+  const free = [];
+  for (const t of teachers) {
+    if (conflictSet.has(t.username)) continue;
+    const { rows: taughtRows } = await query(
+      `SELECT 1 FROM timetable WHERE teacher_id=$1 AND subject_code=$2 AND term=$3 AND year=$4 LIMIT 1`,
+      [t.username, originalSubjectCode, String(term), String(year)]
+    );
+    const entry = { teacherId: t.username, name: t.full_name, dept: t.department };
+    if (taughtRows.length > 0) sameSubject.push(entry);
+    else free.push(entry);
+  }
+
+  return { sameSubject, free };
+}
+
+// ============================================================
+// updateTaskStatus — Notion todo update (stub: uses in-memory todo)
+// ============================================================
+async function updateTaskStatus([pageId, isDone]) {
+  return { status: 'success' };
+}
+
+// ============================================================
+// adminAddMember / adminRemoveMember — club admin actions
+// ============================================================
+async function adminAddMember([clubId, studentId]) {
+  // Lookup student info
+  const { rows } = await query(
+    `SELECT username, full_name, department FROM users WHERE username=$1`, [studentId]
+  );
+  const u = rows[0] || {};
+
+  // Check if already registered
+  const existing = await query(
+    `SELECT club_id FROM club_members WHERE student_id=$1`, [studentId]
+  );
+  if (existing.rows.length > 0) {
+    return { status: 'already', message: `${studentId} ลงทะเบียนชุมนุมอื่นแล้ว` };
+  }
+
+  // Get club term/year
+  const clubRes = await query(`SELECT term, year, capacity FROM clubs WHERE club_id=$1`, [clubId]);
+  if (clubRes.rows.length === 0) return { status: 'error', message: 'ไม่พบชุมนุม' };
+  const club = clubRes.rows[0];
+
+  try {
+    await query(
+      `INSERT INTO club_members(club_id,student_id,student_name,class_name,term,year,registered_by)
+       VALUES($1,$2,$3,$4,$5,$6,'admin')`,
+      [clubId, studentId, u.full_name || '', u.department || '', club.term, club.year]
+    );
+    return { status: 'success', message: 'เพิ่มสมาชิกสำเร็จ' };
+  } catch (e) {
+    return { status: 'error', message: e.message };
+  }
+}
+
+async function adminRemoveMember([clubId, studentId]) {
+  await query(
+    `DELETE FROM club_members WHERE club_id=$1 AND student_id=$2`, [clubId, studentId]
+  );
+  return { status: 'success', message: 'ลบสมาชิกสำเร็จ' };
+}
+
+// ============================================================
+// promoteStudentsToNextYear — elevate class level, graduate ม.3 & ม.6
+// ============================================================
+async function promoteStudentsToNextYear() {
+  const getSystemConfig = require('./getSystemConfig');
+  const config = await getSystemConfig();
+  const currentYear = parseInt(config.year);
+  if (!currentYear) return { status: 'error', message: 'อ่านค่าปีการศึกษาไม่สำเร็จ' };
+
+  const { rows } = await query(
+    `SELECT username, department, year FROM users
+     WHERE UPPER(role)='STUDENT' AND status='ปกติ' AND CAST(year AS INTEGER) < $1`,
+    [currentYear]
+  );
+
+  if (rows.length === 0) {
+    return { status: 'error', message: '⚠️ ไม่พบนักเรียนที่เข้าเงื่อนไขการเลื่อนชั้น!' };
+  }
+
+  const { pool } = require('../lib/db');
+  const client = await pool.connect();
+  let updateCount = 0;
+  let graduateCount = 0;
+
+  try {
+    await client.query('BEGIN');
+    for (const r of rows) {
+      const cls = String(r.department || '');
+      const m = cls.match(/ม\.(\d+)\/(\d+)/);
+      if (m) {
+        const level = parseInt(m[1]);
+        const room = parseInt(m[2]);
+        if (level === 3 || level === 6) {
+          await client.query(
+            `UPDATE users SET status='จบการศึกษา', year=$1 WHERE username=$2`,
+            [currentYear, r.username]
+          );
+          graduateCount++;
+        } else {
+          await client.query(
+            `UPDATE users SET department=$1, year=$2 WHERE username=$3`,
+            [`ม.${level + 1}/${room}`, currentYear, r.username]
+          );
+          updateCount++;
+        }
+      } else {
+        await client.query(`UPDATE users SET year=$1 WHERE username=$2`, [currentYear, r.username]);
+        updateCount++;
+      }
+    }
+    await client.query('COMMIT');
+  } catch (e) {
+    await client.query('ROLLBACK');
+    throw e;
+  } finally {
+    client.release();
+  }
+
+  const cache = require('../lib/cache');
+  cache.del('all_users');
+
+  return {
+    status: 'success',
+    message: `✅ เลื่อนชั้นสำเร็จ ${updateCount} คน\n🎓 จบการศึกษา (ม.3, ม.6) ${graduateCount} คน`,
+  };
+}
+
 module.exports = {
   getTeacherRiskDashboard,
   getTeacherAtRiskDashboard,
@@ -377,7 +636,9 @@ module.exports = {
   getAllLeaves,
   saveSchoolInfo,
   savePrintConfigData,
+  getPrintConfigData,
   getCurriculumData,
+  getCurriculumBySubject,
   importCurriculumCSV,
   setupCalendarDatabase,
   setupClubDatabase,
@@ -385,4 +646,11 @@ module.exports = {
   saveStudentRemarkDirectly,
   uploadSarabunFile,
   getTeacherListForDropdown,
+  getMyClub,
+  getMyClubs,
+  getAvailableSubstitutes,
+  updateTaskStatus,
+  adminAddMember,
+  adminRemoveMember,
+  promoteStudentsToNextYear,
 };

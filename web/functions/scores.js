@@ -35,7 +35,7 @@ async function saveSubjectConfig([configData]) {
       c.teacherId || '',
     ]
   );
-  return { success: true };
+  return { status: 'success', message: 'บันทึกสำเร็จ' };
 }
 
 async function getAllInOneScoreGridData([teacherId, subjectCode, className, term, year]) {
@@ -83,7 +83,7 @@ async function getAllInOneScoreGridData([teacherId, subjectCode, className, term
 }
 
 async function saveAllInOneScores([scoreRows, subjectCode, term, year, teacherId]) {
-  if (!Array.isArray(scoreRows) || scoreRows.length === 0) return { success: true };
+  if (!Array.isArray(scoreRows) || scoreRows.length === 0) return { status: 'success', message: 'บันทึกสำเร็จ' };
   const { pool } = require('../lib/db');
   const client = await pool.connect();
   try {
@@ -143,7 +143,7 @@ async function saveAllInOneWithConfig([configData, scoreRows, qualRows, teacherI
       client.release();
     }
   }
-  return { success: true };
+  return { status: 'success', message: 'บันทึกสำเร็จ' };
 }
 
 module.exports = {

@@ -54,7 +54,7 @@ async function saveDetailedLessonRecord([record]) {
       r.teacherId || '', r.sessionId || '',
     ]
   );
-  return { success: true };
+  return { status: 'success', message: 'บันทึกสำเร็จ' };
 }
 
 async function deleteDetailedLessonRecord([ts]) {
@@ -62,7 +62,7 @@ async function deleteDetailedLessonRecord([ts]) {
   const id = parseInt(ts);
   if (isNaN(id)) throw new Error('Invalid record id');
   await query(`DELETE FROM detailed_lesson_records WHERE id=$1`, [id]);
-  return { success: true };
+  return { status: 'success', message: 'บันทึกสำเร็จ' };
 }
 
 async function updateDetailedLessonRecord([ts, record]) {
@@ -86,7 +86,7 @@ async function updateDetailedLessonRecord([ts, record]) {
       id,
     ]
   );
-  return { success: true };
+  return { status: 'success', message: 'บันทึกสำเร็จ' };
 }
 
 module.exports = {

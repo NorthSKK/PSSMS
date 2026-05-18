@@ -24,7 +24,7 @@ async function addUser([userData]) {
     ]
   );
   invalidateUsers();
-  return { success: true };
+  return { status: 'success', message: 'บันทึกสำเร็จ' };
 }
 
 async function editUser([username, userData]) {
@@ -43,21 +43,21 @@ async function editUser([username, userData]) {
   if (u.year       !== undefined) push('year',       String(u.year));
   if (u.status     !== undefined) push('status',     String(u.status));
 
-  if (sets.length === 0) return { success: true };
+  if (sets.length === 0) return { status: 'success', message: 'บันทึกสำเร็จ' };
   params.push(String(username).trim());
   await query(`UPDATE users SET ${sets.join(',')} WHERE username=$${params.length}`, params);
   invalidateUsers();
-  return { success: true };
+  return { status: 'success', message: 'บันทึกสำเร็จ' };
 }
 
 async function deleteUser([username]) {
   await query(`DELETE FROM users WHERE username=$1`, [String(username).trim()]);
   invalidateUsers();
-  return { success: true };
+  return { status: 'success', message: 'บันทึกสำเร็จ' };
 }
 
 async function importStudentCSV([rows, year]) {
-  if (!Array.isArray(rows) || rows.length === 0) return { success: true, imported: 0 };
+  if (!Array.isArray(rows) || rows.length === 0) return { status: 'success', message: 'นำเข้า 0 รายการ', imported: 0 };
   const { pool } = require('../lib/db');
   const client = await pool.connect();
   let count = 0;
@@ -90,11 +90,11 @@ async function importStudentCSV([rows, year]) {
     client.release();
   }
   invalidateUsers();
-  return { success: true, imported: count };
+  return { status: 'success', message: `นำเข้าสำเร็จ ${count} รายการ`, imported: count };
 }
 
 async function importTeacherCSV([rows]) {
-  if (!Array.isArray(rows) || rows.length === 0) return { success: true, imported: 0 };
+  if (!Array.isArray(rows) || rows.length === 0) return { status: 'success', message: 'นำเข้า 0 รายการ', imported: 0 };
   const { pool } = require('../lib/db');
   const client = await pool.connect();
   let count = 0;
@@ -127,7 +127,7 @@ async function importTeacherCSV([rows]) {
     client.release();
   }
   invalidateUsers();
-  return { success: true, imported: count };
+  return { status: 'success', message: `นำเข้าสำเร็จ ${count} รายการ`, imported: count };
 }
 
 async function getStudentSummaryStats([year]) {
