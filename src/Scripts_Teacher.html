@@ -278,7 +278,7 @@ function renderTeacherRiskFromCache(res) {
 function renderDashboardCalendarEvents(events) {
   const strip = document.getElementById('dashCalendarStrip');
   const badges = document.getElementById('dashCalendarBadges');
-  if (!strip || !badges || !events) return;
+  if (!strip || !badges || !events) { if (strip) strip.classList.add('d-none'); return; }
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const limit = new Date(today); limit.setDate(limit.getDate() + 14);
   const upcoming = events.filter(function(ev) {
@@ -287,8 +287,7 @@ function renderDashboardCalendarEvents(events) {
     const end = ev.end ? new Date(ev.end) : start;
     return start <= limit && end >= today;
   }).sort(function(a, b) { return new Date(a.start) - new Date(b.start); });
-  if (upcoming.length === 0) return;
-  strip.classList.remove('d-none');
+  if (upcoming.length === 0) { strip.classList.add('d-none'); return; }
   badges.innerHTML = upcoming.map(function(ev) {
     const d = new Date(ev.start);
     const isToday = d.toDateString() === today.toDateString();
@@ -334,7 +333,7 @@ function loadDashboardCalendarEvents() {
   google.script.run.withSuccessHandler(function(events) {
     const strip = document.getElementById('dashCalendarStrip');
     const badges = document.getElementById('dashCalendarBadges');
-    if (!strip || !badges || !events) return;
+    if (!strip || !badges || !events) { if (strip) strip.classList.add('d-none'); return; }
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -348,9 +347,8 @@ function loadDashboardCalendarEvents() {
       return start <= limit && end >= today;
     }).sort(function(a, b) { return new Date(a.start) - new Date(b.start); });
 
-    if (upcoming.length === 0) return;
+    if (upcoming.length === 0) { strip.classList.add('d-none'); return; }
 
-    strip.classList.remove('d-none');
     badges.innerHTML = upcoming.map(function(ev) {
       const d = new Date(ev.start);
       const isToday = d.toDateString() === today.toDateString();
