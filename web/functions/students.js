@@ -6,25 +6,53 @@ function normalizeClass(str) {
 
 async function getStudentsByClass([className, year]) {
   const norm = normalizeClass(className);
-  const config = year
-    ? { year }
-    : await require('./getSystemConfig')();
-  const y = year || config.year;
+  const config = year ? { year } : await require('./getSystemConfig')();
+  const y = String(year || config.year || '').trim();
+  const activeYear = String((await require('./getSystemConfig')()).year || '').trim();
+  const isHistorical = y && activeYear && y !== activeYear;
 
+  // 1. users table — current registration
   const { rows } = await query(
     `SELECT username, password, full_name, role, department, email, year, status
      FROM users WHERE UPPER(role)='STUDENT' AND year=$1 AND status='ปกติ'
      ORDER BY username`,
     [y]
   );
-
   let matched = rows.filter(r => normalizeClass(r.department) === norm);
-  if (matched.length === 0) {
-    matched = rows.filter(r => {
-      const d = String(r.department || '');
-      return d === className || normalizeClass(d) === norm;
-    });
+
+  // 2. historical fallback: recreate roster from attendance snapshot (class+year)
+  if (matched.length === 0 && isHistorical) {
+    const { rows: histRows } = await query(
+      `SELECT DISTINCT a.student_id, a.student_name, a.class,
+              u.password, u.email
+       FROM attendance a
+       LEFT JOIN users u ON u.username = a.student_id
+       WHERE a.year=$1 AND a.class=$2
+       ORDER BY a.student_id`,
+      [y, className]
+    );
+    matched = histRows.map(r => ({
+      username: r.student_id,
+      password: r.password || '',
+      full_name: r.student_name || '',
+      role: 'Student',
+      department: r.class || className,
+      email: r.email || '',
+      year: y,
+      status: 'ปกติ',
+    }));
   }
+
+  // 3. last-resort fallback: ignore year filter (current term, no exact match)
+  if (matched.length === 0 && !isHistorical) {
+    const { rows: anyYear } = await query(
+      `SELECT username, password, full_name, role, department, email, year, status
+       FROM users WHERE UPPER(role)='STUDENT' AND status='ปกติ'
+       ORDER BY username`
+    );
+    matched = anyYear.filter(r => normalizeClass(r.department) === norm);
+  }
+
   return matched.map(r => [
     r.username, r.password, r.full_name, r.role,
     r.department || '', r.email || '', r.year || '', r.status || 'ปกติ',
