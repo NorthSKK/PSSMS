@@ -369,3 +369,87 @@ function saveMyData() {
   invalidateCache('my_data_key');
 }
 ```
+
+---
+
+## Web Prototype (Node + Railway PostgreSQL)
+
+Parallel codebase ที่ `web/` — Express + PostgreSQL replicating GAS behavior. Frontend ใช้ `gas-shim.js` แทน `google.script.run`: ทุก call `google.script.run.fn(a, b, c)` → `POST /api/gas/fn` body `{ args: [a, b, c] }`.
+
+### Function signature convention
+Backend handlers รับ args เป็น array destructured:
+```javascript
+async function fnName([arg1, arg2, arg3]) { ... }
+```
+**ต้องตรงกับ frontend call** — frontend ส่ง `args = [a, b, c]` ตามลำดับที่ `google.script.run.fn(a, b, c)` ระบุ. Signature mismatch = bug ที่หาย ๆ ยาก (เช่น args shift จน param หลังกลายเป็น undefined).
+
+ตัวอย่างที่เคยเจอ:
+- `editUser(form)` — รับ object เดียว, อย่าใส่ `[username, form]` แยก
+- `getAllInOneScoreGridData(subjectCode, className, term, year)` — 4 args, ไม่มี teacherId
+- `getSemesterReport(subjectCode, className, term, year)` — 4 args, ไม่ใช่ `(teacherId, term, year)`
+
+### Field naming
+GAS form objects ใช้ลำดับ priority `fullname > fullName > full_name` และ `dept > department` — backend ต้องรองรับทั้งคู่. Helper pattern ใน `users.js`:
+```javascript
+const pickName = (u) => String(u.fullname || u.fullName || u.full_name || '').trim();
+const pickDept = (u) => String(u.department || u.dept || '').trim();
+```
+
+### Schema differences vs GAS Sheets
+
+| ตาราง | คอลัมน์ที่ต่างจาก GAS / ข้อควรระวัง |
+|---|---|
+| `score_database` | `score TEXT` (ไม่ใช่ numeric) เพราะ remark column เก็บ `'-'`,`'ร'`,`'มส'` ปนกับตัวเลข. PK = composite `(student_id, subject_code, indicator_id, term, year)`. ใช้ `ON CONFLICT(student_id,subject_code,indicator_id,term,year)` |
+| `score_history` | `old_score`, `new_score` ทั้งคู่เป็น `TEXT` (เหตุผลเดียวกับ score) |
+| `subject_config` | มี `exam_indicators_json JSONB` (ตรงกับ col[8] ของ GAS); PK = `(subject_code, class_name, term, year)` |
+| `qualitative_assess` | มี sub-score columns: `char1-4, char_total, char_grade, read1-4, read_total, read_grade, comp`. PK = `(student_id, subject_code, term, year)` |
+| `users` | ไม่มี year snapshot — promote update in-place. snapshot ปีเก่าเก็บใน `user_history` (ดู Historical roster) |
+| `user_history` | `username, action, changed_by, old_data jsonb, new_data jsonb, timestamp` — audit log + snapshot ตอน promote |
+
+### Score indicator_id convention
+- `formative_0`, `formative_1`, ... = คะแนนเก็บแต่ละชิ้น (index ตรงกับ `subject_config.indicators_json[i]`)
+- `midterm` = สอบกลาง
+- `midterm_re` = ซ่อมกลาง
+- `final` = สอบปลาย
+- `remark` = `ร` / `มส` / `-`
+
+### Attendance & report logic — shared module
+`web/functions/attendanceReport.js` เป็น single source of truth สำหรับ:
+- `getSemesterReport([subjectCode, className, term, year])` — หน้ารายงานสถิติเวลาเรียน
+- `getAllSubjectsReport([teacherId, term, year])` — ทุกวิชาที่ครูสอน
+- `getTeacherAtRiskDashboard([teacherId, term, year])` — Dashboard card
+
+Formula (ตรง GAS):
+```
+periodsPerWeek = COUNT timetable rows (subject+level+room+term+year)
+totalCoursePeriods = periodsPerWeek × 20  (fallback 3 ถ้าไม่เจอ)
+percent = ((totalCoursePeriods − absent − leave) / totalCoursePeriods) × 100
+buckets: <60 critical, 60-79 ms, 80-84 risk (≤85 เข้า list)
+```
+
+อย่าใช้ `COUNT(*)` ของ attendance เป็นตัวหาร — จะ inflate percent.
+
+### Teacher dashboard bundle
+`getTeacherDashboardBundle([teacherId, term, year])` parallel sections:
+- `timetable` (today schedule)
+- `calendarEvents` (14-day strip)
+- `riskDashboard` — grade-based (0, ร, มส.) จาก `grade_summary`
+- `atRiskDashboard` — attendance-based จาก `attendanceReport.getTeacherAtRiskDashboard`
+
+แต่ละ section wrap ด้วย `section()` helper → `{ok:true,data}` หรือ `{ok:false,error}`.
+
+### Historical roster fallback chain
+`getStudentsByClass([className, year])` priority:
+1. `users` table by `class+year+status='ปกติ'` (exact)
+2a. **historical only** — `user_history WHERE action='promote' AND old_data->>year=$y AND old_data->>department=$class` (มี email/password ครบ)
+2b. **historical only** — `DISTINCT attendance(student_id, student_name, class)` ที่ `year=$y AND class=$class` (no email/password)
+3. **current year only** — `users` ignore year filter (last resort)
+
+ปีถัดไป promote → `promoteStudentsToNextYear()` จะ INSERT user_history ทุก row ก่อน UPDATE → snapshot ครบทุกครั้ง.
+
+### Write function return format
+Frontend เช็ค `res.status === 'success'` ทุก write function. คืน:
+```javascript
+{ status: 'success', message: 'ข้อความภาษาไทย' }
+```
+ไม่ใช่ `{ success: true }` (GAS frontend ไม่ตรวจ).
