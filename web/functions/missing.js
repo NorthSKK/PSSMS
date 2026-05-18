@@ -68,7 +68,8 @@ async function getTeacherAtRiskDashboard([teacherId, term, year]) {
   const list = rows.map(r => ({
     id: r.student_id, name: r.student_name,
     subjectCode: r.subject_code, subjectName: r.subject_name, className: r.class,
-    total: parseInt(r.total), absent: parseInt(r.absent_count), leave: parseInt(r.leave_count),
+    total: parseInt(r.total), taught: parseInt(r.total),
+    absent: parseInt(r.absent_count), leave: parseInt(r.leave_count),
     percent: (((parseInt(r.total) - parseInt(r.absent_count) - parseInt(r.leave_count)) / parseInt(r.total)) * 100).toFixed(1),
   }));
   const byThreshold = (pct) => list.filter(s => parseFloat(s.percent) < pct);

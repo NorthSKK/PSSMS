@@ -18,7 +18,8 @@ module.exports = async function getCalendarEvents() {
     title:       r.title || '',
     start:       r.start || '',
     end:         r.end || r.start || '',
-    color:       r.color || '#3b82f6',
+    color:           r.color || '#3b82f6',
+    backgroundColor: r.color || '#3b82f6',
     description: r.description || '',
   }));
 
