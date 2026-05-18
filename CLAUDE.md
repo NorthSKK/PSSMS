@@ -85,9 +85,9 @@ Local (src/)  →  clasp push  →  Google Apps Script
 | ไฟล์ | ชื่อใช้ใน `loadPage()` | หน้าที่ |
 |---|---|---|
 | `Page_Dashboard_Admin.html.html` | `Page_Dashboard_Admin` | Dashboard Admin |
-| `Page_Dashboard_Teacher.html.html` | `Page_Dashboard_Teacher` | Dashboard ครู (มี `#dashCalendarStrip` แสดงกิจกรรม 14 วันข้างหน้า) |
+| `Page_Dashboard_Teacher.html.html` | `Page_Dashboard_Teacher` | Dashboard ครู — `#dashCalendarStrip` แสดง skeleton pills ขณะโหลด, แสดงกิจกรรม 14 วันข้างหน้า, ซ่อนถ้าไม่มี event |
 | `Page_Dashboard_Student.html.html` | `Page_Dashboard_Student` | Dashboard นักเรียน |
-| `Page_Admin_Users.html` | `Page_Admin_Users` | จัดการผู้ใช้ |
+| `Page_Admin_Users.html` | `Page_Admin_Users` | จัดการผู้ใช้ — 3 tabs: ทะเบียนนักเรียน / บุคลากร (ครู+แอดมิน) / ครูที่ปรึกษาประจำชั้น |
 | `Page_Admin_Timetable.html` | `Page_Admin_Timetable` | จัดการตารางสอน |
 | `Page_Admin_Settings.html` | `Page_Admin_Settings` | ตั้งค่าระบบ |
 | `Page_Admin_Curriculum.html` | `Page_Admin_Curriculum` | หลักสูตร |
@@ -101,6 +101,7 @@ Local (src/)  →  clasp push  →  Google Apps Script
 | `Page_Budget.html` | `Page_Budget` | งบประมาณ |
 | `Page_Personnel.html` | `Page_Personnel` | บุคลากร |
 | `Page_Lesson_History.html.html` | `Page_Lesson_History` | แฟ้มบันทึกหลังสอน |
+| `Page_Homeroom.html` | `Page_Homeroom` | ครูที่ปรึกษาประจำชั้น (standalone — ไม่มีลิงก์ใน sidebar แล้ว, เข้าผ่าน tab ใน Page_Admin_Users แทน) |
 | `Page_Dashboard_Executive.html.html` | `Page_Dashboard_Executive` | Dashboard ผู้บริหาร — KPI strip, alerts, dept-scoped sections, calendar (ดู EXECUTIVE role) |
 | `Template_PP5.html` | — | Template พิมพ์ ปพ.5 |
 
@@ -219,12 +220,21 @@ google.script.run
 | Class | ใช้กับ | รูปแบบ |
 |---|---|---|
 | `nav-link-custom` | หัวเมนูหลัก (Dashboard) | full-width, ไม่มี border-left |
-| `dept-btn` | เมนู section (4 ฝ่าย + การจัดการระบบ Admin) | `margin: 5px 15px`, `border-left: 4px solid`, `border-radius: 10px` |
-| `nav-link-sub` | sub-item ใต้ dept-btn (เมนูครู) | `padding-left: 45px`, font เล็ก |
-| `menu-divider` | หัวกลุ่ม (การจัดการระบบ, บริหารจัดการ 4 ฝ่าย) | uppercase, เส้นขีดล่าง |
+| `dept-btn` | หัว section 4 ฝ่าย + การจัดการระบบ Admin | `font-size: 0.85rem; font-weight: 600`, border-left accent, border-radius 7px |
+| `nav-link-sub` | sub-item ใต้ dept-btn | indent `margin: 0 10px 0 22px`, font 0.8rem |
+| `menu-divider` | หัวกลุ่ม (การจัดการระบบ, บริหาร 4 ฝ่าย) | uppercase, เส้นขีดล่าง |
 
-> เมนู Admin ส่วน "การจัดการระบบ" ใช้ `dept-btn` (ไม่ใช่ `nav-link-sub`) — consistent กับเมนู 4 ฝ่าย  
-> `nav-link-sub` ใช้เฉพาะ sub-item ของครู (เยื้อง `ms-3` + indent 45px)
+> **dept-btn semantic**: ใช้ `<div class="dept-btn">` สำหรับหัว section ที่กดไม่ได้ (4 ฝ่าย), ใช้ `<a class="dept-btn">` สำหรับที่กดได้ — CSS: `div.dept-btn { pointer-events: none }`, `a.dept-btn:hover { background: var(--p-hover) }`  
+> หัวฝ่ายทั้ง 4 (วิชาการ/งบประมาณ/บุคคล/ทั่วไป) เป็น `<div>` ทั้งหมด — navigation อยู่ที่ sub-item ใต้แต่ละฝ่าย  
+> `nav-link-sub` ใช้เฉพาะ sub-item (เยื้อง indent 22px จากซ้าย)
+
+### Auto-tab navigation pattern (Page_Admin_Users)
+```javascript
+// ก่อน loadPage — set flag เพื่อให้หน้าปลายทาง switch tab อัตโนมัติ
+window._usersAutoTab = 'homeroom';  // ชื่อ tab id prefix (เช่น 'homeroom' → 'homeroom-tab')
+loadPage('Page_Admin_Users');
+// หน้าปลายทาง: ตรวจ window._usersAutoTab แล้ว bootstrap.Tab.getOrCreateInstance(el).show()
+```
 
 ---
 
@@ -296,7 +306,7 @@ verifyTeacherPermission(teacherId, subjectCode, className, term, year)
 
 ---
 
-## Design System (2026-05-13)
+## Design System (2026-05-18)
 
 ดู `DESIGN.md` ที่ project root สำหรับ tokens + component patterns ทั้งหมด.
 
@@ -307,6 +317,8 @@ verifyTeacherPermission(teacherId, subjectCode, className, term, year)
 - Button: `btn-accent` (primary, dept-colored) / `btn-soft` (secondary)
 - Table: `pssms-table`
 - Modal: add class `pssms-modal` + neutral white header
+- Tabs: `<ul class="nav pssms-tabs mb-3 gap-2">` — underline active, muted inactive, hover bg; สลับ tab ด้วย `bootstrap.Tab.getOrCreateInstance(el).show()`; lazy init ด้วย `shown.bs.tab` event
+- Skeleton: `<span class="pssms-skel rounded-pill" style="width:Xpx;height:26px;display:inline-block;">` สำหรับ pill-shaped skeleton (เช่น calendar badges)
 
 ---
 
