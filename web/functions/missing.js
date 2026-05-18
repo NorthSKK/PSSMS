@@ -539,8 +539,10 @@ async function promoteStudentsToNextYear() {
   const currentYear = parseInt(config.year);
   if (!currentYear) return { status: 'error', message: 'อ่านค่าปีการศึกษาไม่สำเร็จ' };
 
+  // Snapshot full row before mutation
   const { rows } = await query(
-    `SELECT username, department, year FROM users
+    `SELECT username, password, full_name, role, department, email, year, status
+     FROM users
      WHERE UPPER(role)='STUDENT' AND status='ปกติ' AND CAST(year AS INTEGER) < $1`,
     [currentYear]
   );
@@ -559,24 +561,43 @@ async function promoteStudentsToNextYear() {
     for (const r of rows) {
       const cls = String(r.department || '');
       const m = cls.match(/ม\.(\d+)\/(\d+)/);
+      let newDept = r.department;
+      let newStatus = r.status;
+      let isGraduate = false;
+
       if (m) {
         const level = parseInt(m[1]);
         const room = parseInt(m[2]);
         if (level === 3 || level === 6) {
-          await client.query(
-            `UPDATE users SET status='จบการศึกษา', year=$1 WHERE username=$2`,
-            [currentYear, r.username]
-          );
-          graduateCount++;
+          newStatus = 'จบการศึกษา';
+          isGraduate = true;
         } else {
-          await client.query(
-            `UPDATE users SET department=$1, year=$2 WHERE username=$3`,
-            [`ม.${level + 1}/${room}`, currentYear, r.username]
-          );
-          updateCount++;
+          newDept = `ม.${level + 1}/${room}`;
         }
+      }
+
+      // Snapshot old row to user_history before mutation
+      await client.query(
+        `INSERT INTO user_history(username, action, changed_by, old_data, new_data)
+         VALUES($1, 'promote', 'system', $2::jsonb, $3::jsonb)`,
+        [
+          r.username,
+          JSON.stringify(r),
+          JSON.stringify({ ...r, department: newDept, year: String(currentYear), status: newStatus }),
+        ]
+      );
+
+      if (isGraduate) {
+        await client.query(
+          `UPDATE users SET status='จบการศึกษา', year=$1 WHERE username=$2`,
+          [currentYear, r.username]
+        );
+        graduateCount++;
       } else {
-        await client.query(`UPDATE users SET year=$1 WHERE username=$2`, [currentYear, r.username]);
+        await client.query(
+          `UPDATE users SET department=$1, year=$2 WHERE username=$3`,
+          [newDept, currentYear, r.username]
+        );
         updateCount++;
       }
     }

@@ -20,9 +20,31 @@ async function getStudentsByClass([className, year]) {
   );
   let matched = rows.filter(r => normalizeClass(r.department) === norm);
 
-  // 2. historical fallback: recreate roster from attendance snapshot (class+year)
+  // 2a. historical fallback — user_history snapshot from promote events
   if (matched.length === 0 && isHistorical) {
     const { rows: histRows } = await query(
+      `SELECT DISTINCT ON (username)
+              username,
+              old_data->>'password'   AS password,
+              old_data->>'full_name'  AS full_name,
+              old_data->>'role'       AS role,
+              old_data->>'department' AS department,
+              old_data->>'email'      AS email,
+              old_data->>'year'       AS year,
+              old_data->>'status'     AS status
+       FROM user_history
+       WHERE action='promote'
+         AND old_data->>'year'=$1
+         AND old_data->>'department'=$2
+       ORDER BY username, timestamp DESC`,
+      [y, className]
+    );
+    matched = histRows.filter(r => normalizeClass(r.department) === norm);
+  }
+
+  // 2b. fallback — DISTINCT attendance(student_id, student_name, class) snapshot
+  if (matched.length === 0 && isHistorical) {
+    const { rows: attRows } = await query(
       `SELECT DISTINCT a.student_id, a.student_name, a.class,
               u.password, u.email
        FROM attendance a
@@ -31,7 +53,7 @@ async function getStudentsByClass([className, year]) {
        ORDER BY a.student_id`,
       [y, className]
     );
-    matched = histRows.map(r => ({
+    matched = attRows.map(r => ({
       username: r.student_id,
       password: r.password || '',
       full_name: r.student_name || '',
