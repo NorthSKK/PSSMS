@@ -5,8 +5,16 @@ function invalidateUsers() {
   cache.del('all_users');
 }
 
-async function addUser([userData]) {
-  const u = userData || {};
+function pickName(u) {
+  return String(u.fullname || u.fullName || u.full_name || '').trim();
+}
+function pickDept(u) {
+  return String(u.department || u.dept || '').trim();
+}
+
+async function addUser([form]) {
+  const u = form || {};
+  const sysConfig = await require('./getSystemConfig')();
   await query(
     `INSERT INTO users(username, password, full_name, role, department, email, year, status)
      VALUES($1,$2,$3,$4,$5,$6,$7,$8)
@@ -15,45 +23,45 @@ async function addUser([userData]) {
     [
       String(u.username || '').trim(),
       String(u.password || '').trim(),
-      String(u.fullName || u.full_name || '').trim(),
+      pickName(u),
       String(u.role || 'Teacher'),
-      String(u.department || u.dept || '').trim(),
+      pickDept(u),
       String(u.email || '').trim(),
-      String(u.year || '').trim(),
+      String(u.year || sysConfig.year || '').trim(),
       String(u.status || 'ปกติ'),
     ]
   );
   invalidateUsers();
-  return { status: 'success', message: 'บันทึกสำเร็จ' };
+  return { status: 'success', message: 'เพิ่มผู้ใช้งานสำเร็จ' };
 }
 
-async function editUser([username, userData]) {
-  const u = userData || {};
-  const sets = [];
-  const params = [];
-  const push = (col, val) => { params.push(val); sets.push(`${col}=$${params.length}`); };
+async function editUser([form]) {
+  const u = form || {};
+  const username = String(u.username || '').trim();
+  if (!username) return { status: 'fail', message: 'ไม่พบ username' };
 
-  if (u.password   !== undefined) push('password',   String(u.password));
-  if (u.fullName   !== undefined) push('full_name',  String(u.fullName));
-  if (u.full_name  !== undefined) push('full_name',  String(u.full_name));
-  if (u.role       !== undefined) push('role',       String(u.role));
-  if (u.department !== undefined) push('department', String(u.department));
-  if (u.dept       !== undefined) push('department', String(u.dept));
-  if (u.email      !== undefined) push('email',      String(u.email));
-  if (u.year       !== undefined) push('year',       String(u.year));
-  if (u.status     !== undefined) push('status',     String(u.status));
-
-  if (sets.length === 0) return { status: 'success', message: 'บันทึกสำเร็จ' };
-  params.push(String(username).trim());
-  await query(`UPDATE users SET ${sets.join(',')} WHERE username=$${params.length}`, params);
+  const { rowCount } = await query(
+    `UPDATE users SET password=$1, full_name=$2, role=$3, department=$4, email=$5, status=$6
+     WHERE username=$7`,
+    [
+      String(u.password || '').trim(),
+      pickName(u),
+      String(u.role || 'Teacher'),
+      pickDept(u),
+      String(u.email || '').trim(),
+      String(u.status || 'ปกติ'),
+      username,
+    ]
+  );
   invalidateUsers();
-  return { status: 'success', message: 'บันทึกสำเร็จ' };
+  if (rowCount === 0) return { status: 'fail', message: 'ไม่พบผู้ใช้' };
+  return { status: 'success', message: 'แก้ไขสำเร็จ' };
 }
 
 async function deleteUser([username]) {
   await query(`DELETE FROM users WHERE username=$1`, [String(username).trim()]);
   invalidateUsers();
-  return { status: 'success', message: 'บันทึกสำเร็จ' };
+  return { status: 'success', message: 'ลบสำเร็จ' };
 }
 
 async function importStudentCSV([rows, year]) {
